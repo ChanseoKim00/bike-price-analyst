@@ -56,23 +56,26 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
     """
     client = _get_client()
 
-    # STEP 1: 웹 검색 (서버사이드 자동 실행, max_tokens를 충분히 줘야 검색 결과가 잘리지 않음)
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4096,
-        system=SEARCH_SYSTEM,
-        tools=[{"type": "web_search_20250305", "name": "web_search"}],
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    f"다음 자전거 부품의 한국 공식 판매가를 조사해주세요.\n"
-                    f"부품 종류: {part_type}\n"
-                    f"부품명: {part_name}"
-                ),
-            }
-        ],
-    )
+    # 웹 검색 1회 시도 — 실패(rate limit 포함) 시 null 반환으로 missing_parts 처리
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            system=SEARCH_SYSTEM,
+            tools=[{"type": "web_search_20250305", "name": "web_search"}],
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"다음 자전거 부품의 한국 공식 판매가를 조사해주세요.\n"
+                        f"부품 종류: {part_type}\n"
+                        f"부품명: {part_name}"
+                    ),
+                }
+            ],
+        )
+    except anthropic.RateLimitError:
+        return {"price_krw": None, "official_url": None}
 
     # 텍스트 블록만 이어붙여 최종 응답 추출
     search_result = "\n".join(
@@ -95,9 +98,19 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
         return {"price_krw": None, "official_url": None}
 
 
+# frameset은 AI 웹 검색으로 찾기 어려운 경우가 많아 DB 직접 입력 방식으로만 운영
+# (완성차 프레임은 공식 대리점 한정 판매가 대부분 → missing_parts로 처리)
+SKIP_AI_SEARCH_TYPES = {"frameset"}
+
+# DB에 price_krw=null로 저장돼 있어도 재검색하는 부품 타입
+# saddle/handlebar는 못 찾으면 null 그대로 유지
+RETRY_ON_NULL_TYPES = {"groupset", "wheelset"}
+
+
 def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str) -> Part:
     """
     parts 테이블 조회 → 없거나 stale이면 AI 웹 검색 후 저장.
+    frameset은 DB에 있을 때만 사용, 없으면 null 반환 (missing_parts 처리됨).
 
     Returns:
         Part: DB에 저장된 Part 객체 (price_krw가 None일 수 있음)
@@ -110,7 +123,15 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
         db.session.commit()
         return part
 
-    # 2. AI 웹 검색으로 가격 조회
+    # 2. frameset은 AI 검색 건너뜀 — DB에 없으면 None 반환
+    if part_type in SKIP_AI_SEARCH_TYPES:
+        return None
+
+    # 3. DB에 null로 저장된 부품 중 재검색 안 하는 타입 → 그대로 반환
+    if part and part.price_krw is None and part_type not in RETRY_ON_NULL_TYPES:
+        return part
+
+    # 4. AI 웹 검색으로 가격 조회 (1회만 시도, 실패 시 null 처리)
     result = _search_price_with_ai(part_name, part_type)
     now = datetime.utcnow()
 

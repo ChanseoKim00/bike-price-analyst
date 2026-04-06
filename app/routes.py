@@ -42,7 +42,8 @@ def analyze():
         model_year=info.get("model_year"),
     ).first()
 
-    if not bike:
+    is_new_bike = bike is None
+    if is_new_bike:
         bike = Bike(
             brand=info["brand"],
             model_name=info["model_name"],
@@ -54,10 +55,8 @@ def analyze():
             frame_material_source=info.get("frame_material_source", "unknown"),
             brake_type=info.get("brake_type", "unknown"),
         )
-        db.session.add(bike)
-        db.session.flush()  # groupset_id FK 세팅 전에 id 확보
 
-    # STEP 4: 부품 조회 및 bikes FK 업데이트
+    # STEP 4: 부품 조회 (세션에 bike 추가 전에 실행 — autoflush 방지)
     parts = {}
     for key in PART_KEYS:
         part_info = info.get(key, {})
@@ -72,13 +71,16 @@ def analyze():
 
     # groupset은 NOT NULL — 없으면 케이스 6
     if parts["groupset"] is None:
-        db.session.rollback()
         return render_template("error.html", message="구동계 정보를 확인할 수 없습니다.", url=url)
 
     bike.groupset_id = parts["groupset"].id
     bike.wheelset_id = parts["wheelset"].id if parts["wheelset"] else None
     bike.saddle_id = parts["saddle"].id if parts["saddle"] else None
     bike.last_verified_at = datetime.utcnow()
+
+    if is_new_bike:
+        db.session.add(bike)
+    db.session.flush()  # bike.id 확정 (groupset_id 세팅 완료 후라 안전)
 
     # STEP 5: 가격 계산
     part_list = [p for p in parts.values() if p is not None]
