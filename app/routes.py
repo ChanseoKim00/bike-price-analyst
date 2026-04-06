@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import SimpleNamespace
 from flask import Blueprint, render_template, request
 
 from .models import db, Bike, Analysis
@@ -15,6 +16,30 @@ PART_KEYS = ["groupset", "wheelset", "frameset", "saddle", "handlebar"]
 @bp.route("/")
 def index():
     return render_template("index.html")
+
+
+@bp.route("/preview/result")
+def preview_result():
+    bike = SimpleNamespace(brand="Fantasia", model_name="레이다 9 ARC Gen.3", model_year=2025)
+    parts = {
+        "groupset":  SimpleNamespace(part_name="시마노 울테그라 Di2 R8150", part_type="groupset",  price_krw=2_300_000),
+        "wheelset":  SimpleNamespace(part_name="디티스위스 ARC 1100 DICUT DB 55", part_type="wheelset", price_krw=4_750_000),
+        "frameset":  None,
+        "saddle":    SimpleNamespace(part_name="셀레이탈리아 노부스 부스트 EVO", part_type="saddle", price_krw=None),
+        "handlebar": SimpleNamespace(part_name="컨트롤텍 시로코 FL4", part_type="handlebar", price_krw=None),
+    }
+    analysis = SimpleNamespace(
+        parts_sum_krw=7_050_000,
+        saving_krw=228_000,
+        saving_pct=3.2,
+        missing_parts=["frameset", "saddle", "handlebar"],
+    )
+    return render_template("index.html", bike=bike, parts=parts, analysis=analysis, bike_price=6_822_000)
+
+
+@bp.route("/preview/error")
+def preview_error():
+    return render_template("error.html", url="")
 
 
 @bp.route("/analyze", methods=["POST"])
