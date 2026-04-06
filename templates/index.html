@@ -5,6 +5,7 @@
 <!-- 메인 화면 -->
 <div class="main-wrap">
   <div class="main-inner">
+    <img src="{{ url_for('static', filename='hero.png') }}" alt="" class="hero-img">
     <h1 class="title">Bike Price Analyst</h1>
     <form class="input-form" action="/analyze" method="POST">
       <div class="input-row">
@@ -26,9 +27,7 @@
 <!-- 결과 화면 (가짜 데이터) -->
 <div class="result-wrap">
 
-  <header class="result-header">
-    <a href="/" class="logo-link">Bike Price Analyst</a>
-  </header>
+  <header class="result-header"></header>
 
   <div class="saving-hero">
     <p class="saving-label">지금 구매하면</p>
@@ -84,14 +83,16 @@
           <td colspan="2">절약 금액</td>
           <td>{{ "{:,}".format(analysis.saving_krw) }}원</td>
         </tr>
+        <tr class="suggest-row">
+          <td colspan="2">
+            {% if analysis.missing_parts %}
+            <span class="missing-note">* 비교 제외 부품: {{ analysis.missing_parts | join(', ') }}</span>
+            {% endif %}
+          </td>
+          <td><a href="#" class="suggest-btn">가격 수정 제안</a></td>
+        </tr>
       </tfoot>
     </table>
-
-    {% if analysis.missing_parts %}
-    <p class="missing-note">
-      * 비교 제외 부품: {{ analysis.missing_parts | join(', ') }}
-    </p>
-    {% endif %}
 
     <a href="/" class="another-btn">다른 자전거 분석하기</a>
   </div>
