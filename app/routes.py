@@ -52,85 +52,105 @@ def analyze():
     url = request.form.get("url", "").strip()
     if not url:
         return render_template("error.html", message="URL을 입력해주세요.", url=url)
+    if len(url) > 2000:
+        return render_template("error.html", message="URL이 너무 깁니다.", url="")
+
+    print(f"[ANALYZE] 요청 URL: {url}")
 
     # STEP 1: 스크래핑
+    print("[STEP 1] 스크래핑 시작...")
     try:
         page_text = fetch_html(url)
+        print(f"[STEP 1] 완료 ({len(page_text)}자)")
     except ScrapeError as e:
+        print(f"[STEP 1] 실패: {e}")
         return render_template("error.html", message=str(e), url=url)
 
     # STEP 2: AI 분석
+    print("[STEP 2] AI 분석 시작...")
     try:
         info = extract_bike_info(page_text)
+        print(f"[STEP 2] 완료: {info['brand']} / {info['model_name']} / {info.get('model_year')}")
     except AnalysisError as e:
+        print(f"[STEP 2] 실패: {e}")
         return render_template("error.html", message=str(e), url=url)
 
-    # STEP 3: bikes 테이블 조회 또는 생성
-    bike = Bike.query.filter_by(
-        brand=info["brand"],
-        model_name=info["model_name"],
-        model_year=info.get("model_year"),
-    ).first()
-
-    is_new_bike = bike is None
-    if is_new_bike:
-        bike = Bike(
+    try:
+        # STEP 3: bikes 테이블 조회 또는 생성
+        bike = Bike.query.filter_by(
             brand=info["brand"],
             model_name=info["model_name"],
             model_year=info.get("model_year"),
-            price_krw=info.get("price_krw"),
-            official_url=url,
-            frame_material=info.get("frame_material", "unknown"),
-            frame_material_confidence=info.get("frame_material_confidence", 0),
-            frame_material_source=info.get("frame_material_source", "unknown"),
-            brake_type=info.get("brake_type", "unknown"),
+        ).first()
+
+        is_new_bike = bike is None
+        if is_new_bike:
+            print(f"[CACHE MISS] bikes — 신규 생성: {info['brand']} {info['model_name']} {info.get('model_year')}")
+        else:
+            print(f"[CACHE HIT]  bikes — 기존 조회: {bike.brand} {bike.model_name} {bike.model_year}")
+
+        if is_new_bike:
+            bike = Bike(
+                brand=info["brand"],
+                model_name=info["model_name"],
+                model_year=info.get("model_year"),
+                price_krw=info.get("price_krw"),
+                official_url=url,
+                frame_material=info.get("frame_material", "unknown"),
+                frame_material_confidence=info.get("frame_material_confidence", 0),
+                frame_material_source=info.get("frame_material_source", "unknown"),
+                brake_type=info.get("brake_type", "unknown"),
+            )
+
+        # STEP 4: 부품 조회 (세션에 bike 추가 전에 실행 — autoflush 방지)
+        parts = {}
+        for key in PART_KEYS:
+            part_info = info.get(key, {})
+            if not part_info or not part_info.get("part_name"):
+                parts[key] = None
+                continue
+            parts[key] = get_or_fetch_part(
+                part_name=part_info["part_name"],
+                part_name_normalized=part_info["part_name_normalized"],
+                part_type=key,
+            )
+
+        # groupset은 NOT NULL — 없으면 케이스 6
+        if parts["groupset"] is None:
+            return render_template("error.html", message="구동계 정보를 확인할 수 없습니다.", url=url)
+
+        bike.groupset_id = parts["groupset"].id
+        bike.wheelset_id = parts["wheelset"].id if parts["wheelset"] else None
+        bike.saddle_id = parts["saddle"].id if parts["saddle"] else None
+        bike.last_verified_at = datetime.utcnow()
+
+        if is_new_bike:
+            db.session.add(bike)
+        db.session.flush()  # bike.id 확정 (groupset_id 세팅 완료 후라 안전)
+
+        # STEP 5: 가격 계산
+        part_list = [p for p in parts.values() if p is not None]
+        parts_sum_krw, missing_parts = calculate_parts_sum(part_list)
+
+        bike_price = info.get("price_krw") or bike.price_krw or 0
+        saving_krw = parts_sum_krw - bike_price
+        saving_pct = round(saving_krw / parts_sum_krw * 100, 1) if parts_sum_krw else 0
+
+        analysis = Analysis(
+            bike_id=bike.id,
+            parts_sum_krw=parts_sum_krw,
+            saving_krw=saving_krw,
+            saving_pct=saving_pct,
+            missing_parts=missing_parts,
+            analyzed_at=datetime.utcnow(),
         )
+        db.session.add(analysis)
+        db.session.commit()
+        print(f"[STEP 5] 완료 — 부품합산: {parts_sum_krw:,}원 / 완성차: {bike_price:,}원 / 절약: {saving_krw:,}원")
 
-    # STEP 4: 부품 조회 (세션에 bike 추가 전에 실행 — autoflush 방지)
-    parts = {}
-    for key in PART_KEYS:
-        part_info = info.get(key, {})
-        if not part_info or not part_info.get("part_name"):
-            parts[key] = None
-            continue
-        parts[key] = get_or_fetch_part(
-            part_name=part_info["part_name"],
-            part_name_normalized=part_info["part_name_normalized"],
-            part_type=key,
-        )
-
-    # groupset은 NOT NULL — 없으면 케이스 6
-    if parts["groupset"] is None:
-        return render_template("error.html", message="구동계 정보를 확인할 수 없습니다.", url=url)
-
-    bike.groupset_id = parts["groupset"].id
-    bike.wheelset_id = parts["wheelset"].id if parts["wheelset"] else None
-    bike.saddle_id = parts["saddle"].id if parts["saddle"] else None
-    bike.last_verified_at = datetime.utcnow()
-
-    if is_new_bike:
-        db.session.add(bike)
-    db.session.flush()  # bike.id 확정 (groupset_id 세팅 완료 후라 안전)
-
-    # STEP 5: 가격 계산
-    part_list = [p for p in parts.values() if p is not None]
-    parts_sum_krw, missing_parts = calculate_parts_sum(part_list)
-
-    bike_price = info.get("price_krw") or bike.price_krw or 0
-    saving_krw = parts_sum_krw - bike_price
-    saving_pct = round(saving_krw / parts_sum_krw * 100, 1) if parts_sum_krw else 0
-
-    # analyses 저장
-    analysis = Analysis(
-        bike_id=bike.id,
-        parts_sum_krw=parts_sum_krw,
-        saving_krw=saving_krw,
-        saving_pct=saving_pct,
-        missing_parts=missing_parts,
-        analyzed_at=datetime.utcnow(),
-    )
-    db.session.add(analysis)
-    db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return render_template("error.html", message="분석 중 오류가 발생했습니다.", url=url)
 
     return render_template(
         "index.html",

@@ -119,19 +119,23 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
     part = Part.query.filter_by(part_name_normalized=part_name_normalized).first()
 
     if part and _is_fresh(part):
+        print(f"[CACHE HIT]  parts — {part_type}: {part_name} ({part.price_krw:,}원)" if part.price_krw else f"[CACHE HIT]  parts — {part_type}: {part_name} (가격 없음)")
         part.last_checked_at = datetime.utcnow()
         db.session.commit()
         return part
 
     # 2. frameset은 AI 검색 건너뜀 — DB에 없으면 None 반환
     if part_type in SKIP_AI_SEARCH_TYPES:
+        print(f"[SKIP]       parts — {part_type}: {part_name} (AI 검색 제외)")
         return None
 
     # 3. DB에 null로 저장된 부품 중 재검색 안 하는 타입 → 그대로 반환
     if part and part.price_krw is None and part_type not in RETRY_ON_NULL_TYPES:
+        print(f"[CACHE HIT]  parts — {part_type}: {part_name} (가격 없음, 재검색 안 함)")
         return part
 
     # 4. AI 웹 검색으로 가격 조회 (1회만 시도, 실패 시 null 처리)
+    print(f"[CACHE MISS] parts — {part_type}: {part_name} (AI 웹 검색 시작)")
     result = _search_price_with_ai(part_name, part_type)
     now = datetime.utcnow()
 

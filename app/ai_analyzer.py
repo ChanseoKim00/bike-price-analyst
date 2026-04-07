@@ -90,7 +90,7 @@ YEAR_RETRY_PROMPT = """
 
 def _call_api(client, system: str, user: str) -> str:
     message = client.messages.create(
-        model="claude-opus-4-6",
+        model="claude-sonnet-4-6",
         max_tokens=1024,
         system=system,
         messages=[{"role": "user", "content": user}],
