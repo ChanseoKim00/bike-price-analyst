@@ -136,6 +136,11 @@ def analyze():
         part_list = [p for p in parts.values() if p is not None]
         parts_sum_krw, missing_parts = calculate_parts_sum(part_list)
 
+        # AI가 부품 자체를 추출 못한 경우(None)도 missing_parts에 포함
+        for key in PART_KEYS:
+            if parts[key] is None and key not in missing_parts:
+                missing_parts.append(key)
+
         bike_price = info.get("price_krw") or bike.price_krw or 0
         saving_krw = parts_sum_krw - bike_price
         saving_pct = round(saving_krw / parts_sum_krw * 100, 1) if parts_sum_krw else 0

@@ -67,6 +67,12 @@
             <td class="part-name">{{ part.part_name }}</td>
             <td class="part-price muted">가격 미확인</td>
           </tr>
+          {% else %}
+          <tr class="missing-row">
+            <td class="part-type">{{ part_labels.get(key, key) }}</td>
+            <td class="part-name muted">-</td>
+            <td class="part-price muted">가격 미확인</td>
+          </tr>
           {% endif %}
         {% endfor %}
       </tbody>
