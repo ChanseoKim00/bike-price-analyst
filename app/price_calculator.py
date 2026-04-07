@@ -77,10 +77,14 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
     except anthropic.RateLimitError:
         return {"price_krw": None, "official_url": None}
 
-    # 텍스트 블록만 이어붙여 최종 응답 추출
+    # 텍스트 블록만 이어붙여 최종 응답 추출 (text가 None인 블록 제외)
     search_result = "\n".join(
-        block.text for block in response.content if hasattr(block, "text")
+        block.text for block in response.content
+        if hasattr(block, "text") and block.text is not None
     ).strip()
+
+    if not search_result:
+        return {"price_krw": None, "official_url": None}
 
     # RESULT_JSON: 태그로 JSON 추출 (별도 API 호출 없이)
     marker = "RESULT_JSON:"
