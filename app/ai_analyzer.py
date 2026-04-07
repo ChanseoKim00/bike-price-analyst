@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 import anthropic
 
 _client = None
@@ -24,7 +25,11 @@ SYSTEM_PROMPT = """
 추출 규칙:
 - brand: 영문 소문자, 공백은 언더스코어 (예: "specialized", "fantasia", "elfama")
 - model_name: 원본 표기 그대로 (예: "Radar 9 ARC Gen.3")
-- model_year: 정수 (페이지에 없으면 null)
+- model_year: 정수. 아래 순서로 찾아라:
+  1) 페이지에 연식이 명시된 경우 (예: "2025년형", "2026 model")
+  2) 출시 연월 정보 (예: "2025-04 출시")
+  3) 리뷰/댓글/문의 날짜 중 가장 이른 연도로 유추 (예: 2025년 댓글 → 2025)
+  4) 위 모두 없으면 null
 - price_krw: 정수, 할인가 기준 (없으면 null)
 - frame_material: "carbon" | "alloy" | "steel" | "titanium" | "other" | "unknown"
 - frame_material_confidence: 0.0~1.0 (명시적 언급이면 1.0, 모델명 추론이면 0.7, 추측이면 0.4)
@@ -69,38 +74,54 @@ SYSTEM_PROMPT = """
 """.strip()
 
 
+YEAR_RETRY_PROMPT = """
+이전 분석에서 model_year를 찾지 못했습니다.
+아래 페이지 텍스트에서 연식을 다시 찾아주세요.
+
+찾는 순서:
+1. "2025년형", "2026 model" 등 명시적 연식 표기
+2. 출시 연월 (예: "2025-04 출시" → 2025)
+3. 리뷰/댓글/문의 날짜 중 가장 이른 연도로 유추
+
+찾은 연식을 정수 하나만 출력하세요. 못 찾으면 null을 출력하세요.
+숫자 또는 null 외에 다른 텍스트는 출력하지 마세요.
+""".strip()
+
+
+def _call_api(client, system: str, user: str) -> str:
+    message = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=1024,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    raw = message.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+    return raw
+
+
 def extract_bike_info(page_text: str) -> dict:
     """
     스크래핑된 페이지 텍스트에서 자전거 정보를 추출한다.
+    model_year가 null이면 한 번 더 시도하고, 그래도 없으면 현재 연도를 기본값으로 사용.
 
     Returns:
-        dict: 추출된 자전거 정보
+        dict: 추출된 자전거 정보 (model_year는 항상 정수)
 
     Raises:
         AnalysisError: brand / model_name / groupset 중 하나라도 추출 불가 시
     """
     client = _get_client()
 
-    message = client.messages.create(
-        model="claude-opus-4-6",
-        max_tokens=1024,
+    raw = _call_api(
+        client,
         system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": f"아래 자전거 판매 페이지 텍스트에서 정보를 추출해주세요.\n\n{page_text}",
-            }
-        ],
+        user=f"아래 자전거 판매 페이지 텍스트에서 정보를 추출해주세요.\n\n{page_text}",
     )
-
-    raw = message.content[0].text.strip()
-
-    # 마크다운 코드블록 제거 (```json ... ``` 또는 ``` ... ```)
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
 
     try:
         data = json.loads(raw)
@@ -118,5 +139,18 @@ def extract_bike_info(page_text: str) -> dict:
 
     if missing:
         raise AnalysisError(f"필수 항목 추출 실패: {', '.join(missing)}")
+
+    # model_year 처리: null이면 재시도 → 그래도 없으면 현재 연도
+    if not data.get("model_year"):
+        retry_raw = _call_api(
+            client,
+            system=YEAR_RETRY_PROMPT,
+            user=page_text,
+        )
+        try:
+            year = int(retry_raw)
+            data["model_year"] = year
+        except (ValueError, TypeError):
+            data["model_year"] = datetime.utcnow().year
 
     return data
