@@ -42,6 +42,11 @@ def preview_error():
     return render_template("error.html", url="")
 
 
+@bp.route("/suggest")
+def suggest():
+    return render_template("coming_soon.html")
+
+
 @bp.route("/analyze", methods=["POST"])
 def analyze():
     url = request.form.get("url", "").strip()
