@@ -1,6 +1,10 @@
+import logging
+import traceback
 from datetime import datetime
 from types import SimpleNamespace
 from flask import Blueprint, render_template, request
+
+logger = logging.getLogger(__name__)
 
 from .models import db, Bike, Analysis
 from .scraper import fetch_html, ScrapeError
@@ -148,8 +152,9 @@ def analyze():
         db.session.commit()
         print(f"[STEP 5] 완료 — 부품합산: {parts_sum_krw:,}원 / 완성차: {bike_price:,}원 / 절약: {saving_krw:,}원")
 
-    except Exception:
+    except Exception as e:
         db.session.rollback()
+        logger.error("분석 중 예외 발생 | url=%s\n%s", url, traceback.format_exc())
         return render_template("error.html", message="분석 중 오류가 발생했습니다.", url=url)
 
     return render_template(
