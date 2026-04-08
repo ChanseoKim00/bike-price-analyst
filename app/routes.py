@@ -2,6 +2,7 @@ import logging
 import traceback
 from datetime import datetime
 from types import SimpleNamespace
+from urllib.parse import urlparse
 from flask import Blueprint, render_template, request
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,8 @@ def analyze():
         return render_template("error.html", message="URL을 입력해주세요.", url=url)
     if len(url) > 2000:
         return render_template("error.html", message="URL이 너무 깁니다.", url="")
+    if urlparse(url).scheme not in ("http", "https"):
+        return render_template("error.html", message="잘못된 URL입니다.", url="")
 
     print(f"[ANALYZE] 요청 URL: {url}")
 
