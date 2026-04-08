@@ -60,7 +60,7 @@ def analyze():
     if len(url) > 2000:
         return render_template("error.html", message="URL이 너무 깁니다.", url="")
     if urlparse(url).scheme not in ("http", "https"):
-        return render_template("error.html", message="잘못된 URL입니다.", url="")
+        return render_template("error.html", message="올바른 URL을 입력해주세요. http:// 또는 https://로 시작하는 자전거 판매 페이지 링크가 필요합니다.", url="")
 
     print(f"[ANALYZE] 요청 URL: {url}")
 
