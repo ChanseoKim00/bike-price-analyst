@@ -115,8 +115,16 @@
   if (form) {
     form.addEventListener('submit', function() {
       document.getElementById('loadingOverlay').classList.add('active');
+      window.onbeforeunload = null;
     });
   }
+
+  document.querySelector('.bpa-logo').addEventListener('click', function(e) {
+    e.preventDefault();
+    window.stop();
+    window.onbeforeunload = null;
+    window.location.href = '/';
+  });
 </script>
 
 {% endblock %}
