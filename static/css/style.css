@@ -20,7 +20,7 @@ a { color: inherit; text-decoration: none; }
   font-style: italic;
   color: #B3CDFF;
   letter-spacing: 0.02em;
-  z-index: 100;
+  z-index: 201;
   line-height: 1;
 }
 
@@ -336,7 +336,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .loading-text {
-  font-size: 1.2rem;
+  font-size: 64pt;
   font-weight: 300;
   color: #B3CDFF;
   letter-spacing: 0.05em;
