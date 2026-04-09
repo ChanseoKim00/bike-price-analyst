@@ -377,6 +377,10 @@ a { color: inherit; text-decoration: none; }
     margin-top: -30px;
   }
 
+  .loading-text {
+    font-size: 24pt;
+  }
+
   .title {
     font-size: 1.55rem;
   }
