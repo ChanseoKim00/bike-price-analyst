@@ -38,7 +38,12 @@ SYSTEM_PROMPT = """
 
 부품 필드 (각각 part_name + part_name_normalized):
 - part_name: 페이지에 적힌 원본 표기
-- part_name_normalized: 영문 소문자 + 언더스코어 (예: "shimano_ultegra_di2_r8150")
+- part_name_normalized: 영문 소문자 + 언더스코어. 브랜드 + 제품 라인 + 전동/기계식 구분까지만 포함.
+  모델 번호(R9200, R9250, R8150, R7100 등)와 파생 옵션(파워미터, 크랭크 세트 등)은 제외.
+  예: "shimano_dura_ace_di2", "shimano_ultegra_di2", "shimano_105_di2", "shimano_105",
+      "sram_red_etap_axs", "sram_force_etap_axs", "campagnolo_super_record"
+  주의: R9200과 R9250은 모두 "shimano_dura_ace_di2"로 정규화. 파워미터 포함 여부와 무관하게 동일하게 정규화.
+- groupset의 has_power_meter: 페이지에 파워미터 포함이 명시된 경우 true, 그 외 false
 - 페이지에 명시되지 않은 부품은 null
 
 {
@@ -52,7 +57,8 @@ SYSTEM_PROMPT = """
   "brake_type": "string",
   "groupset": {
     "part_name": "string or null",
-    "part_name_normalized": "string or null"
+    "part_name_normalized": "string or null",
+    "has_power_meter": true or false
   },
   "wheelset": {
     "part_name": "string or null",

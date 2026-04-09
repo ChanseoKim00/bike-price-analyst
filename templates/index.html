@@ -62,13 +62,23 @@
           {% if part and part.price_krw %}
           <tr>
             <td class="part-type">{{ part_labels.get(key, key) }}</td>
-            <td class="part-name">{{ part.part_name }}</td>
+            <td class="part-name">
+              {{ part.part_name }}
+              {% if key == 'groupset' and has_power_meter %}
+              <span class="power-meter-badge">파워미터 포함</span>
+              {% endif %}
+            </td>
             <td class="part-price">{{ "{:,}".format(part.price_krw) }}원</td>
           </tr>
           {% elif part %}
           <tr class="missing-row">
             <td class="part-type">{{ part_labels.get(key, key) }}</td>
-            <td class="part-name">{{ part.part_name }}</td>
+            <td class="part-name">
+              {{ part.part_name }}
+              {% if key == 'groupset' and has_power_meter %}
+              <span class="power-meter-badge">파워미터 포함</span>
+              {% endif %}
+            </td>
             <td class="part-price muted">가격 미확인</td>
           </tr>
           {% else %}

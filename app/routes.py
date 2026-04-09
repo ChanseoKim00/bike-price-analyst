@@ -165,10 +165,13 @@ def analyze():
         logger.error("분석 중 예외 발생 | url=%s\n%s", url, traceback.format_exc())
         return render_template("error.html", message="분석 중 오류가 발생했습니다.", url=url)
 
+    has_power_meter = info.get("groupset", {}).get("has_power_meter", False)
+
     return render_template(
         "index.html",
         bike=bike,
         parts=parts,
         analysis=analysis,
         bike_price=bike_price,
+        has_power_meter=has_power_meter,
     )
