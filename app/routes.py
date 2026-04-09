@@ -179,6 +179,7 @@ def analyze():
 
         # groupset은 NOT NULL — 없으면 케이스 6
         if parts["groupset"] is None:
+            db.session.rollback()
             return _err(
                 "구동계 정보를 확인할 수 없습니다.",
                 "구동계(브랜드·모델명)가 명시된 판매 페이지 링크로 다시 시도해주세요.",
