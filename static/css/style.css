@@ -320,6 +320,34 @@ a { color: inherit; text-decoration: none; }
   opacity: 0.85;
 }
 
+/* ===== 로딩 오버레이 ===== */
+.loading-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: #31313C;
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-overlay.active {
+  display: flex;
+}
+
+.loading-text {
+  font-size: 1.2rem;
+  font-weight: 300;
+  color: #B3CDFF;
+  letter-spacing: 0.05em;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 /* ===== 모바일 ===== */
 @media (max-width: 600px) {
   html, body {

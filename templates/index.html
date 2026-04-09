@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 
+<div class="loading-overlay" id="loadingOverlay">
+  <p class="loading-text">AI가 가격을 분석중입니다.</p>
+</div>
+
 {% if not bike %}
 <!-- 메인 화면 -->
 <div class="main-wrap">
@@ -105,5 +109,14 @@
 
 </div>
 {% endif %}
+
+<script>
+  var form = document.querySelector('.input-form');
+  if (form) {
+    form.addEventListener('submit', function() {
+      document.getElementById('loadingOverlay').classList.add('active');
+    });
+  }
+</script>
 
 {% endblock %}
