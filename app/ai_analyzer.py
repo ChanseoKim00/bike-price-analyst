@@ -114,9 +114,9 @@ def _call_api(client, system: str, user: str) -> str:
                     raw = raw[4:]
                 raw = raw.strip()
             return raw
-        except anthropic.RateLimitError:
+        except (anthropic.RateLimitError, anthropic.OverloadedError):
             if attempt == 0:
-                print("[RATE LIMIT] AI 분석 429 — 60초 대기 후 재시도")
+                print("[RATE LIMIT] AI 분석 429/529 — 60초 대기 후 재시도")
                 time.sleep(60)
             else:
                 raise ServiceBusyError("일시적으로 서비스가 혼잡합니다. 잠시 후 다시 시도해주세요.")

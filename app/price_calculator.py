@@ -77,9 +77,9 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
                 ],
             )
             break
-        except anthropic.RateLimitError:
+        except (anthropic.RateLimitError, anthropic.OverloadedError):
             if attempt == 0:
-                print(f"[RATE LIMIT] 부품 검색 429 ({part_name}) — 60초 대기 후 재시도")
+                print(f"[RATE LIMIT] 부품 검색 429/529 ({part_name}) — 60초 대기 후 재시도")
                 time.sleep(60)
             else:
                 print(f"[RATE LIMIT] 부품 검색 재시도도 실패 ({part_name}) — null 반환")
