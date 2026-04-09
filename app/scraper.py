@@ -16,7 +16,9 @@ TIMEOUT = 15  # seconds
 
 class ScrapeError(Exception):
     """스크래핑 실패 시 발생 — routes.py에서 케이스 6 처리용"""
-    pass
+    def __init__(self, message, code="unknown"):
+        super().__init__(message)
+        self.code = code
 
 
 def fetch_html(url: str) -> str:
@@ -32,18 +34,18 @@ def fetch_html(url: str) -> str:
     try:
         resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
     except requests.exceptions.ConnectionError:
-        raise ScrapeError(f"연결 실패: {url}")
+        raise ScrapeError(f"연결 실패: {url}", code="connection_error")
     except requests.exceptions.Timeout:
-        raise ScrapeError(f"응답 시간 초과 ({TIMEOUT}s): {url}")
+        raise ScrapeError(f"응답 시간 초과 ({TIMEOUT}s): {url}", code="timeout")
     except requests.exceptions.RequestException as e:
-        raise ScrapeError(f"요청 오류: {e}")
+        raise ScrapeError(f"요청 오류: {e}", code="http_error")
 
     if resp.status_code == 404:
-        raise ScrapeError(f"페이지를 찾을 수 없습니다 (404): {url}")
+        raise ScrapeError(f"페이지를 찾을 수 없습니다 (404): {url}", code="not_found")
     if resp.status_code in (403, 429):
-        raise ScrapeError(f"봇 차단 또는 접근 거부 ({resp.status_code}): {url}")
+        raise ScrapeError(f"봇 차단 또는 접근 거부 ({resp.status_code}): {url}", code="blocked")
     if not resp.ok:
-        raise ScrapeError(f"HTTP {resp.status_code}: {url}")
+        raise ScrapeError(f"HTTP {resp.status_code}: {url}", code="http_error")
 
     # EUC-KR 등 한국 사이트 인코딩 자동 감지
     resp.encoding = resp.apparent_encoding

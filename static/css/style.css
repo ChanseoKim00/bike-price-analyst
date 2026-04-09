@@ -116,6 +116,14 @@ a { color: inherit; text-decoration: none; }
   line-height: 1.7;
 }
 
+.error-hint {
+  color: #a0a0b0;
+  font-size: 0.9rem;
+  text-align: center;
+  line-height: 1.6;
+  margin-top: -0.5rem;
+}
+
 /* ===== 결과 화면 ===== */
 .result-wrap {
   min-height: 100vh;

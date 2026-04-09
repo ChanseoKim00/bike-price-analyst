@@ -17,6 +17,39 @@ bp = Blueprint("main", __name__)
 # AI가 추출하는 부품 키 목록
 PART_KEYS = ["groupset", "wheelset", "frameset", "saddle", "handlebar"]
 
+# 스크래핑 에러 코드별 (메시지, hint)
+SCRAPE_ERRORS = {
+    "connection_error": (
+        "사이트에 접근할 수 없습니다.",
+        "링크가 올바른지 확인하거나, 잠시 후 다시 시도해주세요.",
+    ),
+    "timeout": (
+        "사이트 응답이 너무 느립니다.",
+        "잠시 후 다시 시도하거나, 다른 판매처 링크로 분석해보세요.",
+    ),
+    "blocked": (
+        "해당 사이트는 자동 접근을 허용하지 않습니다.",
+        "다른 판매처의 동일 제품 링크로 다시 시도해보세요.",
+    ),
+    "not_found": (
+        "페이지를 찾을 수 없습니다.",
+        "링크가 만료되었거나 삭제된 것 같습니다. 판매처에서 링크를 다시 확인해주세요.",
+    ),
+    "http_error": (
+        "사이트 접근 중 오류가 발생했습니다.",
+        "잠시 후 다시 시도해주세요.",
+    ),
+    "unknown": (
+        "사이트 접근 중 오류가 발생했습니다.",
+        "잠시 후 다시 시도해주세요.",
+    ),
+}
+
+
+def _err(message, hint, url=""):
+    """에러 페이지 렌더링 헬퍼"""
+    return render_template("error.html", message=message, hint=hint, url=url)
+
 
 @bp.route("/")
 def index():
@@ -56,11 +89,21 @@ def suggest():
 def analyze():
     url = request.form.get("url", "").strip()
     if not url:
-        return render_template("error.html", message="URL을 입력해주세요.", url=url)
+        return _err(
+            "링크를 입력해주세요.",
+            "분석할 자전거 판매 페이지 링크를 입력창에 붙여넣어 주세요.",
+            url=url,
+        )
     if len(url) > 2000:
-        return render_template("error.html", message="URL이 너무 깁니다.", url="")
+        return _err(
+            "올바르지 않은 링크입니다.",
+            "주소창에서 링크를 다시 복사해 붙여넣어 주세요.",
+        )
     if urlparse(url).scheme not in ("http", "https"):
-        return render_template("error.html", message="올바른 URL을 입력해주세요. http:// 또는 https://로 시작하는 자전거 판매 페이지 링크가 필요합니다.", url="")
+        return _err(
+            "지원하지 않는 링크 형식입니다.",
+            "http:// 또는 https://로 시작하는 자전거 판매 페이지 링크를 입력해주세요.",
+        )
 
     print(f"[ANALYZE] 요청 URL: {url}")
 
@@ -71,7 +114,8 @@ def analyze():
         print(f"[STEP 1] 완료 ({len(page_text)}자)")
     except ScrapeError as e:
         print(f"[STEP 1] 실패: {e}")
-        return render_template("error.html", message=str(e), url=url)
+        msg, hint = SCRAPE_ERRORS.get(e.code, SCRAPE_ERRORS["unknown"])
+        return _err(msg, hint, url=url)
 
     # STEP 2: AI 분석
     print("[STEP 2] AI 분석 시작...")
@@ -80,10 +124,18 @@ def analyze():
         print(f"[STEP 2] 완료: {info['brand']} / {info['model_name']} / {info.get('model_year')}")
     except AnalysisError as e:
         print(f"[STEP 2] 실패: {e}")
-        return render_template("error.html", message=str(e), url=url)
-    except ServiceBusyError as e:
-        print(f"[STEP 2] Rate limit 재시도 실패: {e}")
-        return render_template("error.html", message=str(e), url=url)
+        return _err(
+            "자전거 정보를 확인할 수 없습니다.",
+            "자전거 판매 페이지가 맞는지 확인하거나, 구동계·모델명이 명시된 다른 페이지로 시도해주세요.",
+            url=url,
+        )
+    except ServiceBusyError:
+        print("[STEP 2] Rate limit 재시도 실패")
+        return _err(
+            "현재 서비스가 혼잡합니다.",
+            "1~2분 후 다시 시도해주세요.",
+            url=url,
+        )
 
     try:
         # STEP 3: bikes 테이블 조회 또는 생성
@@ -127,7 +179,11 @@ def analyze():
 
         # groupset은 NOT NULL — 없으면 케이스 6
         if parts["groupset"] is None:
-            return render_template("error.html", message="구동계 정보를 확인할 수 없습니다.", url=url)
+            return _err(
+                "구동계 정보를 확인할 수 없습니다.",
+                "구동계(브랜드·모델명)가 명시된 판매 페이지 링크로 다시 시도해주세요.",
+                url=url,
+            )
 
         bike.groupset_id = parts["groupset"].id
         bike.wheelset_id = parts["wheelset"].id if parts["wheelset"] else None
@@ -166,7 +222,11 @@ def analyze():
     except Exception as e:
         db.session.rollback()
         logger.error("분석 중 예외 발생 | url=%s\n%s", url, traceback.format_exc())
-        return render_template("error.html", message="분석 중 오류가 발생했습니다.", url=url)
+        return _err(
+            "일시적인 오류가 발생했습니다.",
+            "잠시 후 다시 시도해주세요. 문제가 반복되면 다른 링크로 시도해보세요.",
+            url=url,
+        )
 
     return render_template(
         "index.html",
