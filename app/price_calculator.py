@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from datetime import datetime, timedelta
 
 import anthropic
@@ -56,26 +57,33 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
     """
     client = _get_client()
 
-    # 웹 검색 1회 시도 — 실패(rate limit 포함) 시 null 반환으로 missing_parts 처리
-    try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=SEARCH_SYSTEM,
-            tools=[{"type": "web_search_20250305", "name": "web_search"}],
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        f"다음 자전거 부품의 한국 공식 판매가를 조사해주세요.\n"
-                        f"부품 종류: {part_type}\n"
-                        f"부품명: {part_name}"
-                    ),
-                }
-            ],
-        )
-    except anthropic.RateLimitError:
-        return {"price_krw": None, "official_url": None}
+    # 웹 검색 — RateLimitError 시 60초 대기 후 1회 재시도, 재시도도 실패하면 null 반환
+    for attempt in range(2):
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=4096,
+                system=SEARCH_SYSTEM,
+                tools=[{"type": "web_search_20250305", "name": "web_search"}],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": (
+                            f"다음 자전거 부품의 한국 공식 판매가를 조사해주세요.\n"
+                            f"부품 종류: {part_type}\n"
+                            f"부품명: {part_name}"
+                        ),
+                    }
+                ],
+            )
+            break
+        except anthropic.RateLimitError:
+            if attempt == 0:
+                print(f"[RATE LIMIT] 부품 검색 429 ({part_name}) — 60초 대기 후 재시도")
+                time.sleep(60)
+            else:
+                print(f"[RATE LIMIT] 부품 검색 재시도도 실패 ({part_name}) — null 반환")
+                return {"price_krw": None, "official_url": None}
 
     # 텍스트 블록만 이어붙여 최종 응답 추출 (text가 None인 블록 제외)
     search_result = "\n".join(

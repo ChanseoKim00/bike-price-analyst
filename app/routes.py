@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 from .models import db, Bike, Analysis
 from .scraper import fetch_html, ScrapeError
-from .ai_analyzer import extract_bike_info, AnalysisError
+from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
 from .price_calculator import get_or_fetch_part, calculate_parts_sum
 
 bp = Blueprint("main", __name__)
@@ -80,6 +80,9 @@ def analyze():
         print(f"[STEP 2] 완료: {info['brand']} / {info['model_name']} / {info.get('model_year')}")
     except AnalysisError as e:
         print(f"[STEP 2] 실패: {e}")
+        return render_template("error.html", message=str(e), url=url)
+    except ServiceBusyError as e:
+        print(f"[STEP 2] Rate limit 재시도 실패: {e}")
         return render_template("error.html", message=str(e), url=url)
 
     try:

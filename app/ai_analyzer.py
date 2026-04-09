@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from datetime import datetime
 import anthropic
 
@@ -15,6 +16,11 @@ def _get_client():
 
 class AnalysisError(Exception):
     """필수 항목(brand / model_name / groupset) 추출 실패 시 → 케이스 6 처리용"""
+    pass
+
+
+class ServiceBusyError(Exception):
+    """RateLimitError 재시도 후에도 실패 시 → 에러 페이지 처리용"""
     pass
 
 
@@ -93,19 +99,27 @@ YEAR_RETRY_PROMPT = """
 
 
 def _call_api(client, system: str, user: str) -> str:
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
-    raw = message.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-    return raw
+    for attempt in range(2):
+        try:
+            message = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1024,
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            )
+            raw = message.content[0].text.strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+                raw = raw.strip()
+            return raw
+        except anthropic.RateLimitError:
+            if attempt == 0:
+                print("[RATE LIMIT] AI 분석 429 — 60초 대기 후 재시도")
+                time.sleep(60)
+            else:
+                raise ServiceBusyError("일시적으로 서비스가 혼잡합니다. 잠시 후 다시 시도해주세요.")
 
 
 def extract_bike_info(page_text: str) -> dict:

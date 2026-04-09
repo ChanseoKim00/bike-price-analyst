@@ -1,3 +1,4 @@
+import re
 import requests
 from bs4 import BeautifulSoup
 
@@ -51,17 +52,31 @@ def fetch_html(url: str) -> str:
 
 def _clean_html(raw_html: str) -> str:
     """
-    script / style 태그 제거 후 읽기 쉬운 텍스트 블록으로 정제.
-    AI에 넘기는 텍스트 크기를 줄이기 위해 공백도 압축.
+    AI 토큰 최소화를 위해 불필요한 태그 제거 후 텍스트만 추출.
+    - 제거 태그: 레이아웃/UI 요소(nav, header, footer 등) + 비텍스트 요소(script, style 등)
+    - 연속 공백·줄바꿈 압축
     """
     soup = BeautifulSoup(raw_html, "html.parser")
 
-    for tag in soup(["script", "style", "noscript", "iframe"]):
+    REMOVE_TAGS = [
+        "script", "style", "noscript", "iframe",  # 비텍스트
+        "nav", "header", "footer", "aside",        # 레이아웃
+        "form", "button", "input", "select",       # UI 컨트롤
+        "svg", "img", "figure", "picture",         # 미디어
+        "head", "meta", "link",                    # HTML 메타
+    ]
+    for tag in soup(REMOVE_TAGS):
         tag.decompose()
 
     text = soup.get_text(separator="\n")
+
+    # 각 줄 앞뒤 공백 제거 + 빈 줄 제거
     lines = [line.strip() for line in text.splitlines()]
     cleaned = "\n".join(line for line in lines if line)
+
+    # 연속 줄바꿈 2개로 압축, 연속 공백 1개로 압축
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    cleaned = re.sub(r" {2,}", " ", cleaned)
 
     # AI 입력 토큰 절감: 최대 8000자로 제한
     return cleaned[:8000]
