@@ -337,7 +337,7 @@ a { color: inherit; text-decoration: none; }
 
 .loading-text {
   font-size: 64pt;
-  font-weight: 300;
+  font-weight: 700;
   color: #B3CDFF;
   letter-spacing: 0.05em;
   animation: pulse 1.8s ease-in-out infinite;
