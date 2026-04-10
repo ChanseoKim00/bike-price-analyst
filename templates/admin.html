@@ -17,6 +17,38 @@
       </div>
     </div>
 
+    <!-- 미처리 가격 수정 제안 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">
+        미처리 가격 수정 제안
+        {% if pending %}
+          <span class="admin-pending-count">{{ pending|length }}</span>
+        {% endif %}
+      </h2>
+      {% if pending %}
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>자전거</th>
+            <th>제안 일시</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in pending %}
+          <tr>
+            <td class="admin-bike">{{ item.bike_name }}</td>
+            <td class="admin-date">{{ item.created_at.strftime('%Y.%m.%d %H:%M') }}</td>
+            <td><span class="admin-status-pending">{{ item.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="admin-empty">미처리 제안이 없습니다.</p>
+      {% endif %}
+    </section>
+
     <!-- 최근 분석 10개 -->
     <section class="admin-section">
       <h2 class="admin-section-title">최근 분석</h2>

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, date
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.dialects.postgresql import UUID, ARRAY, TEXT
+from sqlalchemy.dialects.postgresql import UUID, ARRAY, TEXT, JSONB
 
 db = SQLAlchemy()
 
@@ -140,3 +140,26 @@ class UserAnalysis(db.Model):
 
     def __repr__(self):
         return f"<UserAnalysis user={self.user_id} analysis={self.analysis_id}>"
+
+
+class PriceSuggestion(db.Model):
+    __tablename__ = "price_suggestions"
+
+    id          = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    analysis_id = db.Column(UUID(as_uuid=True), db.ForeignKey("analyses.id"), nullable=False)
+    user_id     = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
+    suggestions = db.Column(JSONB, nullable=False)
+    status      = db.Column(db.Text, nullable=False, default="pending")
+    created_at  = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    analysis = db.relationship("Analysis", backref="price_suggestions")
+    user     = db.relationship("User",     backref="price_suggestions")
+
+    __table_args__ = (
+        db.CheckConstraint("status IN ('pending', 'approved', 'rejected')", name="ck_price_suggestions_status"),
+        db.Index("idx_price_suggestions_analysis_id", "analysis_id"),
+        db.Index("idx_price_suggestions_status",      "status"),
+    )
+
+    def __repr__(self):
+        return f"<PriceSuggestion analysis={self.analysis_id} status={self.status}>"

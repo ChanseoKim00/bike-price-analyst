@@ -94,3 +94,19 @@ CREATE TABLE IF NOT EXISTS user_analyses (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_analyses_user_id ON user_analyses (user_id);
+
+-- ============================================================
+-- Table 6: price_suggestions (가격 수정 제안)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS price_suggestions (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    analysis_id UUID        NOT NULL REFERENCES analyses(id),
+    user_id     UUID        REFERENCES users(id),
+    suggestions JSONB       NOT NULL,
+    status      TEXT        NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at  TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_price_suggestions_analysis_id ON price_suggestions (analysis_id);
+CREATE INDEX IF NOT EXISTS idx_price_suggestions_status      ON price_suggestions (status);

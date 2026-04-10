@@ -10,7 +10,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-from .models import db, Bike, Analysis, User, UserAnalysis
+from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion
 from .scraper import fetch_html, ScrapeError
 from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
 from .price_calculator import get_or_fetch_part, calculate_parts_sum
@@ -83,9 +83,75 @@ def preview_error():
     return render_template("error.html", url="")
 
 
-@bp.route("/suggest")
+_SUGGEST_PARTS = [
+    ("groupset", "구동계"),
+    ("wheelset", "휠셋"),
+    ("saddle",   "안장"),
+]
+
+
+@bp.route("/suggest", methods=["GET", "POST"])
 def suggest():
-    return render_template("coming_soon.html")
+    analysis_id = (request.args.get("analysis_id") or request.form.get("analysis_id", "")).strip()
+    if not analysis_id:
+        return redirect(url_for("main.index"))
+
+    analysis = Analysis.query.filter_by(id=analysis_id).first()
+    if not analysis:
+        return redirect(url_for("main.index"))
+
+    bike = analysis.bike
+    parts = [(key, label, getattr(bike, key)) for key, label in _SUGGEST_PARTS
+             if getattr(bike, key) is not None]
+
+    if request.method == "GET":
+        return render_template("suggest.html", analysis=analysis, bike=bike,
+                               parts=parts, errors={}, form_prices={}, form_urls={})
+
+    # POST — 유효성 검증 및 저장
+    suggestions  = {}
+    errors       = {}
+    form_prices  = {}
+    form_urls    = {}
+
+    for key, label, part in parts:
+        price_raw  = request.form.get(f"price_{key}", "").strip()
+        source_url = request.form.get(f"url_{key}", "").strip() or None
+
+        suggested_price = None
+        if price_raw:
+            try:
+                suggested_price = int(price_raw.replace(",", "").replace(" ", ""))
+                if suggested_price <= 0:
+                    suggested_price = None
+            except ValueError:
+                errors[key] = "올바른 숫자를 입력해주세요."
+
+        if source_url and suggested_price is None and key not in errors:
+            errors[key] = "가격을 입력해주세요."
+
+        suggestions[key] = {"suggested_price_krw": suggested_price, "source_url": source_url}
+        form_prices[key] = price_raw
+        form_urls[key]   = source_url or ""
+
+    if errors:
+        return render_template("suggest.html", analysis=analysis, bike=bike,
+                               parts=parts, errors=errors,
+                               form_prices=form_prices, form_urls=form_urls)
+
+    ps = PriceSuggestion(
+        analysis_id=analysis.id,
+        user_id=session.get("user_id") or None,
+        suggestions=suggestions,
+    )
+    db.session.add(ps)
+    db.session.commit()
+    return redirect(url_for("main.suggest_complete"))
+
+
+@bp.route("/suggest/complete")
+def suggest_complete():
+    return render_template("suggest_complete.html")
 
 
 # ── 인증 ──────────────────────────────────────────────────────
@@ -218,12 +284,30 @@ def admin():
         .all()
     )
 
+    pending_rows = (
+        db.session.query(PriceSuggestion, Analysis, Bike)
+        .join(Analysis, Analysis.id == PriceSuggestion.analysis_id)
+        .join(Bike,     Bike.id     == Analysis.bike_id)
+        .filter(PriceSuggestion.status == "pending")
+        .order_by(PriceSuggestion.created_at.desc())
+        .all()
+    )
+    pending = [
+        {
+            "bike_name":  f"{bike.brand} {bike.model_name}" + (f" ({bike.model_year})" if bike.model_year else ""),
+            "created_at": ps.created_at,
+            "status":     ps.status,
+        }
+        for ps, analysis, bike in pending_rows
+    ]
+
     return render_template(
         "admin.html",
         total_users=total_users,
         total_analyses=total_analyses,
         recent=recent,
         users=users,
+        pending=pending,
     )
 
 

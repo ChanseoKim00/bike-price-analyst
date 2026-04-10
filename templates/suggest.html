@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="suggest-wrap">
+  <div class="suggest-inner">
+
+    <div class="suggest-header">
+      <h1 class="suggest-title">가격 수정 제안</h1>
+      <p class="suggest-sub">
+        {{ bike.brand|title }} {{ bike.model_name }}
+        {% if bike.model_year %}({{ bike.model_year }}){% endif %}
+      </p>
+    </div>
+
+    <form class="suggest-form" method="POST" action="/suggest" novalidate>
+      <input type="hidden" name="analysis_id" value="{{ analysis.id }}">
+
+      <div class="suggest-card-list">
+        {% for key, label, part in parts %}
+        <div class="suggest-card">
+          <div class="suggest-card-meta">
+            <span class="suggest-part-label">{{ label }}</span>
+            <span class="suggest-part-name">{{ part.part_name }}</span>
+            <span class="suggest-current-price">
+              현재가:
+              {% if part.price_krw %}
+                {{ "{:,}".format(part.price_krw) }}원
+              {% else %}
+                <span class="suggest-muted">미확인</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="suggest-card-inputs">
+            <div class="suggest-input-group">
+              <label class="suggest-input-label" for="price_{{ key }}">수정 가격 (원)</label>
+              <input
+                class="suggest-input{% if errors.get(key) %} suggest-input--error{% endif %}"
+                type="text"
+                id="price_{{ key }}"
+                name="price_{{ key }}"
+                value="{{ form_prices.get(key, '') }}"
+                placeholder="예: 320000"
+                inputmode="numeric"
+                data-part="{{ key }}"
+              >
+              {% if errors.get(key) %}
+              <p class="suggest-field-error" id="err_{{ key }}">{{ errors[key] }}</p>
+              {% else %}
+              <p class="suggest-field-error" id="err_{{ key }}" style="display:none;"></p>
+              {% endif %}
+            </div>
+            <div class="suggest-input-group">
+              <label class="suggest-input-label" for="url_{{ key }}">판매처 링크</label>
+              <input
+                class="suggest-input"
+                type="url"
+                id="url_{{ key }}"
+                name="url_{{ key }}"
+                value="{{ form_urls.get(key, '') }}"
+                placeholder="https://..."
+                data-part="{{ key }}"
+              >
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="suggest-actions">
+        <button type="submit" class="suggest-submit">가격 수정 제안하기</button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<script>
+  // 실시간 유효성 검증: URL 입력 시 가격이 비어있으면 에러 표시
+  document.querySelectorAll('input[type="url"]').forEach(function(urlInput) {
+    var key = urlInput.dataset.part;
+    var priceInput = document.getElementById('price_' + key);
+    var errEl = document.getElementById('err_' + key);
+
+    function validate() {
+      var hasUrl   = urlInput.value.trim() !== '';
+      var hasPrice = priceInput.value.trim() !== '';
+      if (hasUrl && !hasPrice) {
+        errEl.textContent = '가격을 입력해주세요.';
+        errEl.style.display = 'block';
+        priceInput.classList.add('suggest-input--error');
+      } else {
+        errEl.textContent = '';
+        errEl.style.display = 'none';
+        priceInput.classList.remove('suggest-input--error');
+      }
+    }
+
+    urlInput.addEventListener('input', validate);
+    priceInput.addEventListener('input', validate);
+  });
+</script>
+
+{% endblock %}
