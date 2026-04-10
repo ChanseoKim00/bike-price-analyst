@@ -302,6 +302,7 @@ def admin():
     )
     pending = [
         {
+            "id":         str(ps.id),
             "bike_name":  f"{bike.brand} {bike.model_name}" + (f" ({bike.model_year})" if bike.model_year else ""),
             "created_at": ps.created_at,
             "status":     ps.status,
@@ -316,6 +317,61 @@ def admin():
         recent=recent,
         users=users,
         pending=pending,
+    )
+
+
+@bp.route("/admin/suggestion/<suggestion_id>")
+@admin_required
+def admin_suggestion(suggestion_id):
+    ps = PriceSuggestion.query.filter_by(id=suggestion_id).first()
+    if not ps:
+        return redirect(url_for("main.admin"))
+
+    analysis = ps.analysis
+    bike     = analysis.bike
+
+    # 부품별 현재 정보 (FK가 없는 frameset/handlebar는 None)
+    part_objects = {
+        "groupset":  bike.groupset,
+        "wheelset":  bike.wheelset,
+        "saddle":    bike.saddle,
+        "frameset":  None,
+        "handlebar": None,
+    }
+    part_labels = {
+        "groupset":  "구동계",
+        "wheelset":  "휠셋",
+        "frameset":  "프레임셋",
+        "saddle":    "안장",
+        "handlebar": "핸들바",
+    }
+
+    rows = []
+    for key in ("groupset", "wheelset", "frameset", "saddle", "handlebar"):
+        part      = part_objects[key]
+        suggested = ps.suggestions.get(key, {}) or {}
+        rows.append({
+            "label":           part_labels[key],
+            "part_name":       part.part_name if part else None,
+            "current_price":   part.price_krw if part else None,
+            "suggested_price": suggested.get("suggested_price_krw"),
+            "source_url":      suggested.get("source_url"),
+        })
+
+    proposer = "비회원"
+    if ps.user_id:
+        u = User.query.filter_by(id=ps.user_id).first()
+        if u:
+            proposer = u.email
+
+    bike_name = f"{bike.brand} {bike.model_name}" + (f" ({bike.model_year})" if bike.model_year else "")
+
+    return render_template(
+        "admin_suggestion.html",
+        ps=ps,
+        bike_name=bike_name,
+        proposer=proposer,
+        rows=rows,
     )
 
 

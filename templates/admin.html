@@ -26,7 +26,7 @@
         {% endif %}
       </h2>
       {% if pending %}
-      <table class="admin-table">
+      <table class="admin-table admin-table--clickable">
         <thead>
           <tr>
             <th>자전거</th>
@@ -36,7 +36,7 @@
         </thead>
         <tbody>
           {% for item in pending %}
-          <tr>
+          <tr onclick="location.href='/admin/suggestion/{{ item.id }}'">
             <td class="admin-bike">{{ item.bike_name }}</td>
             <td class="admin-date">{{ item.created_at.strftime('%Y.%m.%d %H:%M') }}</td>
             <td><span class="admin-status-pending">{{ item.status }}</span></td>

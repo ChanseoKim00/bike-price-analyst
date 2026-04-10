@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="admin-wrap">
+  <div class="admin-inner">
+
+    <div class="admin-suggestion-header">
+      <a href="/admin" class="admin-back">← 대시보드로</a>
+      <h1 class="admin-title">가격 수정 제안 상세</h1>
+    </div>
+
+    <!-- 제안 메타 -->
+    <div class="admin-suggestion-meta">
+      <div class="admin-meta-row">
+        <span class="admin-meta-label">자전거</span>
+        <span class="admin-meta-value">{{ bike_name }}</span>
+      </div>
+      <div class="admin-meta-row">
+        <span class="admin-meta-label">제안 일시</span>
+        <span class="admin-meta-value">{{ ps.created_at.strftime('%Y.%m.%d %H:%M') }}</span>
+      </div>
+      <div class="admin-meta-row">
+        <span class="admin-meta-label">제안자</span>
+        <span class="admin-meta-value">{{ proposer }}</span>
+      </div>
+      <div class="admin-meta-row">
+        <span class="admin-meta-label">상태</span>
+        <span class="admin-status-pending">{{ ps.status }}</span>
+      </div>
+    </div>
+
+    <!-- 부품별 제안 내용 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">부품별 제안 내용</h2>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>부품 구분</th>
+            <th>모델명</th>
+            <th>기존 가격</th>
+            <th>제안 가격</th>
+            <th>판매처 링크</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="admin-meta-label" style="white-space:nowrap;">{{ row.label }}</td>
+            <td class="admin-bike">
+              {% if row.part_name %}{{ row.part_name }}
+              {% else %}<span class="admin-muted">미확인</span>{% endif %}
+            </td>
+            <td class="admin-date" style="white-space:nowrap;">
+              {% if row.current_price %}
+                {{ "{:,}".format(row.current_price) }}원
+              {% else %}
+                <span class="admin-muted">-</span>
+              {% endif %}
+            </td>
+            <td class="admin-saving" style="white-space:nowrap;">
+              {% if row.suggested_price %}
+                {{ "{:,}".format(row.suggested_price) }}원
+              {% else %}
+                <span class="admin-muted">-</span>
+              {% endif %}
+            </td>
+            <td class="admin-suggestion-url">
+              {% if row.source_url %}
+                <a href="{{ row.source_url }}" target="_blank" rel="noopener" class="admin-suggestion-link">
+                  링크 열기
+                </a>
+              {% else %}
+                <span class="admin-muted">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+</div>
+
+{% endblock %}
