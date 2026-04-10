@@ -1,7 +1,7 @@
 import logging
 import re
 import traceback
-from datetime import datetime
+from datetime import datetime, date
 from types import SimpleNamespace
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, session, redirect, url_for
@@ -92,24 +92,55 @@ def suggest():
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+def _form_ctx(**kwargs):
+    """회원가입 폼 재출력 시 입력값 유지용 헬퍼"""
+    return kwargs
+
+
 @bp.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "GET":
         return render_template("register.html")
 
-    email    = request.form.get("email", "").strip().lower()
-    password = request.form.get("password", "")
+    email      = request.form.get("email", "").strip().lower()
+    password   = request.form.get("password", "")
+    name       = request.form.get("name", "").strip()
+    nickname   = request.form.get("nickname", "").strip()
+    birth_date = request.form.get("birth_date", "").strip()
+    privacy    = request.form.get("privacy_agreed")
+
+    ctx = dict(email=email, name=name, nickname=nickname, birth_date=birth_date)
 
     if not _EMAIL_RE.match(email):
-        return render_template("register.html", error="올바른 이메일 형식을 입력해주세요.", email=email)
+        return render_template("register.html", error="올바른 이메일 형식을 입력해주세요.", **ctx)
     if len(password) < 8:
-        return render_template("register.html", error="비밀번호는 최소 8자 이상이어야 합니다.", email=email)
+        return render_template("register.html", error="비밀번호는 최소 8자 이상이어야 합니다.", **ctx)
+    if not name:
+        return render_template("register.html", error="이름을 입력해주세요.", **ctx)
+    if not nickname:
+        return render_template("register.html", error="닉네임을 입력해주세요.", **ctx)
+    if not birth_date:
+        return render_template("register.html", error="생년월일을 입력해주세요.", **ctx)
+    if not privacy:
+        return render_template("register.html", error="개인정보 수집·이용에 동의해주세요.", **ctx)
+
+    try:
+        birth_date_parsed = datetime.strptime(birth_date, "%Y-%m-%d").date()
+    except ValueError:
+        return render_template("register.html", error="생년월일 형식이 올바르지 않습니다.", **ctx)
+
     if User.query.filter_by(email=email).first():
-        return render_template("register.html", error="이미 사용 중인 이메일입니다.", email=email)
+        return render_template("register.html", error="이미 사용 중인 이메일입니다.", **ctx)
+    if User.query.filter_by(nickname=nickname).first():
+        return render_template("register.html", error="이미 사용 중인 닉네임입니다.", **ctx)
 
     user = User(
         email=email,
         password_hash=generate_password_hash(password),
+        name=name,
+        nickname=nickname,
+        birth_date=birth_date_parsed,
+        privacy_agreed_at=datetime.utcnow(),
     )
     db.session.add(user)
     db.session.commit()
@@ -135,9 +166,10 @@ def login():
     user.last_login_at = datetime.utcnow()
     db.session.commit()
 
-    session["user_id"]    = str(user.id)
-    session["user_email"] = user.email
-    session["user_role"]  = user.role
+    session["user_id"]       = str(user.id)
+    session["user_email"]    = user.email
+    session["user_nickname"] = user.nickname
+    session["user_role"]     = user.role
     return redirect(url_for("main.index"))
 
 

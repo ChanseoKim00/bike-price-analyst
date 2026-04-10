@@ -34,6 +34,48 @@
           required
         >
       </div>
+      <div class="auth-field">
+        <label class="auth-label" for="name">이름 (실명)</label>
+        <input
+          class="auth-input"
+          type="text"
+          id="name"
+          name="name"
+          value="{{ name or '' }}"
+          placeholder="홍길동"
+          required
+        >
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="nickname">닉네임</label>
+        <input
+          class="auth-input"
+          type="text"
+          id="nickname"
+          name="nickname"
+          value="{{ nickname or '' }}"
+          placeholder="라이더명"
+          required
+        >
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="birth_date">생년월일</label>
+        <input
+          class="auth-input"
+          type="date"
+          id="birth_date"
+          name="birth_date"
+          value="{{ birth_date or '' }}"
+          required
+        >
+      </div>
+      <label class="auth-privacy">
+        <input type="checkbox" name="privacy_agreed" value="1" class="auth-checkbox">
+        <span>
+          개인정보 수집·이용에 동의합니다.
+          <span class="auth-privacy-required">(필수)</span>
+        </span>
+      </label>
       <button type="submit" class="auth-submit">회원가입</button>
     </form>
 

@@ -70,11 +70,15 @@ CREATE TABLE IF NOT EXISTS analyses (
 -- Table 4: users (회원)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS users (
-    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    email           TEXT        NOT NULL UNIQUE,
-    password_hash   TEXT        NOT NULL,
-    role            TEXT        NOT NULL DEFAULT 'user'
-                        CHECK (role IN ('user', 'admin')),
-    created_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
-    last_login_at   TIMESTAMP
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    email               TEXT        NOT NULL UNIQUE,
+    password_hash       TEXT        NOT NULL,
+    role                TEXT        NOT NULL DEFAULT 'user'
+                            CHECK (role IN ('user', 'admin')),
+    created_at          TIMESTAMP   NOT NULL DEFAULT NOW(),
+    last_login_at       TIMESTAMP,
+    name                TEXT        NOT NULL,
+    nickname            TEXT        NOT NULL UNIQUE,
+    birth_date          DATE        NOT NULL,
+    privacy_agreed_at   TIMESTAMP   NOT NULL
 );

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, TEXT
 
@@ -9,12 +9,16 @@ db = SQLAlchemy()
 class User(db.Model):
     __tablename__ = "users"
 
-    id            = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email         = db.Column(db.Text, nullable=False, unique=True)
-    password_hash = db.Column(db.Text, nullable=False)
-    role          = db.Column(db.Text, nullable=False, default="user")
-    created_at    = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    last_login_at = db.Column(db.DateTime)
+    id                 = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email              = db.Column(db.Text, nullable=False, unique=True)
+    password_hash      = db.Column(db.Text, nullable=False)
+    role               = db.Column(db.Text, nullable=False, default="user")
+    created_at         = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_login_at      = db.Column(db.DateTime)
+    name               = db.Column(db.Text, nullable=False)
+    nickname           = db.Column(db.Text, nullable=False, unique=True)
+    birth_date         = db.Column(db.Date, nullable=False)
+    privacy_agreed_at  = db.Column(db.DateTime, nullable=False)
 
     __table_args__ = (
         db.CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),
