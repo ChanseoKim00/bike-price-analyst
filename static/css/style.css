@@ -356,6 +356,134 @@ a { color: inherit; text-decoration: none; }
   50% { opacity: 0.35; }
 }
 
+/* ===== 관리자 페이지 ===== */
+.admin-wrap {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 6rem 2rem 4rem;
+}
+
+.admin-inner {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.admin-title {
+  font-size: 1.5rem;
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  color: #B3CDFF;
+}
+
+.admin-stats {
+  display: flex;
+  gap: 1rem;
+}
+
+.stat-card {
+  flex: 1;
+  background: #3e3e4a;
+  border: 1px solid #4a4a58;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  color: #a0a0b0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #B3CDFF;
+  letter-spacing: -0.02em;
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-section-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #a0a0b0;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #4a4a58;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 0.55rem 0.9rem;
+  color: #6b6b7e;
+  font-weight: 400;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-table td {
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid #3a3a46;
+  vertical-align: middle;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-bike   { color: #e0e0e8; }
+.admin-saving { color: #ffffff; font-weight: 500; }
+.admin-date   { color: #6b6b7e; font-size: 0.82rem; white-space: nowrap; }
+.admin-email  { color: #a0a0b0; }
+.admin-muted  { color: #4a4a58; }
+
+.admin-nickname {
+  color: #e0e0e8;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-badge {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid #B3CDFF;
+  border-radius: 4px;
+  color: #B3CDFF;
+  letter-spacing: 0.04em;
+}
+
+.admin-empty {
+  color: #4a4a58;
+  font-size: 0.88rem;
+  padding: 1rem 0;
+}
+
+.auth-btn--admin {
+  border-color: #B3CDFF;
+  color: #B3CDFF;
+}
+
 /* ===== 히스토리 페이지 ===== */
 .history-wrap {
   min-height: 100vh;

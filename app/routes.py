@@ -1,3 +1,4 @@
+import functools
 import logging
 import re
 import traceback
@@ -177,6 +178,53 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("main.index"))
+
+
+def admin_required(f):
+    """role='admin'인 로그인 사용자만 허용. 그 외는 메인으로 리다이렉트."""
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        if session.get("user_role") != "admin":
+            return redirect(url_for("main.index"))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+@bp.route("/admin")
+@admin_required
+def admin():
+    total_users    = User.query.count()
+    total_analyses = Analysis.query.count()
+
+    recent_analyses = (
+        db.session.query(Analysis, Bike)
+        .join(Bike, Bike.id == Analysis.bike_id)
+        .order_by(Analysis.analyzed_at.desc())
+        .limit(10)
+        .all()
+    )
+    recent = [
+        {
+            "bike_name":   f"{bike.brand} {bike.model_name}" + (f" ({bike.model_year})" if bike.model_year else ""),
+            "analyzed_at": analysis.analyzed_at,
+            "saving_krw":  analysis.saving_krw,
+        }
+        for analysis, bike in recent_analyses
+    ]
+
+    users = (
+        User.query
+        .order_by(User.created_at.desc())
+        .all()
+    )
+
+    return render_template(
+        "admin.html",
+        total_users=total_users,
+        total_analyses=total_analyses,
+        recent=recent,
+        users=users,
+    )
 
 
 @bp.route("/history")
