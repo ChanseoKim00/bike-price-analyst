@@ -20,10 +20,12 @@
         <div class="suggest-card">
           <div class="suggest-card-meta">
             <span class="suggest-part-label">{{ label }}</span>
-            <span class="suggest-part-name">{{ part.part_name }}</span>
+            <span class="suggest-part-name">
+              {% if part %}{{ part.part_name }}{% else %}<span class="suggest-muted">미확인</span>{% endif %}
+            </span>
             <span class="suggest-current-price">
               현재가:
-              {% if part.price_krw %}
+              {% if part and part.price_krw %}
                 {{ "{:,}".format(part.price_krw) }}원
               {% else %}
                 <span class="suggest-muted">미확인</span>
@@ -50,7 +52,7 @@
               {% endif %}
             </div>
             <div class="suggest-input-group">
-              <label class="suggest-input-label" for="url_{{ key }}">판매처 링크</label>
+              <label class="suggest-input-label" for="url_{{ key }}">판매처 링크(선택)</label>
               <input
                 class="suggest-input"
                 type="url"

@@ -84,10 +84,15 @@ def preview_error():
 
 
 _SUGGEST_PARTS = [
-    ("groupset", "구동계"),
-    ("wheelset", "휠셋"),
-    ("saddle",   "안장"),
+    ("groupset",  "구동계"),
+    ("wheelset",  "휠셋"),
+    ("frameset",  "프레임셋"),
+    ("saddle",    "안장"),
+    ("handlebar", "핸들바"),
 ]
+
+# bikes 테이블에 FK가 있는 부품 키 (나머지는 항상 None)
+_BIKE_FK_PARTS = {"groupset", "wheelset", "saddle"}
 
 
 @bp.route("/suggest", methods=["GET", "POST"])
@@ -101,8 +106,11 @@ def suggest():
         return redirect(url_for("main.index"))
 
     bike = analysis.bike
-    parts = [(key, label, getattr(bike, key)) for key, label in _SUGGEST_PARTS
-             if getattr(bike, key) is not None]
+    # FK가 있는 부품은 실제 Part 객체, 없는 부품(frameset/handlebar)은 None으로 항상 5개 표시
+    parts = [
+        (key, label, getattr(bike, key) if key in _BIKE_FK_PARTS else None)
+        for key, label in _SUGGEST_PARTS
+    ]
 
     if request.method == "GET":
         return render_template("suggest.html", analysis=analysis, bike=bike,
