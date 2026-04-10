@@ -8,6 +8,14 @@
 </head>
 <body>
   <a href="/" class="bpa-logo">BPA</a>
+  <nav class="auth-nav">
+    {% if session.get('user_email') %}
+      <span class="auth-username">{{ session['user_email'].split('@')[0] }}님</span>
+      <a href="/logout" class="auth-btn">로그아웃</a>
+    {% else %}
+      <a href="/login" class="auth-btn">로그인</a>
+    {% endif %}
+  </nav>
   {% block content %}{% endblock %}
 </body>
 </html>

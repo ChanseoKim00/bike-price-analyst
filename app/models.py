@@ -6,6 +6,24 @@ from sqlalchemy.dialects.postgresql import UUID, ARRAY, TEXT
 db = SQLAlchemy()
 
 
+class User(db.Model):
+    __tablename__ = "users"
+
+    id            = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email         = db.Column(db.Text, nullable=False, unique=True)
+    password_hash = db.Column(db.Text, nullable=False)
+    role          = db.Column(db.Text, nullable=False, default="user")
+    created_at    = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_login_at = db.Column(db.DateTime)
+
+    __table_args__ = (
+        db.CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),
+    )
+
+    def __repr__(self):
+        return f"<User {self.email}>"
+
+
 class Part(db.Model):
     __tablename__ = "parts"
 
@@ -75,6 +93,9 @@ class Bike(db.Model):
             "brake_type IN ('hydraulic_disc', 'mechanical_disc', 'rim', 'unknown')",
             name="ck_bikes_brake_type",
         ),
+        db.Index("idx_bikes_groupset_id", "groupset_id"),
+        db.Index("idx_bikes_wheelset_id", "wheelset_id"),
+        db.Index("idx_bikes_saddle_id",   "saddle_id"),
     )
 
     def __repr__(self):

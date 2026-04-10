@@ -1,13 +1,15 @@
 import logging
+import re
 import traceback
 from datetime import datetime
 from types import SimpleNamespace
 from urllib.parse import urlparse
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, session, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-from .models import db, Bike, Analysis
+from .models import db, Bike, Analysis, User
 from .scraper import fetch_html, ScrapeError
 from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
 from .price_calculator import get_or_fetch_part, calculate_parts_sum
@@ -83,6 +85,66 @@ def preview_error():
 @bp.route("/suggest")
 def suggest():
     return render_template("coming_soon.html")
+
+
+# ── 인증 ──────────────────────────────────────────────────────
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+@bp.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "GET":
+        return render_template("register.html")
+
+    email    = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    if not _EMAIL_RE.match(email):
+        return render_template("register.html", error="올바른 이메일 형식을 입력해주세요.", email=email)
+    if len(password) < 8:
+        return render_template("register.html", error="비밀번호는 최소 8자 이상이어야 합니다.", email=email)
+    if User.query.filter_by(email=email).first():
+        return render_template("register.html", error="이미 사용 중인 이메일입니다.", email=email)
+
+    user = User(
+        email=email,
+        password_hash=generate_password_hash(password),
+    )
+    db.session.add(user)
+    db.session.commit()
+    return redirect(url_for("main.login") + "?registered=1")
+
+
+@bp.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        registered = request.args.get("registered")
+        return render_template("login.html", registered=registered)
+
+    email    = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    if not _EMAIL_RE.match(email) or len(password) < 8:
+        return render_template("login.html", error="이메일 또는 비밀번호를 확인해주세요.", email=email)
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not check_password_hash(user.password_hash, password):
+        return render_template("login.html", error="이메일 또는 비밀번호가 올바르지 않습니다.", email=email)
+
+    user.last_login_at = datetime.utcnow()
+    db.session.commit()
+
+    session["user_id"]    = str(user.id)
+    session["user_email"] = user.email
+    session["user_role"]  = user.role
+    return redirect(url_for("main.index"))
+
+
+@bp.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("main.index"))
 
 
 @bp.route("/analyze", methods=["POST"])

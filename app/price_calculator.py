@@ -121,6 +121,20 @@ SKIP_AI_SEARCH_TYPES = {"frameset"}
 RETRY_ON_NULL_TYPES = {"groupset", "wheelset"}
 
 
+def _normalize_part_name(raw: str) -> str:
+    """
+    AI가 생성한 part_name_normalized를 강제 정규화.
+    - 하이픈(-) → 언더스코어(_)
+    - 소문자 통일
+    - 앞뒤 공백 제거
+    - 연속 언더스코어 → 단일 언더스코어
+    """
+    import re
+    normalized = raw.strip().lower().replace("-", "_")
+    normalized = re.sub(r"_+", "_", normalized)
+    return normalized
+
+
 def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str) -> Part:
     """
     parts 테이블 조회 → 없거나 stale이면 AI 웹 검색 후 저장.
@@ -129,6 +143,8 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
     Returns:
         Part: DB에 저장된 Part 객체 (price_krw가 None일 수 있음)
     """
+    part_name_normalized = _normalize_part_name(part_name_normalized)
+
     # 1. DB 조회
     part = Part.query.filter_by(part_name_normalized=part_name_normalized).first()
 

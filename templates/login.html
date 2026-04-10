@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h1 class="auth-title">로그인</h1>
+
+    {% if registered %}
+    <p class="auth-notice">회원가입이 완료됐습니다. 로그인해주세요.</p>
+    {% endif %}
+
+    {% if error %}
+    <p class="auth-error">{{ error }}</p>
+    {% endif %}
+
+    <form class="auth-form" method="POST" action="/login">
+      <div class="auth-field">
+        <label class="auth-label" for="email">이메일</label>
+        <input
+          class="auth-input"
+          type="email"
+          id="email"
+          name="email"
+          value="{{ email or '' }}"
+          placeholder="you@example.com"
+          required
+          autofocus
+        >
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="password">비밀번호</label>
+        <input
+          class="auth-input"
+          type="password"
+          id="password"
+          name="password"
+          placeholder="8자 이상"
+          required
+        >
+      </div>
+      <button type="submit" class="auth-submit">로그인</button>
+    </form>
+
+    <p class="auth-footer">
+      아직 계정이 없으신가요?
+      <a href="/register" class="auth-link">회원가입</a>
+    </p>
+  </div>
+</div>
+
+{% endblock %}

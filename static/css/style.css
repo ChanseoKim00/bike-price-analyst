@@ -356,6 +356,142 @@ a { color: inherit; text-decoration: none; }
   50% { opacity: 0.35; }
 }
 
+/* ===== 인증 네비게이션 (우측 상단 고정) ===== */
+.auth-nav {
+  position: fixed;
+  top: 1.3rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 201;
+}
+
+.auth-username {
+  font-size: 0.82rem;
+  color: #a0a0b0;
+}
+
+.auth-btn {
+  font-size: 0.82rem;
+  padding: 0.38rem 1rem;
+  border: 1px solid #4a4a58;
+  border-radius: 8px;
+  color: #a0a0b0;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.auth-btn:hover {
+  border-color: #B3CDFF;
+  color: #B3CDFF;
+}
+
+/* ===== 로그인 / 회원가입 페이지 ===== */
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.auth-title {
+  font-size: 1.6rem;
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  color: #B3CDFF;
+  text-align: center;
+}
+
+.auth-error {
+  font-size: 0.85rem;
+  color: #ff8a80;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.auth-notice {
+  font-size: 0.85rem;
+  color: #8ecf8e;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.auth-label {
+  font-size: 0.78rem;
+  color: #a0a0b0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.auth-input {
+  background: #3e3e4a;
+  border: 1px solid #4a4a58;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: #ffffff;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.auth-input:focus {
+  border-color: #B3CDFF;
+}
+
+.auth-input::placeholder {
+  color: #6b6b7e;
+}
+
+.auth-submit {
+  margin-top: 0.25rem;
+  background: #B3CDFF;
+  color: #31313C;
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.auth-submit:hover {
+  opacity: 0.85;
+}
+
+.auth-footer {
+  font-size: 0.82rem;
+  color: #6b6b7e;
+  text-align: center;
+}
+
+.auth-link {
+  color: #B3CDFF;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* ===== 모바일 ===== */
 @media (max-width: 600px) {
   html, body {
