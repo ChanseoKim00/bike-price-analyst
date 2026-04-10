@@ -356,6 +356,110 @@ a { color: inherit; text-decoration: none; }
   50% { opacity: 0.35; }
 }
 
+/* ===== 히스토리 페이지 ===== */
+.history-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6rem 2rem 4rem;
+}
+
+.history-inner {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.history-title {
+  font-size: 1.5rem;
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  color: #B3CDFF;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.history-table th {
+  text-align: left;
+  padding: 0.65rem 1rem;
+  color: #B3CDFF;
+  font-weight: 500;
+  border-bottom: 1px solid #4a4a58;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.history-table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #3a3a46;
+  vertical-align: middle;
+}
+
+.history-table tr:last-child td {
+  border-bottom: none;
+}
+
+.history-bike {
+  color: #e0e0e8;
+  line-height: 1.5;
+}
+
+.history-brand {
+  color: #B3CDFF;
+  font-weight: 500;
+  margin-right: 0.3rem;
+}
+
+.history-year {
+  color: #6b6b7e;
+  font-size: 0.82rem;
+  margin-left: 0.2rem;
+}
+
+.history-saving {
+  color: #ffffff;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.history-pct {
+  font-size: 0.78rem;
+  color: #a0a0b0;
+  margin-left: 0.35rem;
+  font-weight: 400;
+}
+
+.history-muted {
+  color: #4a4a58;
+}
+
+.history-date {
+  color: #6b6b7e;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 4rem 0;
+}
+
+.history-empty-msg {
+  color: #6b6b7e;
+  font-size: 0.95rem;
+}
+
 /* ===== 인증 네비게이션 (우측 상단 고정) ===== */
 .auth-nav {
   position: fixed;

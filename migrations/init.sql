@@ -82,3 +82,15 @@ CREATE TABLE IF NOT EXISTS users (
     birth_date          DATE        NOT NULL,
     privacy_agreed_at   TIMESTAMP   NOT NULL
 );
+
+-- ============================================================
+-- Table 5: user_analyses (사용자별 분석 히스토리)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_analyses (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID        NOT NULL REFERENCES users(id),
+    analysis_id UUID        NOT NULL REFERENCES analyses(id),
+    viewed_at   TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_analyses_user_id ON user_analyses (user_id);

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="history-wrap">
+  <div class="history-inner">
+    <h1 class="history-title">내 히스토리</h1>
+
+    {% if history %}
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>자전거</th>
+          <th>절약 금액</th>
+          <th>분석 일시</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in history %}
+        <tr>
+          <td class="history-bike">
+            <span class="history-brand">{{ item.brand|title }}</span>
+            {{ item.model_name }}
+            {% if item.model_year %}
+            <span class="history-year">({{ item.model_year }})</span>
+            {% endif %}
+          </td>
+          <td class="history-saving">
+            {% if item.saving_krw > 0 %}
+              {{ "{:,}".format(item.saving_krw) }}원
+              <span class="history-pct">{{ item.saving_pct }}%</span>
+            {% else %}
+              <span class="history-muted">-</span>
+            {% endif %}
+          </td>
+          <td class="history-date">
+            {{ item.viewed_at.strftime('%Y.%m.%d %H:%M') }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="history-empty">
+      <p class="history-empty-msg">아직 분석한 자전거가 없습니다.</p>
+      <a href="/" class="auth-btn">첫 번째 자전거 분석하기</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

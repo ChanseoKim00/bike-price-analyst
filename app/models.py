@@ -121,3 +121,22 @@ class Analysis(db.Model):
 
     def __repr__(self):
         return f"<Analysis bike_id={self.bike_id} saving={self.saving_krw:,}원>"
+
+
+class UserAnalysis(db.Model):
+    __tablename__ = "user_analyses"
+
+    id          = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id     = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    analysis_id = db.Column(UUID(as_uuid=True), db.ForeignKey("analyses.id"), nullable=False)
+    viewed_at   = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user     = db.relationship("User",     backref="user_analyses")
+    analysis = db.relationship("Analysis", backref="user_analyses")
+
+    __table_args__ = (
+        db.Index("idx_user_analyses_user_id", "user_id"),
+    )
+
+    def __repr__(self):
+        return f"<UserAnalysis user={self.user_id} analysis={self.analysis_id}>"

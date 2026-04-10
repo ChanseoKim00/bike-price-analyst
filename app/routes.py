@@ -9,7 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-from .models import db, Bike, Analysis, User
+from .models import db, Bike, Analysis, User, UserAnalysis
 from .scraper import fetch_html, ScrapeError
 from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
 from .price_calculator import get_or_fetch_part, calculate_parts_sum
@@ -179,6 +179,35 @@ def logout():
     return redirect(url_for("main.index"))
 
 
+@bp.route("/history")
+def history():
+    if not session.get("user_id"):
+        return redirect(url_for("main.login"))
+
+    rows = (
+        db.session.query(UserAnalysis, Analysis, Bike)
+        .join(Analysis, Analysis.id == UserAnalysis.analysis_id)
+        .join(Bike,     Bike.id     == Analysis.bike_id)
+        .filter(UserAnalysis.user_id == session["user_id"])   # 반드시 본인 데이터만
+        .order_by(UserAnalysis.viewed_at.desc())
+        .all()
+    )
+
+    history_items = [
+        {
+            "brand":      bike.brand,
+            "model_name": bike.model_name,
+            "model_year": bike.model_year,
+            "saving_krw": analysis.saving_krw,
+            "saving_pct": analysis.saving_pct,
+            "viewed_at":  ua.viewed_at,
+        }
+        for ua, analysis, bike in rows
+    ]
+
+    return render_template("history.html", history=history_items)
+
+
 @bp.route("/analyze", methods=["POST"])
 def analyze():
     url = request.form.get("url", "").strip()
@@ -311,6 +340,16 @@ def analyze():
             analyzed_at=datetime.utcnow(),
         )
         db.session.add(analysis)
+        db.session.flush()  # analysis.id 확정
+
+        # STEP 6: 로그인 상태면 히스토리 저장
+        if session.get("user_id"):
+            ua = UserAnalysis(
+                user_id=session["user_id"],
+                analysis_id=analysis.id,
+            )
+            db.session.add(ua)
+
         db.session.commit()
         print(f"[STEP 5] 완료 — 부품합산: {parts_sum_krw:,}원 / 완성차: {bike_price:,}원 / 절약: {saving_krw:,}원")
 

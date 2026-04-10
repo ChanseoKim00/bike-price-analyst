@@ -11,6 +11,7 @@
   <nav class="auth-nav">
     {% if session.get('user_nickname') %}
       <span class="auth-username">{{ session['user_nickname'] }}님</span>
+      <a href="/history" class="auth-btn">내 히스토리</a>
       <a href="/logout" class="auth-btn">로그아웃</a>
     {% else %}
       <a href="/login" class="auth-btn">로그인</a>
