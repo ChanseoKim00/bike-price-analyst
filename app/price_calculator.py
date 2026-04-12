@@ -140,7 +140,7 @@ def _normalize_part_name(raw: str) -> str:
 def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str) -> Part:
     """
     parts 테이블 조회 → 없거나 stale이면 AI 웹 검색 후 저장.
-    frameset은 DB에 있을 때만 사용, 없으면 null 반환 (missing_parts 처리됨).
+    frameset은 AI 검색 없이 항상 parts DB에 저장 (price_krw=None 허용).
 
     Returns:
         Part: DB에 저장된 Part 객체 (price_krw가 None일 수 있음)
@@ -156,10 +156,25 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
         db.session.commit()
         return part
 
-    # 2. frameset은 AI 검색 건너뜀 — DB에 없으면 None 반환
+    # 2. frameset은 AI 검색 건너뜀 — DB에 없으면 null price로 저장, stale이면 last_checked_at만 갱신
     if part_type in SKIP_AI_SEARCH_TYPES:
-        print(f"[SKIP]       parts — {part_type}: {part_name} (AI 검색 제외)")
-        return None
+        print(f"[SKIP]       parts — {part_type}: {part_name} (AI 검색 제외, null price로 저장)")
+        now = datetime.utcnow()
+        if part:
+            part.last_checked_at = now
+            db.session.commit()
+            return part
+        part = Part(
+            part_type=part_type,
+            part_name=part_name,
+            part_name_normalized=part_name_normalized,
+            price_krw=None,
+            last_checked_at=now,
+            ttl_days=TTL_DAYS.get(part_type, 90),
+        )
+        db.session.add(part)
+        db.session.commit()
+        return part
 
     # 3. DB에 null로 저장된 부품 중 재검색 안 하는 타입 → 그대로 반환
     if part and part.price_krw is None and part_type not in RETRY_ON_NULL_TYPES:

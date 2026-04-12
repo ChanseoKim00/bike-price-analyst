@@ -486,6 +486,14 @@ def analyze():
         # STEP 4: 부품 조회 (세션에 bike 추가 전에 실행 — autoflush 방지)
         parts = {}
         for key in PART_KEYS:
+            if key == "frameset":
+                # 프레임셋은 AI 추출값 무시 — bike model_name으로 항상 parts DB에 저장
+                parts[key] = get_or_fetch_part(
+                    part_name=bike.model_name,
+                    part_name_normalized=bike.model_name,
+                    part_type="frameset",
+                )
+                continue
             part_info = info.get(key, {})
             if not part_info or not part_info.get("part_name"):
                 parts[key] = None
