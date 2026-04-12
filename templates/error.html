@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 
+<div class="loading-overlay" id="loadingOverlay">
+  <p class="loading-text">AI가 가격을 분석중입니다.</p>
+</div>
+
 <div class="main-wrap">
   <div class="main-inner">
     <h1 class="title">Bike Price Analyst</h1>
@@ -24,5 +28,12 @@
     </form>
   </div>
 </div>
+
+<script>
+  document.querySelector('.input-form').addEventListener('submit', function() {
+    document.getElementById('loadingOverlay').classList.add('active');
+    window.onbeforeunload = null;
+  });
+</script>
 
 {% endblock %}
