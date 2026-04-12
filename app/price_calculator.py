@@ -129,6 +129,8 @@ def _normalize_part_name(raw: str) -> str:
     - 앞뒤 공백 제거
     - 연속 언더스코어 → 단일 언더스코어
     """
+    if raw is None:
+        return None
     import re
     normalized = raw.strip().lower().replace("-", "_")
     normalized = re.sub(r"_+", "_", normalized)
