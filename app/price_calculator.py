@@ -147,8 +147,36 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
     """
     part_name_normalized = _normalize_part_name(part_name_normalized)
 
-    # 1. DB 조회
-    part = Part.query.filter_by(part_name_normalized=part_name_normalized).first()
+    # 1-a. 완전 일치 조회
+    part = Part.query.filter_by(
+        part_name_normalized=part_name_normalized,
+        part_type=part_type,
+    ).first()
+
+    prefix_matched = False
+
+    if part is None:
+        # 1-b. AI 값이 DB normalized의 접두어인 경우
+        #      예) AI: dt_swiss_arc_1100_dicut  DB: dt_swiss_arc_1100_dicut_db_55
+        part = Part.query.filter(
+            Part.part_type == part_type,
+            Part.part_name_normalized.like(part_name_normalized + "_%"),
+        ).first()
+        if part:
+            prefix_matched = True
+
+    if part is None:
+        # 1-c. DB normalized가 AI 값의 접두어인 경우
+        #      예) AI: dt_swiss_arc_1100_dicut_db_55  DB: dt_swiss_arc_1100_dicut
+        part = Part.query.filter(
+            Part.part_type == part_type,
+            db.literal(part_name_normalized).like(Part.part_name_normalized + "_%"),
+        ).first()
+        if part:
+            prefix_matched = True
+
+    if part and prefix_matched:
+        print(f"[PREFIX HIT] parts — {part_type}: {part_name} → matched: {part.part_name_normalized}")
 
     if part and _is_fresh(part):
         print(f"[CACHE HIT]  parts — {part_type}: {part_name} ({part.price_krw:,}원)" if part.price_krw else f"[CACHE HIT]  parts — {part_type}: {part_name} (가격 없음)")
