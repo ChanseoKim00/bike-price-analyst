@@ -44,11 +44,44 @@ SYSTEM_PROMPT = """
 
 부품 필드 (각각 part_name + part_name_normalized):
 - part_name: 페이지에 적힌 원본 표기
-- part_name_normalized: 영문 소문자 + 언더스코어. 브랜드 + 제품 라인 + 전동/기계식 구분까지만 포함.
-  모델 번호(R9200, R9250, R8150, R7100 등)와 파생 옵션(파워미터, 크랭크 세트 등)은 제외.
-  예: "shimano_dura_ace_di2", "shimano_ultegra_di2", "shimano_105_di2", "shimano_105",
-      "sram_red_etap_axs", "sram_force_etap_axs", "campagnolo_super_record"
-  주의: R9200과 R9250은 모두 "shimano_dura_ace_di2"로 정규화. 파워미터 포함 여부와 무관하게 동일하게 정규화.
+- part_name_normalized: 영문 소문자 + 언더스코어. 아래 규칙을 엄격히 적용할 것.
+
+  [포함할 것]
+  - 브랜드명
+  - 등급 (s-works / pro / expert / comp 등 브랜드 내 등급)
+  - 제품 라인명
+  - 전동/기계식 구분 (di2 등)
+  - 소재 (manganese / carbon 등 스펙을 결정하는 소재)
+  - 림높이 (45 / 55 / 62 등 숫자로 된 사이즈)
+
+  [제외할 것]
+  - 'rail', 'system', 'integrated' 같은 범용 접미어
+  - 'DICUT', 'DB' 같은 풀네임 전용 수식어
+  - 모델 번호 (R9200, R9250, R8150, R7100 등)
+  - 파생 옵션 (파워미터, 크랭크 세트 등)
+
+  구동계 예시:
+    "Shimano Dura-Ace Di2 R9250" → "shimano_dura_ace_di2"
+    "SRAM Red eTap AXS" → "sram_red_etap_axs"
+    주의: R9200과 R9250은 모두 "shimano_dura_ace_di2"로 정규화.
+
+  휠셋 예시:
+    "CADEX Max 50 WheelSystem" → "cadex_max_50"
+    "DT Swiss ARC 1100 DICUT DB 55" → "dt_swiss_arc_1100_55"
+    "DT Swiss ARC 1400 DICUT DB 62" → "dt_swiss_arc_1400_62"
+
+  안장 예시:
+    "Selle Italia Novus Boost EVO Superflow Manganese rail" → "selle_italia_novus_boost_evo_superflow_manganese"
+    "Selle Italia Novus Boost EVO Superflow Carbon rail" → "selle_italia_novus_boost_evo_superflow_carbon"
+    "Specialized S-Works Power Mirror" → "specialized_s_works_power_mirror"
+    "Specialized Pro Power Mirror" → "specialized_pro_power_mirror"
+    "Specialized Expert Power Mirror" → "specialized_expert_power_mirror"
+    "Specialized Comp Power Mirror" → "specialized_comp_power_mirror"
+
+  핸들바 예시:
+    "Controltech Sirocco FL4" → "controltech_sirocco_fl4"
+    "Giant Contact SLR 0 Aero Integrated" → "giant_contact_slr_0_aero"
+
 - 페이지에 명시되지 않은 부품은 null
 
 {

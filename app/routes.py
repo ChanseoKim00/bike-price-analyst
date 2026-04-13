@@ -436,6 +436,10 @@ def analyze():
         msg, hint = SCRAPE_ERRORS.get(e.code, SCRAPE_ERRORS["unknown"])
         return _err(msg, hint, url=url)
 
+    if not page_text:
+        print("[STEP 1] 0자 반환 — 지원하지 않는 사이트")
+        return _err("페이지 정보를 불러올 수 없습니다.", "해당 사이트는 현재 지원하지 않습니다. 다른 판매처의 동일 제품 링크로 다시 시도해주세요.", url=url)
+
     # STEP 2: AI 분석
     print("[STEP 2] AI 분석 시작...")
     try:
