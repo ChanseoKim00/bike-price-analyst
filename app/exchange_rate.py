@@ -39,11 +39,12 @@ def get_exchange_rates() -> dict:
     print(f"[EXCHANGE] BOK_API_KEY 확인됨 (길이: {len(api_key)}자)")
 
     rates = {}
-    # 당일 고시 전일 수 있으므로 최근 4일 역순으로 시도
-    for days_back in range(4):
+    # 오늘부터 최대 7일 전까지 역순으로 가장 최근 영업일 데이터 조회
+    for days_back in range(7):
         target = (date.today() - timedelta(days=days_back)).strftime("%Y%m%d")
         print(f"[EXCHANGE] 조회 시도: {target}")
 
+        day_has_data = True
         for currency, item_code in _ITEM_CODES.items():
             if currency in rates:
                 continue
@@ -62,8 +63,9 @@ def get_exchange_rates() -> dict:
                 # ECOS는 오류도 HTTP 200으로 반환하므로 RESULT 키로 판별
                 if "RESULT" in body:
                     result = body["RESULT"]
-                    print(f"[EXCHANGE] API 오류 응답 — CODE: {result.get('CODE')}, MESSAGE: {result.get('MESSAGE')}")
-                    continue
+                    print(f"[EXCHANGE] API 오류 — CODE: {result.get('CODE')}, MESSAGE: {result.get('MESSAGE')}")
+                    day_has_data = False
+                    break  # 이 날짜는 데이터 없음 → 하루 더 거슬러 올라감
 
                 rows = body.get("StatisticSearch", {}).get("row", [])
                 if rows:
@@ -72,11 +74,15 @@ def get_exchange_rates() -> dict:
                     print(f"[EXCHANGE] {currency}: {value:,}원 (날짜: {target})")
                 else:
                     print(f"[EXCHANGE] {currency}: 데이터 없음 (날짜: {target})")
+                    day_has_data = False
+                    break
 
             except Exception as e:
                 print(f"[EXCHANGE] {currency} 요청 예외: {type(e).__name__}: {e}")
+                day_has_data = False
+                break
 
-        if len(rates) == len(_ITEM_CODES):
+        if day_has_data and len(rates) == len(_ITEM_CODES):
             break
 
     if not rates:
