@@ -65,7 +65,7 @@ def _clean_html(raw_html: str) -> str:
         "nav", "header", "footer", "aside",        # 레이아웃
         "form", "button", "input", "select",       # UI 컨트롤
         "svg", "img", "figure", "picture",         # 미디어
-        "head", "meta", "link",                    # HTML 메타
+        "head",                                    # HTML 메타 (head 제거로 meta/link 포함)
     ]
     for tag in soup(REMOVE_TAGS):
         tag.decompose()

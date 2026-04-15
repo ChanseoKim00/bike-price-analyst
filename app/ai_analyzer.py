@@ -157,7 +157,7 @@ def _call_api(client, system: str, user: str) -> str:
                 raise ServiceBusyError("일시적으로 서비스가 혼잡합니다. 잠시 후 다시 시도해주세요.")
 
 
-def extract_bike_info(page_text: str, exchange_rates: dict | None = None) -> dict:
+def extract_bike_info(page_text: str, exchange_rates: dict = None) -> dict:
     """
     스크래핑된 페이지 텍스트에서 자전거 정보를 추출한다.
     model_year가 null이면 한 번 더 시도하고, 그래도 없으면 현재 연도를 기본값으로 사용.
