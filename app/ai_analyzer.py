@@ -36,7 +36,7 @@ SYSTEM_PROMPT = """
   2) 출시 연월 정보 (예: "2025-04 출시")
   3) 리뷰/댓글/문의 날짜 중 가장 이른 연도로 유추 (예: 2025년 댓글 → 2025)
   4) 위 모두 없으면 null
-- price_krw: 정수, 할인가 기준 (없으면 null)
+- price_krw: 정수, 할인가 기준 (없으면 null). 가격이 외화(USD, EUR 등)로 표시된 경우 아래 제공된 환율을 적용해 원화(KRW)로 변환한 정수를 반환하라.
 - frame_material: "carbon" | "alloy" | "steel" | "titanium" | "other" | "unknown"
 - frame_material_confidence: 0.0~1.0 (명시적 언급이면 1.0, 모델명 추론이면 0.7, 추측이면 0.4)
 - frame_material_source: "page_text" | "model_knowledge" | "unknown"
@@ -157,10 +157,14 @@ def _call_api(client, system: str, user: str) -> str:
                 raise ServiceBusyError("일시적으로 서비스가 혼잡합니다. 잠시 후 다시 시도해주세요.")
 
 
-def extract_bike_info(page_text: str) -> dict:
+def extract_bike_info(page_text: str, exchange_rates: dict | None = None) -> dict:
     """
     스크래핑된 페이지 텍스트에서 자전거 정보를 추출한다.
     model_year가 null이면 한 번 더 시도하고, 그래도 없으면 현재 연도를 기본값으로 사용.
+
+    Args:
+        page_text: 스크래핑된 페이지 텍스트
+        exchange_rates: {"USD": int, "EUR": int} 형태의 환율 정보 (없으면 생략)
 
     Returns:
         dict: 추출된 자전거 정보 (model_year는 항상 정수)
@@ -170,10 +174,15 @@ def extract_bike_info(page_text: str) -> dict:
     """
     client = _get_client()
 
+    rate_note = ""
+    if exchange_rates:
+        lines = ", ".join(f"1 {k} = {v:,}원" for k, v in exchange_rates.items())
+        rate_note = f"\n\n[현재 환율] {lines}"
+
     raw = _call_api(
         client,
         system=SYSTEM_PROMPT,
-        user=f"아래 자전거 판매 페이지 텍스트에서 정보를 추출해주세요.\n\n{page_text}",
+        user=f"아래 자전거 판매 페이지 텍스트에서 정보를 추출해주세요.{rate_note}\n\n{page_text}",
     )
 
     try:

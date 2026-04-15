@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion
 from .scraper import fetch_html, ScrapeError
 from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
+from .exchange_rate import get_exchange_rates
 from .price_calculator import get_or_fetch_part, calculate_parts_sum
 
 bp = Blueprint("main", __name__)
@@ -442,8 +443,9 @@ def analyze():
 
     # STEP 2: AI 분석
     print("[STEP 2] AI 분석 시작...")
+    exchange_rates = get_exchange_rates()
     try:
-        info = extract_bike_info(page_text)
+        info = extract_bike_info(page_text, exchange_rates=exchange_rates)
         print(f"[STEP 2] 완료: {info['brand']} / {info['model_name']} / {info.get('model_year')}")
     except AnalysisError as e:
         print(f"[STEP 2] 실패: {e}")
