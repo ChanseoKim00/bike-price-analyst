@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+  <div class="top-bar">
   <a href="/" class="bpa-logo">BPA</a>
   <nav class="auth-nav">
     {% if session.get('user_nickname') %}
@@ -22,6 +23,7 @@
       <a href="/login" class="auth-btn">로그인</a>
     {% endif %}
   </nav>
+  </div>
   {% block content %}{% endblock %}
 </body>
 </html>

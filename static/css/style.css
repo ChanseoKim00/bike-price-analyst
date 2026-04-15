@@ -10,6 +10,16 @@ body {
 
 a { color: inherit; text-decoration: none; }
 
+/* ===== 상단 바 (로고 + 인증 네비) ===== */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  pointer-events: none; /* 자식 요소만 클릭 가능 */
+}
+
 /* ===== BPA 로고 (전체 페이지 공통) ===== */
 .bpa-logo {
   position: fixed;
@@ -22,6 +32,7 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.02em;
   z-index: 201;
   line-height: 1;
+  pointer-events: auto;
 }
 
 /* ===== 메인 화면 ===== */
@@ -850,6 +861,7 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   gap: 0.75rem;
   z-index: 201;
+  pointer-events: auto;
 }
 
 .auth-username {
@@ -1056,12 +1068,27 @@ a { color: inherit; text-decoration: none; }
     flex-shrink: 0;
   }
 
+  .top-bar {
+    background: #0e0e14;
+    padding: 0.6rem 0;
+    padding-bottom: 0.75rem;
+  }
+
+  .bpa-logo {
+    top: 0.7rem;
+    left: 1rem;
+  }
+
   .auth-nav {
     flex-direction: column;
     align-items: flex-end;
     gap: 0.4rem;
-    top: 0.9rem;
+    top: 0.6rem;
     right: 1rem;
+  }
+
+  .result-header {
+    padding-top: 5.5rem;
   }
 
   .auth-username {
