@@ -11,11 +11,13 @@
   <nav class="auth-nav">
     {% if session.get('user_nickname') %}
       <span class="auth-username">{{ session['user_nickname'] }}님</span>
-      {% if session.get('user_role') == 'admin' %}
-        <a href="/admin" class="auth-btn auth-btn--admin">관리자</a>
-      {% endif %}
-      <a href="/history" class="auth-btn">내 히스토리</a>
-      <a href="/logout" class="auth-btn">로그아웃</a>
+      <div class="auth-btns-row">
+        {% if session.get('user_role') == 'admin' %}
+          <a href="/admin" class="auth-btn auth-btn--admin">관리자</a>
+        {% endif %}
+        <a href="/history" class="auth-btn">내 히스토리</a>
+        <a href="/logout" class="auth-btn">로그아웃</a>
+      </div>
     {% else %}
       <a href="/login" class="auth-btn">로그인</a>
     {% endif %}

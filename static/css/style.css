@@ -857,6 +857,10 @@ a { color: inherit; text-decoration: none; }
   color: #a0a0b0;
 }
 
+.auth-btns-row {
+  display: contents;
+}
+
 .auth-btn {
   font-size: 0.82rem;
   padding: 0.38rem 1rem;
@@ -1050,5 +1054,23 @@ a { color: inherit; text-decoration: none; }
     padding: 0.6rem 1rem;
     font-size: 0.85rem;
     flex-shrink: 0;
+  }
+
+  .auth-nav {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
+    top: 0.9rem;
+    right: 1rem;
+  }
+
+  .auth-username {
+    width: 100%;
+    text-align: right;
+  }
+
+  .auth-nav .auth-btns-row {
+    display: flex;
+    gap: 0.5rem;
   }
 }
