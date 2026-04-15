@@ -28,33 +28,53 @@ def get_exchange_rates() -> dict:
     today = date.today().isoformat()
 
     if _cache.get("date") == today:
+        print(f"[EXCHANGE] 캐시 사용: {_cache['rates']}")
         return _cache["rates"]
 
     api_key = os.environ.get("BOK_API_KEY")
     if not api_key:
-        print("[EXCHANGE] BOK_API_KEY 없음 — 폴백 환율 사용")
+        print("[EXCHANGE] BOK_API_KEY 환경변수 없음 — 폴백 환율 사용")
         return FALLBACK_RATES
 
+    print(f"[EXCHANGE] BOK_API_KEY 확인됨 (길이: {len(api_key)}자)")
+
     rates = {}
-    # 당일 고시 전일 수 있으므로 최근 3영업일 역순으로 시도
+    # 당일 고시 전일 수 있으므로 최근 4일 역순으로 시도
     for days_back in range(4):
         target = (date.today() - timedelta(days=days_back)).strftime("%Y%m%d")
-        try:
-            for currency, item_code in _ITEM_CODES.items():
-                if currency in rates:
+        print(f"[EXCHANGE] 조회 시도: {target}")
+
+        for currency, item_code in _ITEM_CODES.items():
+            if currency in rates:
+                continue
+            url = (
+                f"https://ecos.bok.or.kr/api/StatisticSearch"
+                f"/{api_key}/json/kr/1/1/036Y001/D/{target}/{target}/{item_code}"
+            )
+            masked_url = url.replace(api_key, "***")
+            print(f"[EXCHANGE] 요청 URL: {masked_url}")
+            try:
+                resp = requests.get(url, timeout=10)
+                print(f"[EXCHANGE] HTTP 상태: {resp.status_code}")
+                body = resp.json()
+                print(f"[EXCHANGE] 응답 JSON: {body}")
+
+                # ECOS는 오류도 HTTP 200으로 반환하므로 RESULT 키로 판별
+                if "RESULT" in body:
+                    result = body["RESULT"]
+                    print(f"[EXCHANGE] API 오류 응답 — CODE: {result.get('CODE')}, MESSAGE: {result.get('MESSAGE')}")
                     continue
-                url = (
-                    f"https://ecos.bok.or.kr/api/StatisticSearch"
-                    f"/{api_key}/json/kr/1/1/036Y001/D/{target}/{target}/{item_code}"
-                )
-                resp = requests.get(url, timeout=5)
-                resp.raise_for_status()
-                rows = resp.json().get("StatisticSearch", {}).get("row", [])
+
+                rows = body.get("StatisticSearch", {}).get("row", [])
                 if rows:
-                    rates[currency] = round(float(rows[0]["DATA_VALUE"]))
-        except Exception as e:
-            print(f"[EXCHANGE] 환율 조회 실패 ({target}): {e}")
-            continue
+                    value = round(float(rows[0]["DATA_VALUE"]))
+                    rates[currency] = value
+                    print(f"[EXCHANGE] {currency}: {value:,}원 (날짜: {target})")
+                else:
+                    print(f"[EXCHANGE] {currency}: 데이터 없음 (날짜: {target})")
+
+            except Exception as e:
+                print(f"[EXCHANGE] {currency} 요청 예외: {type(e).__name__}: {e}")
 
         if len(rates) == len(_ITEM_CODES):
             break
