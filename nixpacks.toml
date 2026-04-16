@@ -24,8 +24,5 @@ nixPkgs = [
   "xorg.libxcb",
 ]
 
-[phases.install]
-cmds = [
-  "pip install -r requirements.txt",
-  "playwright install chromium",
-]
+[phases.build]
+cmds = ["python -m playwright install --with-deps chromium"]
