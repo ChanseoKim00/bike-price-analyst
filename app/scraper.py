@@ -51,8 +51,8 @@ def fetch_html(url: str) -> str:
     if not resp.ok:
         raise ScrapeError(f"HTTP {resp.status_code}: {url}", code="http_error")
 
-    resp.encoding = resp.apparent_encoding
-    text = _clean_html(resp.text)
+    decoded = _decode_response(resp)
+    text = _clean_html(decoded)
 
     if len(text) >= JS_THRESHOLD:
         print(f"[SCRAPER] requests 성공 ({len(text)}자)")
@@ -102,25 +102,50 @@ def _fetch_with_playwright(url: str) -> str:
         return ""
 
 
+def _decode_response(resp) -> str:
+    """
+    응답 본문을 올바른 인코딩으로 디코딩.
+    apparent_encoding 우선, 실패 시 cp949 → utf-8 순으로 시도.
+    """
+    for enc in [resp.apparent_encoding, "cp949", "utf-8"]:
+        if not enc:
+            continue
+        try:
+            return resp.content.decode(enc, errors="strict")
+        except (UnicodeDecodeError, LookupError):
+            continue
+    # 모두 실패 시 utf-8 errors=ignore로 fallback
+    return resp.content.decode("utf-8", errors="ignore")
+
+
 def _clean_html(raw_html: str) -> str:
     """
     AI 토큰 최소화를 위해 불필요한 태그 제거 후 텍스트만 추출.
     - 제거 태그: 레이아웃/UI 요소(nav, header, footer 등) + 비텍스트 요소(script, style 등)
     - 연속 공백·줄바꿈 압축
+
+    주의: 일부 사이트는 <head>/<link> 태그가 body 안에 중복 등장하고,
+    BeautifulSoup(html.parser)가 그 이후 내용을 해당 태그의 자식으로 파싱한다.
+    → 진짜 <head>(html 직계 자식)만 decompose, 나머지는 unwrap으로 내용 보존.
     """
     soup = BeautifulSoup(raw_html, "html.parser")
+
+    # <body> 기준으로 추출 — 일부 사이트는 html.parser가 전체 내용을 <head> 안으로
+    # 파싱하는 버그가 있어서 soup 전체 대신 body 태그를 기준으로 사용.
+    # body가 없으면 soup 전체 fallback.
+    root = soup.find("body") or soup
 
     REMOVE_TAGS = [
         "script", "style", "noscript", "iframe",  # 비텍스트
         "nav", "header", "footer", "aside",        # 레이아웃
         "form", "button", "input", "select",       # UI 컨트롤
         "svg", "img", "figure", "picture",         # 미디어
-        "head",                                    # HTML 메타 (head 제거로 meta/link 포함)
+        "head",                                    # 잘못된 위치의 head 태그
     ]
-    for tag in soup(REMOVE_TAGS):
+    for tag in root(REMOVE_TAGS):
         tag.decompose()
 
-    text = soup.get_text(separator="\n")
+    text = root.get_text(separator="\n")
 
     # 각 줄 앞뒤 공백 제거 + 빈 줄 제거
     lines = [line.strip() for line in text.splitlines()]
