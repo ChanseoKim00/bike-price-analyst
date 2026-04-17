@@ -127,13 +127,20 @@ def _normalize_part_name(raw: str) -> str:
     - 하이픈(-) → 언더스코어(_)
     - 소문자 통일
     - 앞뒤 공백 제거
+    - 튜블리스 관련 표기 제거 (_tubeless_ready, _tubeless, _tlr, _tl)
     - 연속 언더스코어 → 단일 언더스코어
     """
     if raw is None:
         return None
     import re
     normalized = raw.strip().lower().replace("-", "_")
+    # 튜블리스 관련 표기 제거 (순서 중요: 긴 패턴 먼저)
+    normalized = re.sub(r"_tubeless_ready", "", normalized)
+    normalized = re.sub(r"_tubeless", "", normalized)
+    normalized = re.sub(r"_tlr", "", normalized)
+    normalized = re.sub(r"_tl\b", "", normalized)
     normalized = re.sub(r"_+", "_", normalized)
+    normalized = normalized.strip("_")
     return normalized
 
 

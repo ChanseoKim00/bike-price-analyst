@@ -59,6 +59,7 @@ SYSTEM_PROMPT = """
   - 'DICUT', 'DB' 같은 풀네임 전용 수식어
   - 모델 번호 (R9200, R9250, R8150, R7100 등)
   - 파생 옵션 (파워미터, 크랭크 세트 등)
+  - 튜블리스 관련 표기: 'Tubeless', 'Tubeless Ready', 'TL', 'TLR' 등 (타이어 호환 표기일 뿐, 부품 모델 식별에 불필요)
 
   구동계 예시:
     "Shimano Dura-Ace Di2 R9250" → "shimano_dura_ace_di2"
@@ -69,6 +70,7 @@ SYSTEM_PROMPT = """
     "CADEX Max 50 WheelSystem" → "cadex_max_50"
     "DT Swiss ARC 1100 DICUT DB 55" → "dt_swiss_arc_1100_55"
     "DT Swiss ARC 1400 DICUT DB 62" → "dt_swiss_arc_1400_62"
+    "Roval Rapide CLX II Tubeless" → "roval_rapide_clx_ii"
 
   안장 예시:
     "Selle Italia Novus Boost EVO Superflow Manganese rail" → "selle_italia_novus_boost_evo_superflow_manganese"
