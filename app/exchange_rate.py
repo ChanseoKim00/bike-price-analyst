@@ -7,9 +7,10 @@ import requests
 _cache: dict = {}
 
 # API 조회 실패 시 사용하는 폴백 환율
-FALLBACK_RATES = {"USD": 1380, "EUR": 1510}
+FALLBACK_RATES = {"USD": 1470, "EUR": 1740}
 
-# 한국은행 ECOS API — 주요국통화의대원화환율 (STAT_CODE: 036Y001)
+# 한국은행 ECOS API — 주요국통화의대원화환율 (STAT_CODE: 731Y001)
+_STAT_CODE = "731Y001"
 _ITEM_CODES = {
     "USD": "0000001",
     "EUR": "0000003",
@@ -50,7 +51,7 @@ def get_exchange_rates() -> dict:
                 continue
             url = (
                 f"https://ecos.bok.or.kr/api/StatisticSearch"
-                f"/{api_key}/json/kr/1/1/036Y001/D/{target}/{target}/{item_code}"
+                f"/{api_key}/json/kr/1/1/{_STAT_CODE}/D/{target}/{target}/{item_code}"
             )
             masked_url = url.replace(api_key, "***")
             print(f"[EXCHANGE] 요청 URL: {masked_url}")
