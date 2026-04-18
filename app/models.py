@@ -13,6 +13,7 @@ class User(db.Model):
     email              = db.Column(db.Text, nullable=False, unique=True)
     password_hash      = db.Column(db.Text, nullable=False)
     role               = db.Column(db.Text, nullable=False, default="user")
+    plan               = db.Column(db.Text, nullable=False, default="free")
     created_at         = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     last_login_at      = db.Column(db.DateTime)
     name               = db.Column(db.Text, nullable=False)
@@ -22,6 +23,7 @@ class User(db.Model):
 
     __table_args__ = (
         db.CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),
+        db.CheckConstraint("plan IN ('free', 'continental', 'pro', 'world_tour')", name="ck_users_plan"),
     )
 
     def __repr__(self):
@@ -163,3 +165,23 @@ class PriceSuggestion(db.Model):
 
     def __repr__(self):
         return f"<PriceSuggestion analysis={self.analysis_id} status={self.status}>"
+
+
+class AnalysisLog(db.Model):
+    __tablename__ = "analysis_logs"
+
+    id          = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ip_address  = db.Column(db.Text, nullable=False)
+    user_id     = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
+    is_detailed = db.Column(db.Boolean, nullable=False)
+    analyzed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", backref="analysis_logs")
+
+    __table_args__ = (
+        db.Index("idx_analysis_logs_ip_analyzed_at", "ip_address", "analyzed_at"),
+        db.Index("idx_analysis_logs_user_id_analyzed_at", "user_id", "analyzed_at"),
+    )
+
+    def __repr__(self):
+        return f"<AnalysisLog ip={self.ip_address} detailed={self.is_detailed} at={self.analyzed_at}>"

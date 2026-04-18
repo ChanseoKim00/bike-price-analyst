@@ -110,3 +110,23 @@ CREATE TABLE IF NOT EXISTS price_suggestions (
 
 CREATE INDEX IF NOT EXISTS idx_price_suggestions_analysis_id ON price_suggestions (analysis_id);
 CREATE INDEX IF NOT EXISTS idx_price_suggestions_status      ON price_suggestions (status);
+
+-- ============================================================
+-- Table 7: analysis_logs (분석 횟수 추적)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS analysis_logs (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    ip_address  TEXT        NOT NULL,
+    user_id     UUID        REFERENCES users(id),
+    is_detailed BOOLEAN     NOT NULL,
+    analyzed_at TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_analysis_logs_ip_analyzed_at   ON analysis_logs (ip_address, analyzed_at);
+CREATE INDEX IF NOT EXISTS idx_analysis_logs_user_id_analyzed_at ON analysis_logs (user_id, analyzed_at);
+
+-- ============================================================
+-- users.plan 컬럼 추가 (이미 배포된 DB에 적용 시 실행)
+-- ============================================================
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'
+--     CHECK (plan IN ('free', 'continental', 'pro', 'world_tour'));

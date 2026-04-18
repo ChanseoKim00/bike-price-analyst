@@ -222,10 +222,11 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
     now = datetime.utcnow()
 
     if part:
-        # stale → 업데이트
-        part.price_krw = result["price_krw"]
-        part.official_url = result["official_url"]
-        part.last_verified_at = now if result["price_krw"] else part.last_verified_at
+        # stale → 재검색 성공 시에만 가격 업데이트, 실패 시 기존 가격 유지
+        if result["price_krw"]:
+            part.price_krw = result["price_krw"]
+            part.official_url = result["official_url"]
+            part.last_verified_at = now
         part.last_checked_at = now
     else:
         # 신규 저장

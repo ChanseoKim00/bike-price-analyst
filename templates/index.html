@@ -28,11 +28,24 @@
 </div>
 
 {% else %}
-<!-- 결과 화면 (가짜 데이터) -->
+<!-- 결과 화면 -->
 <div class="result-wrap">
 
   <header class="result-header"></header>
 
+  {% if detail_limit %}
+  <!-- 상세 분석 횟수 초과 -->
+  <div class="detail-limit-banner">
+    <p class="detail-limit-msg">상세 분석 횟수(5시간에 {{ 10 }}회)를 모두 사용했습니다.</p>
+    <p class="detail-limit-sub">5시간 후 다시 이용하거나, 플랜을 업그레이드하세요.</p>
+  </div>
+  <div class="result-body">
+    <h2 class="bike-name">{{ bike.brand|title }} {{ bike.model_name }} {% if bike.model_year %}({{ bike.model_year }}){% endif %}</h2>
+    <p class="muted" style="text-align:center; margin-top: 1.2rem;">이번 분석에서는 부품 가격 비교를 제공하지 않습니다.</p>
+    <a href="/" class="another-btn">다른 자전거 분석하기</a>
+  </div>
+
+  {% else %}
   <div class="saving-hero">
     <p class="saving-label">지금 구매하면</p>
     <p class="saving-amount">{{ "{:,}".format(analysis.saving_krw) }}원 절약</p>
@@ -106,6 +119,7 @@
 
     <a href="/" class="another-btn">다른 자전거 분석하기</a>
   </div>
+  {% endif %}
 
 </div>
 {% endif %}
