@@ -5,7 +5,7 @@ import traceback
 from datetime import datetime, date, timedelta
 from types import SimpleNamespace
 from urllib.parse import urlparse
-from flask import Blueprint, render_template, request, session, redirect, url_for
+from flask import Blueprint, render_template, request, session, redirect, url_for, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,19 @@ def _check_rate_limit(ip: str):
                 AnalysisLog.is_detailed == True,
                 AnalysisLog.analyzed_at >= window_start,
             ).count()
-            return False, count >= _CONTINENTAL_LIMIT, 0
+            if count >= _CONTINENTAL_LIMIT:
+                oldest = AnalysisLog.query.filter(
+                    AnalysisLog.user_id == user_id,
+                    AnalysisLog.is_detailed == True,
+                    AnalysisLog.analyzed_at >= window_start,
+                ).order_by(AnalysisLog.analyzed_at.asc()).first()
+                if oldest:
+                    reset_at = oldest.analyzed_at + timedelta(hours=_WINDOW_HOURS)
+                    reset_minutes = max(1, int((reset_at - datetime.utcnow()).total_seconds() / 60) + 1)
+                else:
+                    reset_minutes = _WINDOW_HOURS * 60
+                return False, True, reset_minutes
+            return False, False, 0
 
         # free 로그인 유저: IP 기준으로 게스트와 동일 처리
 
@@ -487,13 +499,7 @@ def analyze():
     blocked, detail_limited, reset_minutes = _check_rate_limit(ip)
 
     if blocked:
-        return _err(
-            "분석 횟수를 초과했습니다.",
-            f"무료 이용은 5시간에 {_GUEST_LIMIT}회까지 가능합니다. {reset_minutes}분 후 다시 이용할 수 있습니다.",
-            url=url,
-            search_limit=True,
-            reset_minutes=reset_minutes,
-        )
+        return redirect(url_for("main.index", limit="true", reset_minutes=reset_minutes))
 
     print(f"[ANALYZE] 요청 URL: {url} | ip={ip} | detail_limited={detail_limited}")
 
@@ -530,30 +536,6 @@ def analyze():
             "현재 서비스가 혼잡합니다.",
             "1~2분 후 다시 시도해주세요.",
             url=url,
-        )
-
-    # detail_limited: AI 추출까지만 수행, 부품 가격 비교 생략
-    if detail_limited:
-        print("[ANALYZE] detail_limited — 부품 조회 생략")
-        log = AnalysisLog(
-            ip_address=ip,
-            user_id=session.get("user_id"),
-            is_detailed=False,
-        )
-        db.session.add(log)
-        db.session.commit()
-        limited_bike = SimpleNamespace(
-            brand=info["brand"],
-            model_name=info["model_name"],
-            model_year=info.get("model_year"),
-        )
-        return render_template(
-            "index.html",
-            bike=limited_bike,
-            parts={},
-            analysis=None,
-            bike_price=info.get("price_krw") or 0,
-            detail_limit=True,
         )
 
     try:
@@ -657,7 +639,7 @@ def analyze():
         log = AnalysisLog(
             ip_address=ip,
             user_id=session.get("user_id"),
-            is_detailed=True,
+            is_detailed=not detail_limited,
         )
         db.session.add(log)
         db.session.commit()
@@ -672,10 +654,23 @@ def analyze():
             url=url,
         )
 
+    # 플랜별 blur 모드 결정
+    if not session.get("user_id"):
+        blur_mode = "guest"
+        blur_reset_minutes = 0
+    elif detail_limited:
+        blur_mode = "continental"
+        blur_reset_minutes = reset_minutes
+    else:
+        blur_mode = None
+        blur_reset_minutes = 0
+
     return render_template(
         "index.html",
         bike=bike,
         parts=parts,
         analysis=analysis,
         bike_price=bike_price,
+        blur_mode=blur_mode,
+        blur_reset_minutes=blur_reset_minutes,
     )

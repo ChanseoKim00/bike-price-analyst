@@ -8,14 +8,9 @@
 <div class="main-wrap">
   <div class="main-inner">
     <h1 class="title">Bike Price Analyst</h1>
-    {% if search_limit %}
-    <p class="error-msg">⏳ {{ message }}</p>
-    <p class="error-hint">{{ hint }}</p>
-    {% else %}
     <p class="error-msg">{{ message or "자전거 정보 조회에 실패하였습니다." }}</p>
     {% if hint %}
     <p class="error-hint">{{ hint }}</p>
-    {% endif %}
     {% endif %}
     <form class="input-form" action="/analyze" method="POST">
       <div class="input-row">

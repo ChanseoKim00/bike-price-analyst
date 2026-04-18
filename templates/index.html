@@ -11,6 +11,18 @@
   <div class="main-inner">
     <img src="{{ url_for('static', filename='hero.png') }}" alt="" class="hero-img">
     <h1 class="title">Bike Price Analyst</h1>
+    {% set limit_param = request.args.get('limit') %}
+    {% set reset_min = request.args.get('reset_minutes', 0) | int %}
+    {% if limit_param == 'true' %}
+    <p class="limit-notice">
+      {%- set hours = reset_min // 60 -%}
+      {%- set mins  = reset_min % 60 -%}
+      <a href="/login" class="limit-login-link">로그인</a>하고 가격 분석을 무제한으로 이용해보세요.
+      <span class="limit-reset">(비로그인 분석 리셋까지
+        {%- if hours %} {{ hours }}시간{% endif %}
+        {%- if mins %} {{ mins }}분{% endif %})</span>
+    </p>
+    {% endif %}
     <form class="input-form" action="/analyze" method="POST">
       <div class="input-row">
         <input
@@ -33,19 +45,6 @@
 
   <header class="result-header"></header>
 
-  {% if detail_limit %}
-  <!-- 상세 분석 횟수 초과 -->
-  <div class="detail-limit-banner">
-    <p class="detail-limit-msg">상세 분석 횟수(5시간에 {{ 10 }}회)를 모두 사용했습니다.</p>
-    <p class="detail-limit-sub">5시간 후 다시 이용하거나, 플랜을 업그레이드하세요.</p>
-  </div>
-  <div class="result-body">
-    <h2 class="bike-name">{{ bike.brand|title }} {{ bike.model_name }} {% if bike.model_year %}({{ bike.model_year }}){% endif %}</h2>
-    <p class="muted" style="text-align:center; margin-top: 1.2rem;">이번 분석에서는 부품 가격 비교를 제공하지 않습니다.</p>
-    <a href="/" class="another-btn">다른 자전거 분석하기</a>
-  </div>
-
-  {% else %}
   <div class="saving-hero">
     <p class="saving-label">지금 구매하면</p>
     <p class="saving-amount">{{ "{:,}".format(analysis.saving_krw) }}원 절약</p>
@@ -55,45 +54,70 @@
   <div class="result-body">
     <h2 class="bike-name">{{ bike.brand|title }} {{ bike.model_name }} {% if bike.model_year %}({{ bike.model_year }}){% endif %}</h2>
 
-    <table class="parts-table">
-      <thead>
-        <tr>
-          <th>구분</th>
-          <th>부품명</th>
-          <th>개별 구매가</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% set part_labels = {
-          'groupset': '구동계',
-          'wheelset': '휠셋',
-          'frameset': '프레임셋',
-          'saddle': '안장',
-          'handlebar': '핸들바'
-        } %}
-        {% for key, part in parts.items() %}
-          {% if part and part.price_krw %}
+    {% set part_labels = {
+      'groupset': '구동계',
+      'wheelset': '휠셋',
+      'frameset': '프레임셋',
+      'saddle': '안장',
+      'handlebar': '핸들바'
+    } %}
+
+    <!-- 부품 테이블: tbody만, tfoot은 별도 분리 -->
+    <div class="parts-table-wrap">
+      {% if blur_mode %}
+      <div class="price-overlay" id="priceOverlay">
+        {% if blur_mode == 'guest' %}
+          <p class="price-overlay-msg">로그인하고 제품에 대한<br>상세한 가격정보를 받아보세요.</p>
+          <a href="/login" class="price-overlay-btn">로그인</a>
+        {% else %}
+          {%- set ph = blur_reset_minutes // 60 -%}
+          {%- set pm = blur_reset_minutes % 60 -%}
+          <p class="price-overlay-msg">Pro 플랜을 결제하고<br>무제한 상세 분석을 이용해보세요.</p>
+          <p class="price-overlay-sub">상세 분석 리셋까지
+            {%- if ph %} {{ ph }}시간{% endif %}
+            {%- if pm %} {{ pm }}분{% endif %}</p>
+        {% endif %}
+      </div>
+      {% endif %}
+      <table class="parts-table">
+        <thead>
           <tr>
-            <td class="part-type">{{ part_labels.get(key, key) }}</td>
-            <td class="part-name">{{ part.part_name }}</td>
-            <td class="part-price">{{ "{:,}".format(part.price_krw) }}원</td>
+            <th>구분</th>
+            <th>부품명</th>
+            <th>개별 구매가</th>
           </tr>
-          {% elif part %}
-          <tr class="missing-row">
-            <td class="part-type">{{ part_labels.get(key, key) }}</td>
-            <td class="part-name">{{ part.part_name }}</td>
-            <td class="part-price muted">가격 미확인</td>
-          </tr>
-          {% else %}
-          <tr class="missing-row">
-            <td class="part-type">{{ part_labels.get(key, key) }}</td>
-            <td class="part-name muted">미확인</td>
-            <td class="part-price muted">가격 미확인</td>
-          </tr>
-          {% endif %}
-        {% endfor %}
-      </tbody>
-      <tfoot>
+        </thead>
+        <tbody id="partsTableBody">
+          {% for key, part in parts.items() %}
+            {% if part and part.price_krw %}
+            <tr>
+              <td class="part-type">{{ part_labels.get(key, key) }}</td>
+              <td class="part-name">{{ part.part_name }}</td>
+              <td class="part-price">
+                <span class="{% if blur_mode %}price-blurred{% endif %}">{{ "{:,}".format(part.price_krw) }}원</span>
+              </td>
+            </tr>
+            {% elif part %}
+            <tr class="missing-row">
+              <td class="part-type">{{ part_labels.get(key, key) }}</td>
+              <td class="part-name">{{ part.part_name }}</td>
+              <td class="part-price muted">가격 미확인</td>
+            </tr>
+            {% else %}
+            <tr class="missing-row">
+              <td class="part-type">{{ part_labels.get(key, key) }}</td>
+              <td class="part-name muted">미확인</td>
+              <td class="part-price muted">가격 미확인</td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 합산 정보: 항상 정상 표시 -->
+    <table class="parts-table parts-summary">
+      <tbody>
         <tr class="sum-row">
           <td colspan="2">부품 합산 가격</td>
           <td>{{ "{:,}".format(analysis.parts_sum_krw) }}원</td>
@@ -114,12 +138,11 @@
           </td>
           <td><a href="/suggest?analysis_id={{ analysis.id }}" class="suggest-btn">가격 수정 제안</a></td>
         </tr>
-      </tfoot>
+      </tbody>
     </table>
 
     <a href="/" class="another-btn">다른 자전거 분석하기</a>
   </div>
-  {% endif %}
 
 </div>
 {% endif %}
@@ -139,6 +162,20 @@
     window.onbeforeunload = null;
     window.location.href = '/';
   });
+
+  // 가격 overlay를 tbody 영역에만 맞게 위치 조정
+  (function() {
+    var overlay = document.getElementById('priceOverlay');
+    if (!overlay) return;
+    var tbody = document.getElementById('partsTableBody');
+    if (!tbody) return;
+    var wrap = overlay.parentElement;
+    var wrapRect = wrap.getBoundingClientRect();
+    var tbodyRect = tbody.getBoundingClientRect();
+    overlay.style.top = (tbodyRect.top - wrapRect.top) + 'px';
+    overlay.style.height = tbodyRect.height + 'px';
+    overlay.style.bottom = 'auto';
+  })();
 </script>
 
 {% endblock %}

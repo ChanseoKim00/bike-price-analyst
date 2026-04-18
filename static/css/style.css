@@ -51,6 +51,30 @@ a { color: inherit; text-decoration: none; }
   text-transform: uppercase;
 }
 
+.limit-notice {
+  font-size: 0.88rem;
+  color: #a0a0b0;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.limit-login-link {
+  color: #B3CDFF;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.limit-login-link:hover {
+  color: #d0e4ff;
+}
+
+.limit-reset {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  color: #6b6b7e;
+}
+
 .input-form { width: 100%; }
 
 .input-row {
@@ -206,6 +230,78 @@ a { color: inherit; text-decoration: none; }
   text-align: center;
 }
 
+/* ===== 부품 테이블 래퍼 & 가격 블러 ===== */
+.parts-table-wrap {
+  position: relative;
+}
+
+.price-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* top / height는 JS로 tbody에 맞게 설정 */
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  background: rgba(36, 36, 44, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  border-radius: 8px;
+  text-align: center;
+  padding: 1.2rem 1.5rem;
+}
+
+.price-overlay-msg {
+  font-size: 0.9rem;
+  color: #e0e0e8;
+  line-height: 1.55;
+  font-weight: 400;
+}
+
+.price-overlay-sub {
+  font-size: 0.78rem;
+  color: #7a7a8e;
+  margin-top: -0.2rem;
+}
+
+.price-overlay-btn {
+  display: inline-block;
+  margin-top: 0.2rem;
+  padding: 0.42rem 1.3rem;
+  border: 1px solid #B3CDFF;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #B3CDFF;
+  transition: background 0.15s, color 0.15s;
+}
+
+.price-overlay-btn:hover {
+  background: #B3CDFF;
+  color: #1e1e28;
+}
+
+.price-blurred {
+  filter: blur(6px);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* 합산 영역 (별도 테이블, 항상 표시) */
+.parts-summary {
+  margin-top: 0;
+  border-top: 1px solid #4a4a58;
+}
+
+.parts-summary tbody tr:first-child td {
+  padding-top: 1rem;
+  border-top: none;
+}
+
 /* ===== 부품 테이블 ===== */
 .parts-table {
   width: 100%;
@@ -251,7 +347,8 @@ a { color: inherit; text-decoration: none; }
 
 .missing-row td { opacity: 0.5; }
 
-.parts-table tfoot tr td {
+.parts-table tfoot tr td,
+.parts-summary tbody tr:first-child td {
   border-top: 1px solid #4a4a58;
   border-bottom: none;
   padding-top: 1rem;
