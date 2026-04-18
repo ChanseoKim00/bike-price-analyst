@@ -44,7 +44,7 @@ SYSTEM_PROMPT = """
 
 부품 필드 (각각 part_name + part_name_normalized):
 - part_name: 페이지에 적힌 원본 표기
-- part_name_normalized: 영문 소문자 + 언더스코어. 아래 규칙을 엄격히 적용할 것.
+- part_name_normalized: 반드시 영문 소문자 + 언더스코어(_)만 사용. 띄어쓰기·하이픈(-·대문자 절대 포함 금지. 출력 전 공백이 없는지 자체 검증 후 출력할 것.
 
   [포함할 것]
   - 브랜드명
@@ -65,6 +65,10 @@ SYSTEM_PROMPT = """
     "Shimano Dura-Ace Di2 R9250" → "shimano_dura_ace_di2"
     "SRAM Red eTap AXS" → "sram_red_etap_axs"
     주의: R9200과 R9250은 모두 "shimano_dura_ace_di2"로 정규화.
+    주의: 자전거 브랜드명·모델명·에디션명이 섞여 있으면 구동계 브랜드와 라인업만 추출.
+    "RCR Pro Dura-Ace Di2 Team Edition" → "shimano_dura_ace_di2"
+    "Canyon Ultimate CFR Dura-Ace Di2" → "shimano_dura_ace_di2"
+    "Specialized Tarmac SL8 Red AXS"   → "sram_red_etap_axs"
 
   휠셋 예시:
     "CADEX Max 50 WheelSystem" → "cadex_max_50"

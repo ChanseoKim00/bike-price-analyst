@@ -133,7 +133,7 @@ def _normalize_part_name(raw: str) -> str:
     if raw is None:
         return None
     import re
-    normalized = raw.strip().lower().replace("-", "_")
+    normalized = raw.strip().lower().replace("-", "_").replace(" ", "_")
     # 튜블리스 관련 표기 제거 (순서 중요: 긴 패턴 먼저)
     normalized = re.sub(r"_tubeless_ready", "", normalized)
     normalized = re.sub(r"_tubeless", "", normalized)
