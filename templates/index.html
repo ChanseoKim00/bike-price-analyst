@@ -141,10 +141,43 @@
       </tbody>
     </table>
 
+    {% if price_history is not none %}
+    <section class="price-history-section">
+      <h3 class="price-history-title">가격 변동 추이 <span class="price-history-sub">· 최근 3년</span></h3>
+
+      {% set chart_specs = [
+        ('bike',     '완성차'),
+        ('frameset', '프레임셋'),
+        ('groupset', '구동계'),
+        ('wheelset', '휠셋')
+      ] %}
+
+      <div class="price-history-grid">
+        {% for key, label in chart_specs %}
+        <div class="price-chart-card">
+          <div class="price-chart-header">{{ label }}</div>
+          <div class="price-chart-body">
+            <canvas id="chart-{{ key }}"></canvas>
+            {% if not price_history[key] %}
+            <p class="price-chart-empty">가격 정보가 없습니다.</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
     <a href="/" class="another-btn">다른 자전거 분석하기</a>
   </div>
 
 </div>
+{% endif %}
+
+{% if price_history is not none %}
+<script id="price-history-data" type="application/json">{{ price_history | tojson }}</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 {% endif %}
 
 <script>
@@ -175,6 +208,95 @@
     overlay.style.top = (tbodyRect.top - wrapRect.top) + 'px';
     overlay.style.height = tbodyRect.height + 'px';
     overlay.style.bottom = 'auto';
+  })();
+
+  // world_tour 플랜 — 가격 변동 그래프 렌더링
+  (function() {
+    var dataNode = document.getElementById('price-history-data');
+    if (!dataNode || typeof Chart === 'undefined') return;
+    var history = JSON.parse(dataNode.textContent);
+
+    var colors = {
+      line: '#B3CDFF',
+      fill: 'rgba(179, 205, 255, 0.12)',
+      grid: 'rgba(255, 255, 255, 0.05)',
+      axis: '#6b6b7e',
+      tick: '#8a8aa0',
+    };
+
+    function krwShort(v) {
+      if (!v) return '0';
+      if (v >= 10000000) return (v / 10000000).toFixed(1).replace(/\.0$/, '') + '천만';
+      if (v >= 10000)    return (v / 10000).toFixed(0) + '만';
+      return v.toLocaleString();
+    }
+
+    function renderChart(canvasId, points) {
+      var canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      new Chart(canvas, {
+        type: 'line',
+        data: {
+          datasets: [{
+            data: points,
+            borderColor: colors.line,
+            backgroundColor: colors.fill,
+            borderWidth: 2,
+            tension: 0.25,
+            pointRadius: points.length <= 12 ? 3 : 0,
+            pointHoverRadius: 4,
+            pointBackgroundColor: colors.line,
+            fill: true,
+            spanGaps: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#2a2a34',
+              borderColor: '#4a4a58',
+              borderWidth: 1,
+              titleColor: '#B3CDFF',
+              bodyColor: '#e0e0e8',
+              displayColors: false,
+              callbacks: {
+                title: function(items) {
+                  var d = new Date(items[0].parsed.x);
+                  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                },
+                label: function(item) {
+                  return item.parsed.y.toLocaleString() + '원';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: { unit: 'month', tooltipFormat: 'yyyy-MM-dd' },
+              grid: { color: colors.grid, drawBorder: false },
+              ticks: { color: colors.tick, maxRotation: 0, autoSkipPadding: 12, font: { size: 10 } },
+            },
+            y: {
+              grid: { color: colors.grid, drawBorder: false },
+              ticks: {
+                color: colors.tick,
+                font: { size: 10 },
+                callback: function(v) { return krwShort(v); }
+              },
+              beginAtZero: false,
+            }
+          }
+        }
+      });
+    }
+
+    ['bike', 'frameset', 'groupset', 'wheelset'].forEach(function(key) {
+      renderChart('chart-' + key, history[key] || []);
+    });
   })();
 </script>
 

@@ -10,13 +10,82 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog
+from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory
 from .scraper import fetch_html, ScrapeError
 from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
 from .exchange_rate import get_exchange_rates
 from .price_calculator import get_or_fetch_part, calculate_parts_sum
 
 bp = Blueprint("main", __name__)
+
+
+def record_bike_price_history(bike: Bike, new_price: int | None, recorded_at: datetime | None = None) -> bool:
+    """
+    완성차 가격이 신규 저장되거나 변경될 때 bike_price_history에 row 추가.
+    동일 가격이면 저장하지 않음. None 가격은 기록 대상 아님.
+    세션 flush/commit은 호출자가 책임진다.
+    """
+    if new_price is None:
+        return False
+
+    last = (
+        BikePriceHistory.query
+        .filter_by(bike_id=bike.id)
+        .order_by(BikePriceHistory.recorded_at.desc())
+        .first()
+    )
+    if last and last.price_krw == new_price:
+        return False
+
+    db.session.add(BikePriceHistory(
+        bike_id=bike.id,
+        price_krw=new_price,
+        recorded_at=recorded_at or datetime.utcnow(),
+    ))
+    return True
+
+
+_HISTORY_WEEKS = 150
+
+
+def _serialize_history(rows) -> list[dict]:
+    return [{"x": r.recorded_at.isoformat(), "y": r.price_krw} for r in rows]
+
+
+def build_price_history(bike: Bike, parts: dict) -> dict:
+    """
+    world_tour 플랜 전용 — 최근 150주 가격 이력 조회.
+    bike / frameset / groupset / wheelset 순서로 반환.
+    데이터가 없는 부품은 빈 리스트.
+    """
+    cutoff = datetime.utcnow() - timedelta(weeks=_HISTORY_WEEKS)
+
+    bike_rows = (
+        BikePriceHistory.query
+        .filter(BikePriceHistory.bike_id == bike.id,
+                BikePriceHistory.recorded_at >= cutoff)
+        .order_by(BikePriceHistory.recorded_at.asc())
+        .all()
+    )
+
+    def _part_history(part):
+        if part is None:
+            return []
+        rows = (
+            PartPriceHistory.query
+            .filter(PartPriceHistory.part_id == part.id,
+                    PartPriceHistory.recorded_at >= cutoff)
+            .order_by(PartPriceHistory.recorded_at.asc())
+            .all()
+        )
+        return _serialize_history(rows)
+
+    return {
+        "bike":     _serialize_history(bike_rows),
+        "frameset": _part_history(parts.get("frameset")),
+        "groupset": _part_history(parts.get("groupset")),
+        "wheelset": _part_history(parts.get("wheelset")),
+    }
 
 # AI가 추출하는 부품 키 목록
 PART_KEYS = ["groupset", "wheelset", "frameset", "saddle", "handlebar"]
@@ -548,6 +617,7 @@ def analyze():
         ).first()
 
         is_new_bike = bike is None
+        bike_price_changed = False
         if is_new_bike:
             print(f"[CACHE MISS] bikes — 신규 생성: {info['brand']} {info['model_name']} {info.get('model_year')}")
         else:
@@ -565,6 +635,12 @@ def analyze():
                 frame_material_source=info.get("frame_material_source", "unknown"),
                 brake_type=info.get("brake_type", "unknown"),
             )
+        else:
+            # 기존 bike — 신규 스크랩가가 있고 기존 가격과 다르면 업데이트
+            new_price = info.get("price_krw")
+            if new_price and bike.price_krw != new_price:
+                bike.price_krw = new_price
+                bike_price_changed = True
 
         # STEP 4: 부품 조회 (세션에 bike 추가 전에 실행 — autoflush 방지)
         parts = {}
@@ -604,6 +680,12 @@ def analyze():
         if is_new_bike:
             db.session.add(bike)
         db.session.flush()  # bike.id 확정 (groupset_id 세팅 완료 후라 안전)
+
+        # bike 가격 이력 저장 (신규 저장 또는 변경 시)
+        if is_new_bike and bike.price_krw:
+            record_bike_price_history(bike, bike.price_krw)
+        elif bike_price_changed:
+            record_bike_price_history(bike, bike.price_krw)
 
         # STEP 5: 가격 계산
         part_list = [p for p in parts.values() if p is not None]
@@ -666,6 +748,14 @@ def analyze():
         blur_mode = None
         blur_reset_minutes = 0
 
+    # world_tour 플랜만 가격 이력 그래프 데이터 전달
+    price_history = None
+    user_id = session.get("user_id")
+    if user_id:
+        user = db.session.get(User, user_id)
+        if user and user.plan == "world_tour":
+            price_history = build_price_history(bike, parts)
+
     return render_template(
         "index.html",
         bike=bike,
@@ -674,4 +764,5 @@ def analyze():
         bike_price=bike_price,
         blur_mode=blur_mode,
         blur_reset_minutes=blur_reset_minutes,
+        price_history=price_history,
     )

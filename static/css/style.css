@@ -437,6 +437,83 @@ a { color: inherit; text-decoration: none; }
   color: #B3CDFF;
 }
 
+/* ===== 가격 변동 그래프 (world_tour 플랜) ===== */
+.price-history-section {
+  margin-top: 1.5rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid #3a3a46;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.price-history-title {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #B3CDFF;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.price-history-sub {
+  color: #6b6b7e;
+  font-weight: 400;
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 0.3rem;
+}
+
+.price-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.price-chart-card {
+  background: #3a3a46;
+  border: 1px solid #4a4a58;
+  border-radius: 10px;
+  padding: 0.9rem 1rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.price-chart-header {
+  font-size: 0.78rem;
+  color: #a0a0b0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.price-chart-body {
+  position: relative;
+  height: 170px;
+}
+
+.price-chart-body canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.price-chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  color: #6b6b7e;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .price-history-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* 메인 히어로 이미지 */
 .hero-img {
   width: 480px;

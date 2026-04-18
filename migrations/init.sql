@@ -126,6 +126,32 @@ CREATE INDEX IF NOT EXISTS idx_analysis_logs_ip_analyzed_at   ON analysis_logs (
 CREATE INDEX IF NOT EXISTS idx_analysis_logs_user_id_analyzed_at ON analysis_logs (user_id, analyzed_at);
 
 -- ============================================================
+-- Table 8: part_price_history (부품 가격 이력)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS part_price_history (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    part_id     UUID        NOT NULL REFERENCES parts(id),
+    price_krw   INTEGER     NOT NULL,
+    recorded_at TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_part_price_history_part_id_recorded_at
+    ON part_price_history (part_id, recorded_at);
+
+-- ============================================================
+-- Table 9: bike_price_history (완성차 가격 이력)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bike_price_history (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    bike_id     UUID        NOT NULL REFERENCES bikes(id),
+    price_krw   INTEGER     NOT NULL,
+    recorded_at TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bike_price_history_bike_id_recorded_at
+    ON bike_price_history (bike_id, recorded_at);
+
+-- ============================================================
 -- users.plan 컬럼 추가 (이미 배포된 DB에 적용 시 실행)
 -- ============================================================
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'

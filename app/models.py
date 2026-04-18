@@ -167,6 +167,42 @@ class PriceSuggestion(db.Model):
         return f"<PriceSuggestion analysis={self.analysis_id} status={self.status}>"
 
 
+class PartPriceHistory(db.Model):
+    __tablename__ = "part_price_history"
+
+    id          = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    part_id     = db.Column(UUID(as_uuid=True), db.ForeignKey("parts.id"), nullable=False)
+    price_krw   = db.Column(db.Integer, nullable=False)
+    recorded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    part = db.relationship("Part", backref="price_history")
+
+    __table_args__ = (
+        db.Index("idx_part_price_history_part_id_recorded_at", "part_id", "recorded_at"),
+    )
+
+    def __repr__(self):
+        return f"<PartPriceHistory part={self.part_id} price={self.price_krw} at={self.recorded_at}>"
+
+
+class BikePriceHistory(db.Model):
+    __tablename__ = "bike_price_history"
+
+    id          = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    bike_id     = db.Column(UUID(as_uuid=True), db.ForeignKey("bikes.id"), nullable=False)
+    price_krw   = db.Column(db.Integer, nullable=False)
+    recorded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    bike = db.relationship("Bike", backref="price_history")
+
+    __table_args__ = (
+        db.Index("idx_bike_price_history_bike_id_recorded_at", "bike_id", "recorded_at"),
+    )
+
+    def __repr__(self):
+        return f"<BikePriceHistory bike={self.bike_id} price={self.price_krw} at={self.recorded_at}>"
+
+
 class AnalysisLog(db.Model):
     __tablename__ = "analysis_logs"
 

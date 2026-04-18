@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import anthropic
 
-from .models import db, Part
+from .models import db, Part, PartPriceHistory
 
 _client = None
 
@@ -121,6 +121,35 @@ SKIP_AI_SEARCH_TYPES = {"frameset"}
 RETRY_ON_NULL_TYPES = {"groupset", "wheelset"}
 
 
+def record_part_price_history(part: Part, new_price: int | None, recorded_at: datetime | None = None) -> bool:
+    """
+    부품 가격이 신규 저장되거나 변경될 때 part_price_history에 row 추가.
+    동일 가격이면 저장하지 않음. None 가격은 기록 대상 아님.
+    세션 flush/commit은 호출자가 책임진다.
+
+    Returns:
+        bool: 실제로 history row를 append 했으면 True
+    """
+    if new_price is None:
+        return False
+
+    last = (
+        PartPriceHistory.query
+        .filter_by(part_id=part.id)
+        .order_by(PartPriceHistory.recorded_at.desc())
+        .first()
+    )
+    if last and last.price_krw == new_price:
+        return False
+
+    db.session.add(PartPriceHistory(
+        part_id=part.id,
+        price_krw=new_price,
+        recorded_at=recorded_at or datetime.utcnow(),
+    ))
+    return True
+
+
 def _normalize_part_name(raw: str) -> str:
     """
     AI가 생성한 part_name_normalized를 강제 정규화.
@@ -224,9 +253,13 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
     if part:
         # stale → 재검색 성공 시에만 가격 업데이트, 실패 시 기존 가격 유지
         if result["price_krw"]:
+            price_changed = part.price_krw != result["price_krw"]
             part.price_krw = result["price_krw"]
             part.official_url = result["official_url"]
             part.last_verified_at = now
+            if price_changed:
+                db.session.flush()  # part.id 확정
+                record_part_price_history(part, result["price_krw"], recorded_at=now)
         part.last_checked_at = now
     else:
         # 신규 저장
@@ -241,6 +274,9 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
             ttl_days=TTL_DAYS.get(part_type, 90),
         )
         db.session.add(part)
+        if result["price_krw"]:
+            db.session.flush()  # part.id 확정
+            record_part_price_history(part, result["price_krw"], recorded_at=now)
 
     db.session.commit()
     return part
