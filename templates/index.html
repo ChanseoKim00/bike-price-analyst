@@ -52,7 +52,7 @@
   </div>
 
   <div class="result-body">
-    <h2 class="bike-name">{{ bike.brand|title }} {{ bike.model_name }} {% if bike.model_year %}({{ bike.model_year }}){% endif %}</h2>
+    <h2 class="bike-name">{{ bike.brand.replace('_', ' ')|title }} {{ bike.model_name }} {% if bike.model_year %}({{ bike.model_year }}){% endif %}</h2>
 
     {% set part_labels = {
       'groupset': '구동계',

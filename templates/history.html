@@ -18,7 +18,7 @@
         {% for item in history %}
         <tr>
           <td class="history-bike">
-            <span class="history-brand">{{ item.brand|title }}</span>
+            <span class="history-brand">{{ item.brand.replace('_', ' ')|title }}</span>
             {{ item.model_name }}
             {% if item.model_year %}
             <span class="history-year">({{ item.model_year }})</span>
