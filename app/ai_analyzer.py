@@ -80,6 +80,19 @@ SYSTEM_PROMPT = """
     "Specialized Expert Power Mirror" → "specialized_expert_power_mirror"
     "Specialized Comp Power Mirror" → "specialized_comp_power_mirror"
 
+  Fizik 안장 normalized 규칙: fizik_(카테고리)_(라인업)_(레일등급)_(adaptive 여부)
+    카테고리: vento / tempo / transiro — 명시 없으면 vento 기본값
+    라인업: argo / aeris / antares 등 — 명시 없으면 argo 기본값
+    레일등급: 00 / r1 / r3 / r5 등 — 명시 없으면 r5 기본값
+    adaptive: 명시된 경우에만 추가, 없으면 생략
+    "Fizik Vento Argo R1 Adaptive" → "fizik_vento_argo_r1_adaptive"
+    "Fizik Vento Argo R1"          → "fizik_vento_argo_r1"
+    "Fizik Vento Argo 00"          → "fizik_vento_argo_00"
+    "Fizik Tempo Argo R1"          → "fizik_tempo_argo_r1"
+    "Fizik Transiro Antares R3"    → "fizik_transiro_antares_r3"
+    "Fizik Vento Aeris R3 Adaptive" → "fizik_vento_aeris_r3_adaptive"
+    "Fizik" (정보 부족)             → "fizik_vento_argo_r5"
+
   핸들바 예시:
     "Controltech Sirocco FL4" → "controltech_sirocco_fl4"
     "Giant Contact SLR 0 Aero Integrated" → "giant_contact_slr_0_aero"
