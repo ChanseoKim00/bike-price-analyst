@@ -68,8 +68,8 @@ def _get_client_ip() -> str:
 def _check_rate_limit(ip: str):
     """
     Returns (blocked, detail_limited, reset_minutes)
-    - blocked=True      → 분석 자체 차단 (게스트/free 초과)
-    - detail_limited=True → 분석은 되지만 부품 가격 비교 생략 (continental 초과)
+    - blocked=True      → 분석 자체 차단 (비로그인 5시간 3회 초과)
+    - detail_limited=True → 분석은 되지만 부품가 블러 처리 (continental 10회 초과)
     - reset_minutes     → 차단된 경우 재이용 가능까지 남은 분
     """
     user_id = session.get("user_id")
@@ -102,9 +102,10 @@ def _check_rate_limit(ip: str):
                 return False, True, reset_minutes
             return False, False, 0
 
-        # free 로그인 유저: IP 기준으로 게스트와 동일 처리
+        # free 로그인 유저: 횟수 제한 없음
+        return False, False, 0
 
-    # 게스트 또는 free 유저: IP 기준 5시간 윈도우
+    # 비로그인 유저만 IP 기준 5시간 윈도우 적용
     count = AnalysisLog.query.filter(
         AnalysisLog.ip_address == ip,
         AnalysisLog.analyzed_at >= window_start,
