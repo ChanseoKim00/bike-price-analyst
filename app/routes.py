@@ -175,14 +175,17 @@ def _check_rate_limit(ip: str):
         return False, False, 0
 
     # 비로그인 유저만 IP 기준 5시간 윈도우 적용
+    # user_id IS NULL 조건을 걸어야 같은 IP에서 로그인한 사용자의 기록이 비로그인 카운트에 섞이지 않음
     count = AnalysisLog.query.filter(
         AnalysisLog.ip_address == ip,
+        AnalysisLog.user_id.is_(None),
         AnalysisLog.analyzed_at >= window_start,
     ).count()
 
     if count >= _GUEST_LIMIT:
         oldest = AnalysisLog.query.filter(
             AnalysisLog.ip_address == ip,
+            AnalysisLog.user_id.is_(None),
             AnalysisLog.analyzed_at >= window_start,
         ).order_by(AnalysisLog.analyzed_at.asc()).first()
         if oldest:
