@@ -197,7 +197,7 @@ def _check_rate_limit(ip: str):
 
 @bp.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", price_history=None)
 
 
 @bp.route("/preview/result")
@@ -216,7 +216,7 @@ def preview_result():
         saving_pct=3.2,
         missing_parts=["frameset", "saddle", "handlebar"],
     )
-    return render_template("index.html", bike=bike, parts=parts, analysis=analysis, bike_price=6_822_000)
+    return render_template("index.html", bike=bike, parts=parts, analysis=analysis, bike_price=6_822_000, price_history=None)
 
 
 @bp.route("/preview/error")
