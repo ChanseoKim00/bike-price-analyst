@@ -174,6 +174,19 @@
 </div>
 {% endif %}
 
+<a href="{{ url_for('chatbot.index') }}" target="_blank" rel="noopener" class="chatbot-fab" title="AI 상담원에게 문의하기" aria-label="AI 상담원에게 문의하기">
+  <svg class="chatbot-fab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="3" y="8" width="18" height="12" rx="3"></rect>
+    <path d="M12 4v4"></path>
+    <circle cx="12" cy="3" r="1"></circle>
+    <circle cx="9" cy="14" r="1.2" fill="currentColor"></circle>
+    <circle cx="15" cy="14" r="1.2" fill="currentColor"></circle>
+    <path d="M9 17.5h6"></path>
+    <path d="M3 13h-1"></path>
+    <path d="M22 13h-1"></path>
+  </svg>
+</a>
+
 {% if price_history is not none %}
 <script id="price-history-data" type="application/json">{{ price_history | tojson }}</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>

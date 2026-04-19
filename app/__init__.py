@@ -14,4 +14,7 @@ def create_app():
     from .routes import bp
     app.register_blueprint(bp)
 
+    from .chatbot import bp as chatbot_bp
+    app.register_blueprint(chatbot_bp)
+
     return app

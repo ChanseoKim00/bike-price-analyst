@@ -152,6 +152,18 @@ CREATE INDEX IF NOT EXISTS idx_bike_price_history_bike_id_recorded_at
     ON bike_price_history (bike_id, recorded_at);
 
 -- ============================================================
+-- Table 10: chatbot_usage_logs (AI 상담원 일일 메시지 횟수 추적)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS chatbot_usage_logs (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    visitor_id  TEXT        NOT NULL,
+    created_at  TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chatbot_usage_visitor_created
+    ON chatbot_usage_logs (visitor_id, created_at);
+
+-- ============================================================
 -- users.plan 컬럼 추가 (이미 배포된 DB에 적용 시 실행)
 -- ============================================================
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'continental'

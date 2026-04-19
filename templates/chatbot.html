@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BPA 상담원</title>
+    <style>
+        :root {
+            --bg: #f5f5f7;
+            --surface: #ffffff;
+            --surface-alt: #f9f9fb;
+            --border: #e8e8ec;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --user-bubble: #6366f1;
+            --user-text: #ffffff;
+            --bot-bubble: #f0f0f5;
+            --bot-text: #1a1a2e;
+            --input-bg: #f5f5f7;
+            --shadow: 0 8px 32px rgba(0,0,0,0.08);
+        }
+
+        [data-theme="dark"] {
+            --bg: #0f0f13;
+            --surface: #1a1a24;
+            --surface-alt: #13131c;
+            --border: #2a2a38;
+            --text-primary: #f0f0f5;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent: #818cf8;
+            --accent-hover: #6366f1;
+            --user-bubble: #6366f1;
+            --user-text: #ffffff;
+            --bot-bubble: #252535;
+            --bot-text: #e8e8f0;
+            --input-bg: #252535;
+            --shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            height: 100vh;
+            width: 100vw;
+            transition: background 0.3s;
+        }
+
+        .chat-container {
+            background: var(--surface);
+            width: 100%;
+            max-width: 760px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow);
+            transition: background 0.3s;
+            min-width: 0;
+        }
+
+        .header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            transition: background 0.3s, border-color 0.3s;
+            flex-shrink: 0;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+            transition: color 0.3s;
+        }
+
+        .header-subtitle {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s;
+            line-height: 1;
+        }
+
+        .icon-btn:hover {
+            background: var(--border);
+            transform: scale(1.05);
+        }
+
+        .text-btn {
+            padding: 7px 14px;
+            background: var(--surface-alt);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+
+        .text-btn:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        #chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
+
+        #chat-box::-webkit-scrollbar { width: 4px; }
+        #chat-box::-webkit-scrollbar-track { background: transparent; }
+        #chat-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: var(--text-muted);
+            font-size: 14px;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            font-size: 36px;
+            opacity: 0.5;
+        }
+
+        .empty-state-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.6;
+        }
+
+        .message-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .message-row.user { align-items: flex-end; }
+        .message-row.bot { align-items: flex-start; }
+
+        .message {
+            max-width: 78%;
+            padding: 11px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-break: break-word;
+            white-space: pre-wrap;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .message-row.user .message {
+            background: var(--user-bubble);
+            color: var(--user-text);
+            border-bottom-right-radius: 5px;
+        }
+
+        .message-row.bot .message {
+            background: var(--bot-bubble);
+            color: var(--bot-text);
+            border-bottom-left-radius: 5px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            padding: 0 4px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 12px 16px;
+            background: var(--bot-bubble);
+            border-radius: 18px;
+            border-bottom-left-radius: 5px;
+            width: fit-content;
+        }
+
+        .typing-dot {
+            width: 7px;
+            height: 7px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: typing 1.2s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        .input-area {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            transition: background 0.3s, border-color 0.3s;
+            flex-shrink: 0;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            background: var(--input-bg);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            transition: border-color 0.2s, background 0.3s, box-shadow 0.2s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+
+        #user-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 14px;
+            color: var(--text-primary);
+            font-family: inherit;
+            resize: none;
+            line-height: 1.5;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        #user-input::placeholder { color: var(--text-muted); }
+
+        #send-btn {
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.2s, transform 0.15s, opacity 0.2s;
+        }
+
+        #send-btn:hover:not(:disabled) {
+            background: var(--accent-hover);
+            transform: scale(1.05);
+        }
+
+        #send-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%) translateY(16px);
+            background: #1a1a2e;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s, transform 0.25s;
+            z-index: 9999;
+            white-space: nowrap;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .chat-footer {
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            padding: 8px 20px;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+            transition: color 0.3s, background 0.3s, border-color 0.3s;
+        }
+
+        @media (max-width: 640px) {
+            .message { max-width: 85%; }
+            .header { padding: 12px 14px; }
+            h1 { font-size: 14px; }
+            .header-subtitle { font-size: 10px; }
+            .text-btn { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+            .icon-btn { width: 32px; height: 32px; font-size: 14px; border-radius: 8px; }
+        }
+
+        @media (max-width: 768px) {
+            #user-input { font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="header">
+            <div class="header-left">
+                <div class="header-icon">🚲</div>
+                <div>
+                    <h1>BPA 상담원</h1>
+                    <div class="header-subtitle">Bike Price Analyst 고객 지원</div>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="copy-btn" class="text-btn" onclick="copyChat()" title="대화 복사">복사</button>
+                <button id="new-chat-btn" class="text-btn" onclick="newChat()" title="대화 초기화">새 대화</button>
+                <button id="theme-toggle" class="icon-btn" onclick="toggleTheme()" title="테마 전환">🌙</button>
+            </div>
+        </div>
+
+        <div id="chat-box">
+            <div class="empty-state" id="empty-state">
+                <div class="empty-state-icon">🚲</div>
+                <span>안녕하세요! BPA 상담원입니다.</span>
+                <span class="empty-state-hint">앱 사용법이나 요금제에 대해<br/>무엇이든 편하게 물어봐 주세요.</span>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-wrapper">
+                <input type="text" id="user-input" placeholder="메시지를 입력하세요..." />
+            </div>
+            <button id="send-btn" onclick="sendMessage()" title="전송">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+        <footer class="chat-footer">© 2026 BPA — Bike Price Analyst</footer>
+    </div>
+    <div class="toast" id="toast">복사됐습니다!</div>
+
+    <script>
+        const CHAT_ENDPOINT = "{{ url_for('chatbot.chat') }}";
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const themeToggle = document.getElementById('theme-toggle');
+
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        setTheme(savedTheme);
+
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+            localStorage.setItem('theme', theme);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            setTheme(current === 'dark' ? 'light' : 'dark');
+        }
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function getTime() {
+            return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function showEmptyState() {
+            chatBox.innerHTML = '';
+            const empty = document.createElement('div');
+            empty.className = 'empty-state';
+            empty.id = 'empty-state';
+            empty.innerHTML = `
+                <div class="empty-state-icon">🚲</div>
+                <span>안녕하세요! BPA 상담원입니다.</span>
+                <span class="empty-state-hint">앱 사용법이나 요금제에 대해<br/>무엇이든 편하게 물어봐 주세요.</span>
+            `;
+            chatBox.appendChild(empty);
+        }
+
+        function hideEmptyState() {
+            const el = document.getElementById('empty-state');
+            if (el) el.remove();
+        }
+
+        function addMessage(text, role) {
+            hideEmptyState();
+            const row = document.createElement('div');
+            row.className = `message-row ${role}`;
+
+            const msg = document.createElement('div');
+            msg.className = 'message';
+            msg.textContent = text;
+
+            const time = document.createElement('div');
+            time.className = 'message-time';
+            time.textContent = getTime();
+
+            row.appendChild(msg);
+            row.appendChild(time);
+            chatBox.appendChild(row);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return row;
+        }
+
+        function showTyping() {
+            const row = document.createElement('div');
+            row.className = 'message-row bot';
+            row.id = 'typing-row';
+            row.innerHTML = `<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+            chatBox.appendChild(row);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function removeTyping() {
+            const el = document.getElementById('typing-row');
+            if (el) el.remove();
+        }
+
+        function newChat() {
+            showEmptyState();
+            userInput.focus();
+        }
+
+        function copyChat() {
+            const rows = chatBox.querySelectorAll('.message-row');
+            if (!rows.length) return;
+
+            const lines = [];
+            rows.forEach(row => {
+                const role = row.classList.contains('user') ? '나' : 'BPA 상담원';
+                const text = row.querySelector('.message')?.textContent || '';
+                const time = row.querySelector('.message-time')?.textContent || '';
+                if (text) lines.push(`[${role}] ${time}\n${text}`);
+            });
+
+            if (!lines.length) return;
+
+            navigator.clipboard.writeText(lines.join('\n\n')).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            });
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            addMessage(message, 'user');
+            userInput.value = '';
+            sendBtn.disabled = true;
+            showTyping();
+
+            try {
+                const res = await fetch(CHAT_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                const data = await res.json();
+                removeTyping();
+                addMessage(data.reply || data.error || '응답을 받지 못했습니다.', 'bot');
+            } catch (err) {
+                removeTyping();
+                addMessage('일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'bot');
+            } finally {
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        userInput.focus();
+    </script>
+</body>
+</html>

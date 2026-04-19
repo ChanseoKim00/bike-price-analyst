@@ -221,3 +221,18 @@ class AnalysisLog(db.Model):
 
     def __repr__(self):
         return f"<AnalysisLog ip={self.ip_address} detailed={self.is_detailed} at={self.analyzed_at}>"
+
+
+class ChatbotUsageLog(db.Model):
+    __tablename__ = "chatbot_usage_logs"
+
+    id         = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    visitor_id = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index("idx_chatbot_usage_visitor_created", "visitor_id", "created_at"),
+    )
+
+    def __repr__(self):
+        return f"<ChatbotUsageLog visitor={self.visitor_id} at={self.created_at}>"
