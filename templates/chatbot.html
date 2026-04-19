@@ -133,23 +133,6 @@
             transform: scale(1.05);
         }
 
-        .text-btn {
-            padding: 7px 14px;
-            background: var(--surface-alt);
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: background 0.2s, border-color 0.2s, color 0.2s;
-        }
-
-        .text-btn:hover {
-            background: var(--border);
-            color: var(--text-primary);
-        }
-
         #chat-box {
             flex: 1;
             overflow-y: auto;
@@ -325,30 +308,6 @@
             transform: none;
         }
 
-        .toast {
-            position: fixed;
-            bottom: 32px;
-            left: 50%;
-            transform: translateX(-50%) translateY(16px);
-            background: #1a1a2e;
-            color: #ffffff;
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.25s, transform 0.25s;
-            z-index: 9999;
-            white-space: nowrap;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-        }
-
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
         .chat-footer {
             text-align: center;
             font-size: 11px;
@@ -365,7 +324,6 @@
             .header { padding: 12px 14px; }
             h1 { font-size: 14px; }
             .header-subtitle { font-size: 10px; }
-            .text-btn { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
             .icon-btn { width: 32px; height: 32px; font-size: 14px; border-radius: 8px; }
         }
 
@@ -385,8 +343,6 @@
                 </div>
             </div>
             <div class="header-right">
-                <button id="copy-btn" class="text-btn" onclick="copyChat()" title="대화 복사">복사</button>
-                <button id="new-chat-btn" class="text-btn" onclick="newChat()" title="대화 초기화">새 대화</button>
                 <button id="theme-toggle" class="icon-btn" onclick="toggleTheme()" title="테마 전환">🌙</button>
             </div>
         </div>
@@ -412,7 +368,6 @@
         </div>
         <footer class="chat-footer">© 2026 BPA — Bike Price Analyst</footer>
     </div>
-    <div class="toast" id="toast">복사됐습니다!</div>
 
     <script>
         const CHAT_ENDPOINT = "{{ url_for('chatbot.chat') }}";
@@ -444,19 +399,6 @@
 
         function getTime() {
             return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-        }
-
-        function showEmptyState() {
-            chatBox.innerHTML = '';
-            const empty = document.createElement('div');
-            empty.className = 'empty-state';
-            empty.id = 'empty-state';
-            empty.innerHTML = `
-                <div class="empty-state-icon">🚲</div>
-                <span>안녕하세요! BPA 상담원입니다.</span>
-                <span class="empty-state-hint">앱 사용법이나 요금제에 대해<br/>무엇이든 편하게 물어봐 주세요.</span>
-            `;
-            chatBox.appendChild(empty);
         }
 
         function hideEmptyState() {
@@ -496,32 +438,6 @@
         function removeTyping() {
             const el = document.getElementById('typing-row');
             if (el) el.remove();
-        }
-
-        function newChat() {
-            showEmptyState();
-            userInput.focus();
-        }
-
-        function copyChat() {
-            const rows = chatBox.querySelectorAll('.message-row');
-            if (!rows.length) return;
-
-            const lines = [];
-            rows.forEach(row => {
-                const role = row.classList.contains('user') ? '나' : 'BPA 상담원';
-                const text = row.querySelector('.message')?.textContent || '';
-                const time = row.querySelector('.message-time')?.textContent || '';
-                if (text) lines.push(`[${role}] ${time}\n${text}`);
-            });
-
-            if (!lines.length) return;
-
-            navigator.clipboard.writeText(lines.join('\n\n')).then(() => {
-                const toast = document.getElementById('toast');
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 2000);
-            });
         }
 
         async function sendMessage() {
