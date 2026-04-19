@@ -396,6 +396,7 @@ def login():
     session["user_email"]    = user.email
     session["user_nickname"] = user.nickname
     session["user_role"]     = user.role
+    session["user_plan"]     = user.plan
     return redirect(url_for("main.index"))
 
 

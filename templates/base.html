@@ -10,6 +10,13 @@
   <a href="/" class="bpa-logo">BPA</a>
   <nav class="auth-nav">
     {% if session.get('user_nickname') %}
+      <span class="auth-plan">
+        {%- if session.get('user_role') == 'admin' -%}
+          현재 플랜: 관리자
+        {%- else -%}
+          현재 플랜: {{ session.get('user_plan') or 'continental' }}
+        {%- endif -%}
+      </span>
       <span class="auth-username">{{ session['user_nickname'] }}님</span>
       <div class="auth-btns-row">
         {% if session.get('user_role') == 'admin' %}
@@ -19,6 +26,7 @@
         <a href="/logout" class="auth-btn">로그아웃</a>
       </div>
     {% else %}
+      <span class="auth-plan">플랜 없음</span>
       <a href="/login" class="auth-btn">로그인</a>
     {% endif %}
   </nav>
