@@ -154,5 +154,12 @@ CREATE INDEX IF NOT EXISTS idx_bike_price_history_bike_id_recorded_at
 -- ============================================================
 -- users.plan 컬럼 추가 (이미 배포된 DB에 적용 시 실행)
 -- ============================================================
--- ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'
---     CHECK (plan IN ('free', 'continental', 'pro', 'world_tour'));
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'continental'
+--     CHECK (plan IN ('continental', 'pro', 'world_tour'));
+--
+-- 이미 free로 저장된 row가 있다면:
+-- UPDATE users SET plan = 'continental' WHERE plan = 'free';
+-- ALTER TABLE users ALTER COLUMN plan SET DEFAULT 'continental';
+-- ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_plan;
+-- ALTER TABLE users ADD CONSTRAINT ck_users_plan
+--     CHECK (plan IN ('continental', 'pro', 'world_tour'));

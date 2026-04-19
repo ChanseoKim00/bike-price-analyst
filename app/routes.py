@@ -156,32 +156,29 @@ def _check_rate_limit(ip: str):
 
     if user_id:
         user = db.session.get(User, user_id)
-        plan = (user.plan if user else None) or "free"
+        plan = (user.plan if user else None) or "continental"
 
         if plan in ("pro", "world_tour") or (user and user.role == "admin"):
             return False, False, 0
 
-        if plan == "continental":
-            count = AnalysisLog.query.filter(
+        # continental: 5시간 10회, 초과 시 부품가 블러
+        count = AnalysisLog.query.filter(
+            AnalysisLog.user_id == user_id,
+            AnalysisLog.is_detailed == True,
+            AnalysisLog.analyzed_at >= window_start,
+        ).count()
+        if count >= _CONTINENTAL_LIMIT:
+            oldest = AnalysisLog.query.filter(
                 AnalysisLog.user_id == user_id,
                 AnalysisLog.is_detailed == True,
                 AnalysisLog.analyzed_at >= window_start,
-            ).count()
-            if count >= _CONTINENTAL_LIMIT:
-                oldest = AnalysisLog.query.filter(
-                    AnalysisLog.user_id == user_id,
-                    AnalysisLog.is_detailed == True,
-                    AnalysisLog.analyzed_at >= window_start,
-                ).order_by(AnalysisLog.analyzed_at.asc()).first()
-                if oldest:
-                    reset_at = oldest.analyzed_at + timedelta(hours=_WINDOW_HOURS)
-                    reset_minutes = max(1, int((reset_at - datetime.utcnow()).total_seconds() / 60) + 1)
-                else:
-                    reset_minutes = _WINDOW_HOURS * 60
-                return False, True, reset_minutes
-            return False, False, 0
-
-        # free 로그인 유저: 횟수 제한 없음
+            ).order_by(AnalysisLog.analyzed_at.asc()).first()
+            if oldest:
+                reset_at = oldest.analyzed_at + timedelta(hours=_WINDOW_HOURS)
+                reset_minutes = max(1, int((reset_at - datetime.utcnow()).total_seconds() / 60) + 1)
+            else:
+                reset_minutes = _WINDOW_HOURS * 60
+            return False, True, reset_minutes
         return False, False, 0
 
     # 비로그인 유저만 IP 기준 5시간 윈도우 적용

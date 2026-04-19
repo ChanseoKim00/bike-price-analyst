@@ -13,7 +13,7 @@ class User(db.Model):
     email              = db.Column(db.Text, nullable=False, unique=True)
     password_hash      = db.Column(db.Text, nullable=False)
     role               = db.Column(db.Text, nullable=False, default="user")
-    plan               = db.Column(db.Text, nullable=False, default="free")
+    plan               = db.Column(db.Text, nullable=False, default="continental")
     created_at         = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     last_login_at      = db.Column(db.DateTime)
     name               = db.Column(db.Text, nullable=False)
@@ -23,7 +23,7 @@ class User(db.Model):
 
     __table_args__ = (
         db.CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),
-        db.CheckConstraint("plan IN ('free', 'continental', 'pro', 'world_tour')", name="ck_users_plan"),
+        db.CheckConstraint("plan IN ('continental', 'pro', 'world_tour')", name="ck_users_plan"),
     )
 
     def __repr__(self):
