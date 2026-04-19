@@ -88,6 +88,8 @@ def update_parts() -> dict:
 
         if part.price_krw == new_price:
             part.last_verified_at = now  # 가격 동일 — 검증일만 갱신
+            # 그래프 연속성을 위해 변동 없어도 이력에 확인 도장 찍기
+            record_part_price_history(part, new_price, recorded_at=now, force=True)
             db.session.commit()
             stats["unchanged"] += 1
             print(f"  [{idx}/{len(expired)}] KEEP {part.part_type}: {part.part_name} ({new_price:,}원)")
@@ -151,6 +153,8 @@ def update_bikes() -> dict:
             continue
 
         if bike.price_krw == new_price:
+            # 그래프 연속성을 위해 변동 없어도 이력에 확인 도장 찍기
+            record_bike_price_history(bike, new_price, force=True)
             db.session.commit()
             stats["unchanged"] += 1
             print(f"  [{idx}/{len(bikes)}] KEEP {bike.brand} {bike.model_name} ({new_price:,}원)")

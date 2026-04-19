@@ -121,11 +121,20 @@ SKIP_AI_SEARCH_TYPES = {"frameset"}
 RETRY_ON_NULL_TYPES = {"groupset", "wheelset"}
 
 
-def record_part_price_history(part: Part, new_price: int | None, recorded_at: datetime | None = None) -> bool:
+def record_part_price_history(
+    part: Part,
+    new_price: int | None,
+    recorded_at: datetime | None = None,
+    force: bool = False,
+) -> bool:
     """
     부품 가격이 신규 저장되거나 변경될 때 part_price_history에 row 추가.
     동일 가격이면 저장하지 않음. None 가격은 기록 대상 아님.
     세션 flush/commit은 호출자가 책임진다.
+
+    Args:
+        force: True면 직전 row와 가격이 같아도 새 row를 추가. 워커 자연 발화
+               시 "변동 없음" 확인 도장을 그래프에 남기기 위한 용도.
 
     Returns:
         bool: 실제로 history row를 append 했으면 True
@@ -133,14 +142,15 @@ def record_part_price_history(part: Part, new_price: int | None, recorded_at: da
     if new_price is None:
         return False
 
-    last = (
-        PartPriceHistory.query
-        .filter_by(part_id=part.id)
-        .order_by(PartPriceHistory.recorded_at.desc())
-        .first()
-    )
-    if last and last.price_krw == new_price:
-        return False
+    if not force:
+        last = (
+            PartPriceHistory.query
+            .filter_by(part_id=part.id)
+            .order_by(PartPriceHistory.recorded_at.desc())
+            .first()
+        )
+        if last and last.price_krw == new_price:
+            return False
 
     db.session.add(PartPriceHistory(
         part_id=part.id,
