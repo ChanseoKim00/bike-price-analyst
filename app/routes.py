@@ -748,12 +748,12 @@ def analyze():
         blur_mode = None
         blur_reset_minutes = 0
 
-    # world_tour 플랜만 가격 이력 그래프 데이터 전달
+    # world_tour 플랜 및 admin만 가격 이력 그래프 데이터 전달
     price_history = None
     user_id = session.get("user_id")
     if user_id:
         user = db.session.get(User, user_id)
-        if user and user.plan == "world_tour":
+        if user and (user.plan == "world_tour" or user.role == "admin"):
             price_history = build_price_history(bike, parts)
 
     return render_template(
