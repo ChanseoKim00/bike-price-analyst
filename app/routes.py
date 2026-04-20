@@ -1,6 +1,8 @@
 import functools
+import hashlib
 import logging
 import re
+import secrets
 import traceback
 from datetime import datetime, date, timedelta
 from types import SimpleNamespace
@@ -10,7 +12,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part
+from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken
+from .email_sender import send_password_reset_email
 from .scraper import fetch_html, ScrapeError
 from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
 from .exchange_rate import get_exchange_rates
@@ -377,7 +380,8 @@ def register():
 def login():
     if request.method == "GET":
         registered = request.args.get("registered")
-        return render_template("login.html", registered=registered)
+        reset      = request.args.get("reset")
+        return render_template("login.html", registered=registered, reset=reset)
 
     email    = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "")
@@ -404,6 +408,95 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("main.index"))
+
+
+# ── 비밀번호 재설정 ────────────────────────────────────────────
+
+_RESET_TTL_MINUTES   = 30
+_RESET_RATE_WINDOW_H = 1     # 1시간
+_RESET_RATE_LIMIT    = 3     # 같은 계정당 윈도우 내 최대 요청 수
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+@bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "GET":
+        return render_template("forgot_password.html")
+
+    email = request.form.get("email", "").strip().lower()
+    if not _EMAIL_RE.match(email):
+        return render_template("forgot_password.html",
+                               error="올바른 이메일 형식을 입력해주세요.", email=email)
+
+    # User enumeration 방지 — 가입 여부와 무관하게 동일 응답
+    user = User.query.filter_by(email=email).first()
+
+    if user:
+        # Rate limit — 같은 계정당 1시간 내 3회
+        window_start = datetime.utcnow() - timedelta(hours=_RESET_RATE_WINDOW_H)
+        recent_count = (
+            PasswordResetToken.query
+            .filter(PasswordResetToken.user_id == user.id,
+                    PasswordResetToken.created_at >= window_start)
+            .count()
+        )
+        if recent_count >= _RESET_RATE_LIMIT:
+            logger.warning("비밀번호 재설정 rate limit — user=%s count=%d", user.email, recent_count)
+        else:
+            raw_token = secrets.token_urlsafe(32)
+            prt = PasswordResetToken(
+                user_id=user.id,
+                token_hash=_hash_token(raw_token),
+                expires_at=datetime.utcnow() + timedelta(minutes=_RESET_TTL_MINUTES),
+            )
+            db.session.add(prt)
+            db.session.commit()
+
+            reset_url = url_for("main.reset_password", token=raw_token, _external=True)
+            send_password_reset_email(user.email, reset_url)
+
+    return render_template("forgot_password_sent.html", email=email)
+
+
+@bp.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    prt = PasswordResetToken.query.filter_by(token_hash=_hash_token(token)).first()
+
+    if not prt or prt.used_at is not None or prt.expires_at < datetime.utcnow():
+        return render_template("reset_password.html", invalid=True)
+
+    if request.method == "GET":
+        return render_template("reset_password.html", token=token)
+
+    password = request.form.get("password", "")
+    confirm  = request.form.get("password_confirm", "")
+
+    if len(password) < 8:
+        return render_template("reset_password.html", token=token,
+                               error="비밀번호는 최소 8자 이상이어야 합니다.")
+    if password != confirm:
+        return render_template("reset_password.html", token=token,
+                               error="비밀번호가 일치하지 않습니다.")
+
+    user = db.session.get(User, prt.user_id)
+    if not user:
+        return render_template("reset_password.html", invalid=True)
+
+    user.password_hash = generate_password_hash(password)
+    prt.used_at = datetime.utcnow()
+
+    # 같은 사용자의 다른 미사용 토큰도 모두 무효화
+    (PasswordResetToken.query
+        .filter(PasswordResetToken.user_id == user.id,
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.id != prt.id)
+        .update({"used_at": datetime.utcnow()}, synchronize_session=False))
+
+    db.session.commit()
+    return redirect(url_for("main.login") + "?reset=1")
 
 
 def admin_required(f):

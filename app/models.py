@@ -223,6 +223,27 @@ class AnalysisLog(db.Model):
         return f"<AnalysisLog ip={self.ip_address} detailed={self.is_detailed} at={self.analyzed_at}>"
 
 
+class PasswordResetToken(db.Model):
+    __tablename__ = "password_reset_tokens"
+
+    id         = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id    = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    token_hash = db.Column(db.Text, nullable=False, unique=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at    = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", backref="password_reset_tokens")
+
+    __table_args__ = (
+        db.Index("idx_password_reset_tokens_token_hash", "token_hash"),
+        db.Index("idx_password_reset_tokens_user_id_created_at", "user_id", "created_at"),
+    )
+
+    def __repr__(self):
+        return f"<PasswordResetToken user={self.user_id} expires={self.expires_at}>"
+
+
 class ChatbotUsageLog(db.Model):
     __tablename__ = "chatbot_usage_logs"
 

@@ -9,6 +9,10 @@
     <p class="auth-notice">회원가입이 완료됐습니다. 로그인해주세요.</p>
     {% endif %}
 
+    {% if reset %}
+    <p class="auth-notice">비밀번호가 변경됐습니다. 새 비밀번호로 로그인해주세요.</p>
+    {% endif %}
+
     {% if error %}
     <p class="auth-error">{{ error }}</p>
     {% endif %}
@@ -40,6 +44,10 @@
       </div>
       <button type="submit" class="auth-submit">로그인</button>
     </form>
+
+    <p class="auth-footer">
+      <a href="/forgot-password" class="auth-link">비밀번호를 잊으셨나요?</a>
+    </p>
 
     <p class="auth-footer">
       아직 계정이 없으신가요?

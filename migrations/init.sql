@@ -152,7 +152,24 @@ CREATE INDEX IF NOT EXISTS idx_bike_price_history_bike_id_recorded_at
     ON bike_price_history (bike_id, recorded_at);
 
 -- ============================================================
--- Table 10: chatbot_usage_logs (AI 상담원 일일 메시지 횟수 추적)
+-- Table 10: password_reset_tokens (비밀번호 재설정 토큰)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID        NOT NULL REFERENCES users(id),
+    token_hash  TEXT        NOT NULL UNIQUE,
+    expires_at  TIMESTAMP   NOT NULL,
+    used_at     TIMESTAMP,
+    created_at  TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token_hash
+    ON password_reset_tokens (token_hash);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id_created_at
+    ON password_reset_tokens (user_id, created_at);
+
+-- ============================================================
+-- Table 11: chatbot_usage_logs (AI 상담원 일일 메시지 횟수 추적)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS chatbot_usage_logs (
     id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
