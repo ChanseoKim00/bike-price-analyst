@@ -1,5 +1,6 @@
 import os
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 from authlib.integrations.flask_client import OAuth
 
 from .models import db
@@ -9,6 +10,10 @@ oauth = OAuth()
 
 def create_app():
     app = Flask(__name__, template_folder="../templates", static_folder="../static")
+
+    # Railway 등 리버스 프록시 뒤에서 url_for(_external=True)가 https 스킴을 생성하도록 교정
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
