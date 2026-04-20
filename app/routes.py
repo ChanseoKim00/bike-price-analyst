@@ -55,7 +55,7 @@ def record_bike_price_history(
     return True
 
 
-_HISTORY_WEEKS = 150
+_HISTORY_DAYS = 365 * 3
 
 
 def _serialize_history(rows) -> list[dict]:
@@ -64,11 +64,11 @@ def _serialize_history(rows) -> list[dict]:
 
 def build_price_history(bike: Bike, parts: dict) -> dict:
     """
-    world_tour 플랜 전용 — 최근 150주 가격 이력 조회.
+    world_tour 플랜 전용 — 최근 3년 가격 이력 조회.
     bike / frameset / groupset / wheelset 순서로 반환.
     데이터가 없는 부품은 빈 리스트.
     """
-    cutoff = datetime.utcnow() - timedelta(weeks=_HISTORY_WEEKS)
+    cutoff = datetime.utcnow() - timedelta(days=_HISTORY_DAYS)
 
     bike_rows = (
         BikePriceHistory.query

@@ -238,15 +238,38 @@
     };
 
     function krwShort(v) {
-      if (!v) return '0';
-      if (v >= 10000000) return (v / 10000000).toFixed(1).replace(/\.0$/, '') + '천만';
-      if (v >= 10000)    return (v / 10000).toFixed(0) + '만';
+      if (v == null) return '';
+      if (v === 0) return '0';
+      if (v >= 100000000) {
+        var eok = v / 100000000;
+        return (eok % 1 === 0 ? eok.toFixed(0) : eok.toFixed(1)) + '억';
+      }
+      if (v >= 10000) return Math.round(v / 10000).toLocaleString() + '만';
       return v.toLocaleString();
+    }
+
+    // X축 고정 창: 최근 3년
+    var X_NOW = Date.now();
+    var X_MIN = X_NOW - 3 * 365 * 24 * 60 * 60 * 1000;
+
+    function computeYRange(points) {
+      var ys = points.map(function(p) { return p.y; }).filter(function(v) { return v != null; });
+      if (!ys.length) return { min: undefined, max: undefined };
+      var lo = Math.min.apply(null, ys);
+      var hi = Math.max.apply(null, ys);
+      var center = (lo + hi) / 2;
+      // 중앙값 기준 ±10% 패딩. 실제 데이터가 그보다 넓으면 데이터를 기준으로 확장.
+      var pad = center * 0.1;
+      return {
+        min: Math.max(0, Math.min(lo, center - pad)),
+        max: Math.max(hi, center + pad),
+      };
     }
 
     function renderChart(canvasId, points) {
       var canvas = document.getElementById(canvasId);
       if (!canvas) return;
+      var yr = computeYRange(points);
       new Chart(canvas, {
         type: 'line',
         data: {
@@ -289,11 +312,15 @@
           scales: {
             x: {
               type: 'time',
-              time: { unit: 'month', tooltipFormat: 'yyyy-MM-dd' },
+              min: X_MIN,
+              max: X_NOW,
+              time: { unit: 'month', tooltipFormat: 'yyyy-MM-dd', displayFormats: { month: 'yyyy-MM' } },
               grid: { color: colors.grid, drawBorder: false },
-              ticks: { color: colors.tick, maxRotation: 0, autoSkipPadding: 12, font: { size: 10 } },
+              ticks: { color: colors.tick, maxRotation: 0, autoSkipPadding: 20, font: { size: 10 } },
             },
             y: {
+              suggestedMin: yr.min,
+              suggestedMax: yr.max,
               grid: { color: colors.grid, drawBorder: false },
               ticks: {
                 color: colors.tick,
