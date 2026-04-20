@@ -36,4 +36,9 @@ def create_app():
     from .chatbot import bp as chatbot_bp
     app.register_blueprint(chatbot_bp)
 
+    from .celery_app import celery_init_app
+    celery_init_app(app)
+    # task 등록 — import만으로 @shared_task가 현재 celery 인스턴스에 바인딩됨
+    from . import tasks  # noqa: F401
+
     return app

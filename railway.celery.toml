@@ -1,0 +1,2 @@
+[deploy]
+startCommand = "playwright install chromium && playwright install-deps chromium && celery -A celery_worker:celery worker --loglevel=info --concurrency=1"

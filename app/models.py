@@ -125,6 +125,9 @@ class Analysis(db.Model):
     saving_krw = db.Column(db.Integer, nullable=False)
     saving_pct = db.Column(db.Float, nullable=False)
     missing_parts = db.Column(ARRAY(TEXT), nullable=False, default=list)
+    # /result 렌더용 부품 스냅샷 — bikes FK에 handlebar/frameset이 없어 분석 당시 값을
+    # 재구성하려면 analysis별 스냅샷이 필요. 키: groupset/wheelset/frameset/saddle/handlebar
+    parts_snapshot = db.Column(JSONB)
     analyzed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     bike = db.relationship("Bike", backref="analyses")

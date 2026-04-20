@@ -3,11 +3,10 @@ import hashlib
 import logging
 import re
 import secrets
-import traceback
 from datetime import datetime, date, timedelta
 from types import SimpleNamespace
 from urllib.parse import urlparse
-from flask import Blueprint, render_template, request, session, redirect, url_for, make_response
+from flask import Blueprint, current_app, jsonify, render_template, request, session, redirect, url_for, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
@@ -15,10 +14,7 @@ logger = logging.getLogger(__name__)
 from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken
 from .email_sender import send_password_reset_email
 from .utils.nickname import generate_unique_nickname
-from .scraper import fetch_html, ScrapeError
-from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
-from .exchange_rate import get_exchange_rates
-from .price_calculator import get_or_fetch_part, calculate_parts_sum, _normalize_part_name
+from .price_calculator import _normalize_part_name
 
 bp = Blueprint("main", __name__)
 
@@ -100,38 +96,6 @@ def build_price_history(bike: Bike, parts: dict) -> dict:
         "groupset": _part_history(parts.get("groupset")),
         "wheelset": _part_history(parts.get("wheelset")),
     }
-
-# AI가 추출하는 부품 키 목록
-PART_KEYS = ["groupset", "wheelset", "frameset", "saddle", "handlebar"]
-
-# 스크래핑 에러 코드별 (메시지, hint)
-SCRAPE_ERRORS = {
-    "connection_error": (
-        "사이트에 접근할 수 없습니다.",
-        "링크가 올바른지 확인하거나, 잠시 후 다시 시도해주세요.",
-    ),
-    "timeout": (
-        "사이트 응답이 너무 느립니다.",
-        "잠시 후 다시 시도하거나, 다른 판매처 링크로 분석해보세요.",
-    ),
-    "blocked": (
-        "해당 사이트는 자동 접근을 허용하지 않습니다.",
-        "다른 판매처의 동일 제품 링크로 다시 시도해보세요.",
-    ),
-    "not_found": (
-        "페이지를 찾을 수 없습니다.",
-        "링크가 만료되었거나 삭제된 것 같습니다. 판매처에서 링크를 다시 확인해주세요.",
-    ),
-    "http_error": (
-        "사이트 접근 중 오류가 발생했습니다.",
-        "잠시 후 다시 시도해주세요.",
-    ),
-    "unknown": (
-        "사이트 접근 중 오류가 발생했습니다.",
-        "잠시 후 다시 시도해주세요.",
-    ),
-}
-
 
 def _err(message, hint, url="", **kwargs):
     """에러 페이지 렌더링 헬퍼"""
@@ -780,8 +744,17 @@ def history():
     return render_template("history.html", history=history_items)
 
 
+def _get_celery():
+    """현재 Flask 앱의 celery 인스턴스."""
+    return current_app.extensions["celery"]
+
+
 @bp.route("/analyze", methods=["POST"])
 def analyze():
+    """URL·rate limit 검증 후 Celery task를 enqueue하고 로딩 페이지를 렌더링한다.
+
+    실제 스크래핑·AI·DB 작업은 app.tasks.analyze_bike_task 가 별도 워커에서 수행.
+    분석 결과는 /analyze/status/<task_id> 폴링으로 받아 /result/<analysis_id> 로 리다이렉트."""
     url = request.form.get("url", "").strip()
     if not url:
         return _err(
@@ -808,171 +781,131 @@ def analyze():
 
     print(f"[ANALYZE] 요청 URL: {url} | ip={ip} | detail_limited={detail_limited}")
 
-    # STEP 1: 스크래핑
-    print("[STEP 1] 스크래핑 시작...")
-    try:
-        page_text = fetch_html(url)
-        print(f"[STEP 1] 완료 ({len(page_text)}자)")
-    except ScrapeError as e:
-        print(f"[STEP 1] 실패: {e}")
-        msg, hint = SCRAPE_ERRORS.get(e.code, SCRAPE_ERRORS["unknown"])
-        return _err(msg, hint, url=url)
+    from .tasks import analyze_bike_task
+    task = analyze_bike_task.delay(
+        url=url,
+        user_id=session.get("user_id"),
+        ip=ip,
+        is_detailed=not detail_limited,
+    )
+    print(f"[ANALYZE] task enqueued: id={task.id}")
+    return render_template("loading.html", task_id=task.id)
 
-    if not page_text:
-        print("[STEP 1] 0자 반환 — 지원하지 않는 사이트")
-        return _err("페이지 정보를 불러올 수 없습니다.", "해당 사이트는 현재 지원하지 않습니다. 다른 판매처의 동일 제품 링크로 다시 시도해주세요.", url=url)
 
-    # STEP 2: AI 분석
-    print("[STEP 2] AI 분석 시작...")
-    exchange_rates = get_exchange_rates()
-    try:
-        info = extract_bike_info(page_text, exchange_rates=exchange_rates)
-        print(f"[STEP 2] 완료: {info['brand']} / {info['model_name']} / {info.get('model_year')}")
-    except AnalysisError as e:
-        print(f"[STEP 2] 실패: {e}")
-        return _err(
-            "자전거 정보를 확인할 수 없습니다.",
-            "자전거 판매 페이지가 맞는지 확인하거나, 구동계·모델명이 명시된 다른 페이지로 시도해주세요.",
-            url=url,
+@bp.route("/analyze/status/<task_id>")
+def analyze_status(task_id):
+    """Celery task 상태 폴링. JSON 반환 — 로딩 페이지 JS에서 사용."""
+    celery = _get_celery()
+    async_result = celery.AsyncResult(task_id)
+    state = async_result.state
+
+    # REVOKED: 로고 클릭으로 취소된 상태 — 클라이언트에선 이미 /로 이동했겠지만 혹시 살아있으면 정리.
+    if state == "REVOKED":
+        return jsonify({"state": "revoked"})
+
+    if state in ("PENDING", "RECEIVED", "STARTED", "RETRY"):
+        return jsonify({"state": "pending"})
+
+    if state == "FAILURE":
+        # task 함수 안에서 예외가 잡혀 error dict를 반환하는 구조이므로 여기 오는 건 task 자체의 크래시.
+        logger.error("analyze task FAILURE | task_id=%s | %s", task_id, async_result.traceback)
+        return jsonify({
+            "state": "error",
+            "message": "일시적인 오류가 발생했습니다.",
+            "hint": "잠시 후 다시 시도해주세요.",
+            "url": "",
+        })
+
+    if state == "SUCCESS":
+        result = async_result.result or {}
+        if result.get("status") == "success":
+            return jsonify({"state": "success", "analysis_id": result["analysis_id"]})
+        if result.get("status") == "error":
+            return jsonify({
+                "state": "error",
+                "message": result.get("message", "오류가 발생했습니다."),
+                "hint": result.get("hint", ""),
+                "url": result.get("url", ""),
+            })
+
+    return jsonify({"state": "pending"})
+
+
+@bp.route("/analyze/cancel/<task_id>", methods=["POST"])
+def analyze_cancel(task_id):
+    """task를 revoke — 워커 프로세스를 SIGTERM으로 종료해 즉시 중단.
+
+    sendBeacon 지원을 위해 응답 본문 없이 204로 반환."""
+    celery = _get_celery()
+    celery.control.revoke(task_id, terminate=True, signal="SIGTERM")
+    print(f"[CANCEL] task revoked: id={task_id}")
+    return ("", 204)
+
+
+@bp.route("/analyze/error")
+def analyze_error():
+    """loading.html이 task 실패를 감지한 뒤 이동하는 에러 렌더 엔드포인트."""
+    return _err(
+        message=request.args.get("message", "오류가 발생했습니다."),
+        hint=request.args.get("hint", ""),
+        url=request.args.get("url", ""),
+    )
+
+
+# 부품 키 — Analysis.parts_snapshot 재구성용. task.PART_KEYS와 동기화.
+_RESULT_PART_KEYS = ["groupset", "wheelset", "frameset", "saddle", "handlebar"]
+_BIKE_FK_PART_KEYS = {"groupset", "wheelset", "saddle"}
+
+
+def _load_parts_for_result(analysis: Analysis) -> dict:
+    """분석 결과 화면용 parts dict 재구성. parts_snapshot 우선, 없으면 bike FK + model_name 폴백."""
+    bike = analysis.bike
+    parts: dict = {key: None for key in _RESULT_PART_KEYS}
+
+    snapshot = analysis.parts_snapshot or {}
+    if snapshot:
+        ids = [v for v in snapshot.values() if v]
+        if ids:
+            rows = Part.query.filter(Part.id.in_(ids)).all()
+            by_id = {str(p.id): p for p in rows}
+            for key in _RESULT_PART_KEYS:
+                pid = snapshot.get(key)
+                if pid:
+                    parts[key] = by_id.get(str(pid))
+        return parts
+
+    # parts_snapshot이 없는 과거 분석 폴백
+    parts["groupset"] = bike.groupset
+    parts["wheelset"] = bike.wheelset
+    parts["saddle"] = bike.saddle
+    parts["frameset"] = (
+        Part.query
+        .filter_by(
+            part_name_normalized=_normalize_part_name(bike.model_name),
+            part_type="frameset",
         )
-    except ServiceBusyError:
-        print("[STEP 2] Rate limit 재시도 실패")
-        return _err(
-            "현재 서비스가 혼잡합니다.",
-            "1~2분 후 다시 시도해주세요.",
-            url=url,
-        )
+        .first()
+    )
+    # handlebar는 과거 데이터에서 복원 불가 → None
+    return parts
 
-    try:
-        # STEP 3: bikes 테이블 조회 또는 생성
-        bike = Bike.query.filter_by(
-            brand=info["brand"],
-            model_name=info["model_name"],
-            model_year=info.get("model_year"),
-        ).first()
 
-        is_new_bike = bike is None
-        bike_price_changed = False
-        if is_new_bike:
-            print(f"[CACHE MISS] bikes — 신규 생성: {info['brand']} {info['model_name']} {info.get('model_year')}")
-        else:
-            print(f"[CACHE HIT]  bikes — 기존 조회: {bike.brand} {bike.model_name} {bike.model_year}")
+@bp.route("/result/<analysis_id>")
+def result(analysis_id):
+    """분석 완료 후 task가 남긴 analysis_id로 결과 화면을 렌더. 폼 리프레시에도 안전."""
+    analysis = Analysis.query.filter_by(id=analysis_id).first()
+    if not analysis:
+        return redirect(url_for("main.index"))
 
-        if is_new_bike:
-            bike = Bike(
-                brand=info["brand"],
-                model_name=info["model_name"],
-                model_year=info.get("model_year"),
-                price_krw=info.get("price_krw"),
-                official_url=url,
-                frame_material=info.get("frame_material", "unknown"),
-                frame_material_confidence=info.get("frame_material_confidence", 0),
-                frame_material_source=info.get("frame_material_source", "unknown"),
-                brake_type=info.get("brake_type", "unknown"),
-            )
-        else:
-            # 기존 bike — 신규 스크랩가가 있고 기존 가격과 다르면 업데이트
-            new_price = info.get("price_krw")
-            if new_price and bike.price_krw != new_price:
-                bike.price_krw = new_price
-                bike_price_changed = True
+    bike = analysis.bike
+    parts = _load_parts_for_result(analysis)
 
-        # STEP 4: 부품 조회 (세션에 bike 추가 전에 실행 — autoflush 방지)
-        parts = {}
-        for key in PART_KEYS:
-            if key == "frameset":
-                # 프레임셋은 AI 추출값 무시 — bike model_name으로 항상 parts DB에 저장
-                parts[key] = get_or_fetch_part(
-                    part_name=bike.model_name,
-                    part_name_normalized=bike.model_name,
-                    part_type="frameset",
-                )
-                continue
-            part_info = info.get(key, {})
-            if not part_info or not part_info.get("part_name"):
-                parts[key] = None
-                continue
-            parts[key] = get_or_fetch_part(
-                part_name=part_info["part_name"],
-                part_name_normalized=part_info["part_name_normalized"],
-                part_type=key,
-            )
+    bike_price = bike.price_krw or 0
 
-        # groupset은 NOT NULL — 없으면 케이스 6
-        if parts["groupset"] is None:
-            db.session.rollback()
-            return _err(
-                "구동계 정보를 확인할 수 없습니다.",
-                "구동계(브랜드·모델명)가 명시된 판매 페이지 링크로 다시 시도해주세요.",
-                url=url,
-            )
+    # blur 모드 — 현재 세션/IP 기준 rate limit으로 재도출
+    ip = _get_client_ip()
+    _blocked, detail_limited, reset_minutes = _check_rate_limit(ip)
 
-        bike.groupset_id = parts["groupset"].id
-        bike.wheelset_id = parts["wheelset"].id if parts["wheelset"] else None
-        bike.saddle_id = parts["saddle"].id if parts["saddle"] else None
-        bike.last_verified_at = datetime.utcnow()
-
-        if is_new_bike:
-            db.session.add(bike)
-        db.session.flush()  # bike.id 확정 (groupset_id 세팅 완료 후라 안전)
-
-        # bike 가격 이력 저장 (신규 저장 또는 변경 시)
-        if is_new_bike and bike.price_krw:
-            record_bike_price_history(bike, bike.price_krw)
-        elif bike_price_changed:
-            record_bike_price_history(bike, bike.price_krw)
-
-        # STEP 5: 가격 계산
-        part_list = [p for p in parts.values() if p is not None]
-        parts_sum_krw, missing_parts = calculate_parts_sum(part_list)
-
-        # AI가 부품 자체를 추출 못한 경우(None)도 missing_parts에 포함
-        for key in PART_KEYS:
-            if parts[key] is None and key not in missing_parts:
-                missing_parts.append(key)
-
-        bike_price = info.get("price_krw") or bike.price_krw or 0
-        saving_krw = parts_sum_krw - bike_price
-        saving_pct = round(saving_krw / parts_sum_krw * 100, 1) if parts_sum_krw else 0
-
-        analysis = Analysis(
-            bike_id=bike.id,
-            parts_sum_krw=parts_sum_krw,
-            saving_krw=saving_krw,
-            saving_pct=saving_pct,
-            missing_parts=missing_parts,
-            analyzed_at=datetime.utcnow(),
-        )
-        db.session.add(analysis)
-        db.session.flush()  # analysis.id 확정
-
-        # STEP 6: 로그인 상태면 히스토리 저장
-        if session.get("user_id"):
-            ua = UserAnalysis(
-                user_id=session["user_id"],
-                analysis_id=analysis.id,
-            )
-            db.session.add(ua)
-
-        log = AnalysisLog(
-            ip_address=ip,
-            user_id=session.get("user_id"),
-            is_detailed=not detail_limited,
-        )
-        db.session.add(log)
-        db.session.commit()
-        print(f"[STEP 5] 완료 — 부품합산: {parts_sum_krw:,}원 / 완성차: {bike_price:,}원 / 절약: {saving_krw:,}원")
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error("분석 중 예외 발생 | url=%s\n%s", url, traceback.format_exc())
-        return _err(
-            "일시적인 오류가 발생했습니다.",
-            "잠시 후 다시 시도해주세요. 문제가 반복되면 다른 링크로 시도해보세요.",
-            url=url,
-        )
-
-    # 플랜별 blur 모드 결정
     if not session.get("user_id"):
         blur_mode = "guest"
         blur_reset_minutes = 0
@@ -983,7 +916,7 @@ def analyze():
         blur_mode = None
         blur_reset_minutes = 0
 
-    # world_tour 플랜 및 admin만 가격 이력 그래프 데이터 전달
+    # world_tour / admin만 가격 이력 그래프
     price_history = None
     user_id = session.get("user_id")
     if user_id:

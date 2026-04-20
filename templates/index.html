@@ -194,20 +194,14 @@
 {% endif %}
 
 <script>
+  // 분석 폼 제출 직후 /analyze 응답(loading.html) 도착 전까지의 빈 화면을 막기 위해
+  // 메인 페이지에서만 로딩 오버레이를 먼저 띄운다. 서버가 loading.html을 반환하면 자연스럽게 이어짐.
   var form = document.querySelector('.input-form');
   if (form) {
     form.addEventListener('submit', function() {
       document.getElementById('loadingOverlay').classList.add('active');
-      window.onbeforeunload = null;
     });
   }
-
-  document.querySelector('.bpa-logo').addEventListener('click', function(e) {
-    e.preventDefault();
-    window.stop();
-    window.onbeforeunload = null;
-    window.location.href = '/';
-  });
 
   // 가격 overlay를 tbody 영역에만 맞게 위치 조정
   (function() {

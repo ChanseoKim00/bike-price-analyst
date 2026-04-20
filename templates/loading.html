@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="loading-overlay active" id="loadingOverlay">
+  <p class="loading-text">AI가 가격을 분석중입니다.</p>
+</div>
+
+<script>
+  (function() {
+    var taskId = {{ task_id | tojson }};
+    var statusUrl = '/analyze/status/' + encodeURIComponent(taskId);
+    var cancelUrl = '/analyze/cancel/' + encodeURIComponent(taskId);
+    var canceled = false;
+    var timer = null;
+
+    function stopPolling() {
+      if (timer) { clearTimeout(timer); timer = null; }
+    }
+
+    function sendCancel() {
+      if (canceled) return;
+      canceled = true;
+      stopPolling();
+      try {
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(cancelUrl, new Blob([], { type: 'text/plain' }));
+        } else {
+          // sendBeacon 미지원 브라우저 폴백 (keepalive fetch)
+          fetch(cancelUrl, { method: 'POST', keepalive: true });
+        }
+      } catch (_) { /* 네트워크 오류는 무시 — 사용자 경험 저해 금지 */ }
+    }
+
+    function goToError(message, hint, url) {
+      stopPolling();
+      var params = new URLSearchParams();
+      if (message) params.set('message', message);
+      if (hint) params.set('hint', hint);
+      if (url) params.set('url', url);
+      window.location.replace('/analyze/error?' + params.toString());
+    }
+
+    function poll() {
+      fetch(statusUrl, { credentials: 'same-origin' })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (canceled) return;
+          if (data.state === 'success') {
+            stopPolling();
+            window.location.replace('/result/' + encodeURIComponent(data.analysis_id));
+            return;
+          }
+          if (data.state === 'error') {
+            goToError(data.message, data.hint, data.url);
+            return;
+          }
+          if (data.state === 'revoked') {
+            stopPolling();
+            window.location.replace('/');
+            return;
+          }
+          // pending → 1.5초 후 재조회
+          timer = setTimeout(poll, 1500);
+        })
+        .catch(function() {
+          if (canceled) return;
+          // 일시적 네트워크 오류는 계속 재시도
+          timer = setTimeout(poll, 2000);
+        });
+    }
+
+    // 로고 클릭 — beacon으로 취소 신호 보낸 뒤 메인으로 이동
+    var logo = document.querySelector('.bpa-logo');
+    if (logo) {
+      logo.addEventListener('click', function(e) {
+        e.preventDefault();
+        sendCancel();
+        window.location.href = '/';
+      });
+    }
+
+    // 탭 종료 / 뒤로가기 / 새로고침도 취소 — 좀비 task 방지
+    window.addEventListener('pagehide', sendCancel);
+    window.addEventListener('beforeunload', sendCancel);
+
+    poll();
+  })();
+</script>
+
+{% endblock %}
