@@ -11,19 +11,27 @@ class User(db.Model):
 
     id                 = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email              = db.Column(db.Text, nullable=False, unique=True)
-    password_hash      = db.Column(db.Text, nullable=False)
+    password_hash      = db.Column(db.Text)                      # 소셜 전용 계정은 None
     role               = db.Column(db.Text, nullable=False, default="user")
     plan               = db.Column(db.Text, nullable=False, default="continental")
     created_at         = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     last_login_at      = db.Column(db.DateTime)
-    name               = db.Column(db.Text, nullable=False)
+    name               = db.Column(db.Text)                      # 소셜 계정은 None 가능
     nickname           = db.Column(db.Text, nullable=False, unique=True)
-    birth_date         = db.Column(db.Date, nullable=False)
+    birth_date         = db.Column(db.Date)                      # 소셜 계정은 None
     privacy_agreed_at  = db.Column(db.DateTime, nullable=False)
+    provider           = db.Column(db.Text)                      # NULL | 'local' | 'google'
+    provider_user_id   = db.Column(db.Text)                      # Google의 sub 값 등
 
     __table_args__ = (
         db.CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),
         db.CheckConstraint("plan IN ('continental', 'pro', 'world_tour')", name="ck_users_plan"),
+        db.CheckConstraint(
+            "provider IS NULL OR provider IN ('local', 'google')",
+            name="ck_users_provider",
+        ),
+        db.UniqueConstraint("provider", "provider_user_id",
+                            name="uq_users_provider_provider_user_id"),
     )
 
     def __repr__(self):

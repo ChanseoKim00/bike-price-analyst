@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken
 from .email_sender import send_password_reset_email
+from .utils.nickname import generate_unique_nickname
 from .scraper import fetch_html, ScrapeError
 from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
 from .exchange_rate import get_exchange_rates
@@ -370,6 +371,7 @@ def register():
         nickname=nickname,
         birth_date=birth_date_parsed,
         privacy_agreed_at=datetime.utcnow(),
+        provider="local",
     )
     db.session.add(user)
     db.session.commit()
@@ -379,9 +381,11 @@ def register():
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
-        registered = request.args.get("registered")
-        reset      = request.args.get("reset")
-        return render_template("login.html", registered=registered, reset=reset)
+        registered  = request.args.get("registered")
+        reset       = request.args.get("reset")
+        oauth_error = request.args.get("oauth_error")
+        return render_template("login.html",
+                               registered=registered, reset=reset, oauth_error=oauth_error)
 
     email    = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "")
@@ -390,23 +394,93 @@ def login():
         return render_template("login.html", error="이메일 또는 비밀번호를 확인해주세요.", email=email)
 
     user = User.query.filter_by(email=email).first()
-    if not user or not check_password_hash(user.password_hash, password):
+    if not user or not user.password_hash or not check_password_hash(user.password_hash, password):
         return render_template("login.html", error="이메일 또는 비밀번호가 올바르지 않습니다.", email=email)
 
     user.last_login_at = datetime.utcnow()
     db.session.commit()
 
-    session["user_id"]       = str(user.id)
-    session["user_email"]    = user.email
-    session["user_nickname"] = user.nickname
-    session["user_role"]     = user.role
-    session["user_plan"]     = user.plan
+    _login_user_session(user)
     return redirect(url_for("main.index"))
 
 
 @bp.route("/logout")
 def logout():
     session.clear()
+    return redirect(url_for("main.index"))
+
+
+# ── Google OAuth 로그인 ───────────────────────────────────────
+
+def _login_user_session(user: User):
+    """로그인 세션 값 채우기 — /login, OAuth 콜백 공용."""
+    session["user_id"]       = str(user.id)
+    session["user_email"]    = user.email
+    session["user_nickname"] = user.nickname
+    session["user_role"]     = user.role
+    session["user_plan"]     = user.plan
+
+
+@bp.route("/auth/google/login")
+def google_login():
+    from . import oauth
+    redirect_uri = url_for("main.google_callback", _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@bp.route("/auth/google/callback")
+def google_callback():
+    from . import oauth
+    try:
+        token = oauth.google.authorize_access_token()
+    except Exception as e:
+        logger.warning("Google OAuth 토큰 교환 실패: %s", e)
+        return redirect(url_for("main.login") + "?oauth_error=1")
+
+    userinfo = token.get("userinfo")
+    if not userinfo:
+        try:
+            userinfo = oauth.google.userinfo(token=token)
+        except Exception as e:
+            logger.error("Google userinfo 조회 실패: %s", e)
+            return redirect(url_for("main.login") + "?oauth_error=1")
+
+    sub   = userinfo.get("sub")
+    email = (userinfo.get("email") or "").strip().lower()
+    name  = userinfo.get("name") or None
+
+    if not sub or not email:
+        logger.warning("Google userinfo 필수값 누락: sub=%s email=%s", sub, email)
+        return redirect(url_for("main.login") + "?oauth_error=1")
+
+    # 1) provider + sub 매칭 → 재로그인
+    user = User.query.filter_by(provider="google", provider_user_id=sub).first()
+
+    # 2) email 매칭 → 기존 로컬 계정 자동 연결
+    if not user:
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.provider = "google"
+            user.provider_user_id = sub
+
+    # 3) 신규 가입
+    if not user:
+        user = User(
+            email=email,
+            password_hash=None,
+            name=name,
+            nickname=generate_unique_nickname(),
+            birth_date=None,
+            privacy_agreed_at=datetime.utcnow(),
+            provider="google",
+            provider_user_id=sub,
+        )
+        db.session.add(user)
+
+    user.last_login_at = datetime.utcnow()
+    db.session.commit()
+
+    _login_user_session(user)
     return redirect(url_for("main.index"))
 
 

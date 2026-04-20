@@ -72,15 +72,18 @@ CREATE TABLE IF NOT EXISTS analyses (
 CREATE TABLE IF NOT EXISTS users (
     id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     email               TEXT        NOT NULL UNIQUE,
-    password_hash       TEXT        NOT NULL,
+    password_hash       TEXT,
     role                TEXT        NOT NULL DEFAULT 'user'
                             CHECK (role IN ('user', 'admin')),
     created_at          TIMESTAMP   NOT NULL DEFAULT NOW(),
     last_login_at       TIMESTAMP,
-    name                TEXT        NOT NULL,
+    name                TEXT,
     nickname            TEXT        NOT NULL UNIQUE,
-    birth_date          DATE        NOT NULL,
-    privacy_agreed_at   TIMESTAMP   NOT NULL
+    birth_date          DATE,
+    privacy_agreed_at   TIMESTAMP   NOT NULL,
+    provider            TEXT        CHECK (provider IS NULL OR provider IN ('local', 'google')),
+    provider_user_id    TEXT,
+    UNIQUE (provider, provider_user_id)
 );
 
 -- ============================================================

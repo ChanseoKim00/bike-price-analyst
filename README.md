@@ -29,7 +29,9 @@
 
 ### 회원 / 플랜
 - 이메일·비밀번호 기반 회원가입 / 로그인 (Flask 자체 구현, 비밀번호는 werkzeug 해시)
-- 가입 시 이름 / 닉네임 / 생년월일 / 개인정보 동의 필수
+- **Google 소셜 로그인** 지원 (authlib OIDC) — 같은 이메일 계정이 있으면 자동 연결, 없으면 신규 가입 (닉네임 자동 생성)
+- 비밀번호 재설정 (`/forgot-password`, 30분 일회용 토큰, SendGrid 이메일)
+- 가입 시 이름 / 닉네임 / 생년월일 / 개인정보 동의 필수 (로컬 가입 기준)
 - 로그인 시 분석 히스토리 자동 저장, `/history`에서 본인 과거 분석 결과 조회
 - 플랜 3종: `continental` / `pro` / `world_tour` (가입 기본값 = continental)
 - 플랜별 분석 횟수 및 상세 정보 열람 제한 (아래 "플랜 구조" 참조)
@@ -87,11 +89,37 @@
 | `/` | 메인 (URL 입력) |
 | `/analyze` | 분석 실행 (POST) |
 | `/register`, `/login`, `/logout` | 인증 |
+| `/forgot-password`, `/reset-password/<token>` | 비밀번호 재설정 |
+| `/auth/google/login`, `/auth/google/callback` | Google OAuth |
 | `/history` | 본인 분석 히스토리 (로그인 필요) |
 | `/suggest` | 부품 가격 제안 |
 | `/chatbot` | AI 상담원 챗봇 |
 | `/admin` | 관리자 대시보드 (admin 전용) |
 | `/admin/suggestion/<id>` | 가격 제안 상세 · 승인 / 반려 |
+
+---
+
+## 환경변수
+
+| 변수 | 용도 |
+|------|------|
+| `DATABASE_URL` | PostgreSQL 접속 문자열 |
+| `FLASK_SECRET_KEY` | Flask 세션 암호화 키 (미설정 시 부팅 시 랜덤) |
+| `ANTHROPIC_API_KEY` | Claude API (자전거 분석 · 부품 검색 · 챗봇) |
+| `BOK_API_KEY` | 한국은행 ECOS 환율 API (미설정 시 폴백 환율 사용) |
+| `SENDGRID_API_KEY` | SendGrid 이메일 발송 (비밀번호 재설정 메일) |
+| `SENDGRID_FROM_EMAIL` | SendGrid Verified Sender 주소 |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret |
+
+### Google OAuth 클라이언트 만들기
+1. [Google Cloud Console](https://console.cloud.google.com/) → 프로젝트 선택/생성
+2. **APIs & Services → OAuth consent screen** 에서 앱 등록 (User Type: External, scope: email·profile·openid)
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID** (Type: Web application)
+4. **Authorized redirect URIs** 에 로컬 / 배포 주소를 모두 등록:
+   - `http://localhost:8080/auth/google/callback`
+   - `https://bike-price-analyst-production.up.railway.app/auth/google/callback`
+5. 생성된 Client ID / Secret을 환경변수에 등록
 
 ---
 
