@@ -10,11 +10,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory
+from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part
 from .scraper import fetch_html, ScrapeError
 from .ai_analyzer import extract_bike_info, AnalysisError, ServiceBusyError
 from .exchange_rate import get_exchange_rates
-from .price_calculator import get_or_fetch_part, calculate_parts_sum
+from .price_calculator import get_or_fetch_part, calculate_parts_sum, _normalize_part_name
 
 bp = Blueprint("main", __name__)
 
@@ -525,6 +525,63 @@ def admin_suggestion(suggestion_id):
         proposer=proposer,
         rows=rows,
     )
+
+
+@bp.route("/admin/suggestion/<suggestion_id>/approve", methods=["POST"])
+@admin_required
+def admin_suggestion_approve(suggestion_id):
+    ps = PriceSuggestion.query.filter_by(id=suggestion_id).first()
+    if not ps or ps.status != "pending":
+        return redirect(url_for("main.admin"))
+
+    bike = ps.analysis.bike
+    now = datetime.utcnow()
+
+    fk_parts = {
+        "groupset": bike.groupset,
+        "wheelset": bike.wheelset,
+        "saddle":   bike.saddle,
+    }
+
+    for key, suggested in (ps.suggestions or {}).items():
+        if not suggested:
+            continue
+        new_price = suggested.get("suggested_price_krw")
+        if not new_price:
+            continue
+
+        if key in fk_parts:
+            part = fk_parts[key]
+        elif key == "frameset":
+            part = Part.query.filter_by(
+                part_name_normalized=_normalize_part_name(bike.model_name),
+                part_type="frameset",
+            ).first()
+        else:
+            # handlebar 등 Part로 저장되지 않는 항목은 건너뜀
+            continue
+
+        if part is None:
+            continue
+
+        part.price_krw = int(new_price)
+        part.last_verified_at = now
+
+    ps.status = "approved"
+    db.session.commit()
+    return redirect(url_for("main.admin"))
+
+
+@bp.route("/admin/suggestion/<suggestion_id>/reject", methods=["POST"])
+@admin_required
+def admin_suggestion_reject(suggestion_id):
+    ps = PriceSuggestion.query.filter_by(id=suggestion_id).first()
+    if not ps or ps.status != "pending":
+        return redirect(url_for("main.admin"))
+
+    ps.status = "rejected"
+    db.session.commit()
+    return redirect(url_for("main.admin"))
 
 
 @bp.route("/history")
