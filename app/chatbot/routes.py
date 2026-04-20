@@ -117,17 +117,22 @@ def chat():
     visitor_id = _ensure_visitor_id()
     logger.info("채팅 요청: visitor_id=%s, message_len=%d", visitor_id, len(user_message))
 
-    if not _is_admin():
-        today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
-        today_count = (
-            ChatbotUsageLog.query
-            .filter(ChatbotUsageLog.visitor_id == visitor_id)
-            .filter(ChatbotUsageLog.created_at >= today_start)
-            .count()
-        )
-        if today_count >= DAILY_MESSAGE_LIMIT:
-            logger.warning("일일 메시지 한도 초과: visitor_id=%s, count=%d", visitor_id, today_count)
-            return jsonify({"error": "잠시 후 이용해주세요."}), 429
+    try:
+        if not _is_admin():
+            today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+            today_count = (
+                ChatbotUsageLog.query
+                .filter(ChatbotUsageLog.visitor_id == visitor_id)
+                .filter(ChatbotUsageLog.created_at >= today_start)
+                .count()
+            )
+            if today_count >= DAILY_MESSAGE_LIMIT:
+                logger.warning("일일 메시지 한도 초과: visitor_id=%s, count=%d", visitor_id, today_count)
+                return jsonify({"error": "잠시 후 이용해주세요."}), 429
+    except Exception as e:
+        db.session.rollback()
+        logger.error("사용량 조회 실패 (visitor_id=%s): %s", visitor_id, e)
+        return jsonify({"error": "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요."}), 500
 
     try:
         response = _get_client().messages.create(
