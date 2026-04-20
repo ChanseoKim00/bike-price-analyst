@@ -248,9 +248,11 @@
       return v.toLocaleString();
     }
 
-    // X축 고정 창: 최근 3년
+    // X축 고정 창: 과거 3년 + 미래 여유. 현재 시점을 창의 84% 위치에 배치.
     var X_NOW = Date.now();
-    var X_MIN = X_NOW - 3 * 365 * 24 * 60 * 60 * 1000;
+    var X_PAST_MS = 3 * 365 * 24 * 60 * 60 * 1000;
+    var X_MIN = X_NOW - X_PAST_MS;
+    var X_MAX = X_NOW + Math.round(X_PAST_MS * (16 / 84));
 
     function computeYRange(points) {
       var ys = points.map(function(p) { return p.y; }).filter(function(v) { return v != null; });
@@ -313,7 +315,7 @@
             x: {
               type: 'time',
               min: X_MIN,
-              max: X_NOW,
+              max: X_MAX,
               time: { unit: 'month', tooltipFormat: 'yyyy-MM-dd', displayFormats: { month: 'yyyy-MM' } },
               grid: { color: colors.grid, drawBorder: false },
               ticks: { color: colors.tick, maxRotation: 0, autoSkipPadding: 20, font: { size: 10 } },
