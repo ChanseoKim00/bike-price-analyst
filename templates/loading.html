@@ -46,15 +46,19 @@
         .then(function(data) {
           if (canceled) return;
           if (data.state === 'success') {
+            // task 이미 끝났으므로 이후 pagehide/beforeunload가 취소 비콘을 쏘지 않도록 차단
+            canceled = true;
             stopPolling();
             window.location.replace('/result/' + encodeURIComponent(data.analysis_id));
             return;
           }
           if (data.state === 'error') {
+            canceled = true;
             goToError(data.message, data.hint, data.url);
             return;
           }
           if (data.state === 'revoked') {
+            canceled = true;
             stopPolling();
             window.location.replace('/');
             return;

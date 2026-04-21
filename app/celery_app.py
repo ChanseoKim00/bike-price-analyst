@@ -31,6 +31,7 @@ celery.conf.update(
     broker_connection_retry_on_startup=True,
     worker_prefetch_multiplier=1, # 분석은 장시간 → 1개씩만 prefetch
     task_acks_late=False,         # revoke(terminate=True)가 재실행되지 않도록
+    worker_redirect_stdouts_level="INFO",  # print()의 기본 리다이렉트 레벨(WARNING)을 INFO로 — 정상 흐름 로그가 빨갛게 뜨는 것 방지
 )
 
 
