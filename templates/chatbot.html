@@ -471,15 +471,20 @@
             group.id = 'quick-replies';
 
             QUICK_REPLIES.forEach(({ label, key }) => {
-                const text = messages[key];
-                if (!text) return;
+                const reply = messages[key];
+                if (!reply) return;
                 const btn = document.createElement('button');
                 btn.className = 'quick-reply-btn';
                 btn.type = 'button';
                 btn.textContent = label;
                 btn.addEventListener('click', () => {
                     removeQuickReplies();
-                    sendMessageText(text);
+                    addMessage(label, 'user');
+                    showTyping();
+                    setTimeout(() => {
+                        removeTyping();
+                        addMessage(reply, 'bot');
+                    }, 500);
                 });
                 group.appendChild(btn);
             });
