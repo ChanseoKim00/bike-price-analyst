@@ -210,6 +210,32 @@
             padding: 0 4px;
         }
 
+        .quick-replies {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 4px 0 4px 2px;
+        }
+
+        .quick-reply-btn {
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--accent);
+            background: var(--surface);
+            border: 1.5px solid var(--accent);
+            border-radius: 999px;
+            padding: 8px 14px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, transform 0.15s;
+        }
+
+        .quick-reply-btn:hover {
+            background: var(--accent);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
         .typing-indicator {
             display: flex;
             align-items: center;
@@ -395,7 +421,13 @@
             return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
         }
 
+        function removeQuickReplies() {
+            const el = document.getElementById('quick-replies');
+            if (el) el.remove();
+        }
+
         function addMessage(text, role) {
+            if (role === 'user') removeQuickReplies();
             const row = document.createElement('div');
             row.className = `message-row ${role}`;
 
@@ -414,6 +446,44 @@
             return row;
         }
 
+        const QUICK_REPLIES = [
+            { label: '유료 플랜 설명', key: 'pricing' },
+            { label: 'BPA 이용 방법',  key: 'usage' },
+            { label: '기타 질문',      key: 'other' },
+        ];
+
+        async function renderQuickReplies() {
+            let messages;
+            try {
+                const res = await fetch("{{ url_for('static', filename='auto_message.json') }}", { cache: 'no-store' });
+                messages = await res.json();
+            } catch (err) {
+                console.warn('auto_message.json 로드 실패:', err);
+                return;
+            }
+
+            const row = document.createElement('div');
+            row.className = 'quick-replies';
+            row.id = 'quick-replies';
+
+            QUICK_REPLIES.forEach(({ label, key }) => {
+                const text = messages[key];
+                if (!text) return;
+                const btn = document.createElement('button');
+                btn.className = 'quick-reply-btn';
+                btn.type = 'button';
+                btn.textContent = label;
+                btn.addEventListener('click', () => {
+                    removeQuickReplies();
+                    sendMessageText(text);
+                });
+                row.appendChild(btn);
+            });
+
+            chatBox.appendChild(row);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
         function showTyping() {
             const row = document.createElement('div');
             row.className = 'message-row bot';
@@ -428,8 +498,7 @@
             if (el) el.remove();
         }
 
-        async function sendMessage() {
-            const message = userInput.value.trim();
+        async function sendMessageText(message) {
             if (!message) return;
 
             addMessage(message, 'user');
@@ -455,7 +524,13 @@
             }
         }
 
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (message) sendMessageText(message);
+        }
+
         addMessage('안녕하세요! BPA 상담원입니다.\n앱 사용법이나 요금제에 대해 무엇이든 편하게 물어봐 주세요.', 'bot');
+        renderQuickReplies();
         userInput.focus();
     </script>
 </body>
