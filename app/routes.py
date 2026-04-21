@@ -178,6 +178,11 @@ def index():
     return render_template("index.html", price_history=None)
 
 
+@bp.route("/pricing")
+def pricing():
+    return render_template("pricing.html")
+
+
 @bp.route("/preview/result")
 def preview_result():
     bike = SimpleNamespace(brand="Fantasia", model_name="레이다 9 ARC Gen.3", model_year=2025)

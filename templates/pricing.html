@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% set current_plan = session.get('user_plan') or ('continental' if session.get('user_nickname') else none) %}
+
+<div class="pricing-wrap">
+  <div class="pricing-hero">
+    <h1 class="pricing-title">Upgrade your plan</h1>
+    <p class="pricing-subtitle">필요에 맞는 플랜을 선택하고 Bike Price Analyst를 더 깊이 활용해보세요.</p>
+  </div>
+
+  <div class="pricing-grid">
+    <!-- Continental -->
+    <div class="pricing-card {% if current_plan == 'continental' %}pricing-card--current{% endif %}">
+      <div class="pricing-card__head">
+        <h2 class="pricing-card__name">Continental</h2>
+        <p class="pricing-card__tagline">가볍게 시작하기</p>
+        <div class="pricing-card__price">
+          <span class="pricing-card__amount">무료</span>
+        </div>
+      </div>
+      <ul class="pricing-card__features">
+        <li><span class="pricing-check">✓</span>5시간마다 최대 10회 분석</li>
+        <li><span class="pricing-check">✓</span>완성차 vs 부품 합산 절약 금액 비교</li>
+        <li><span class="pricing-check">✓</span>분석 히스토리 저장</li>
+        <li><span class="pricing-check">✓</span>가격 수정 제안 참여</li>
+      </ul>
+      {% if current_plan == 'continental' %}
+        <button class="pricing-card__cta pricing-card__cta--current" disabled>현재 플랜</button>
+      {% else %}
+        <a href="/register" class="pricing-card__cta">시작하기</a>
+      {% endif %}
+    </div>
+
+    <!-- Pro -->
+    <div class="pricing-card pricing-card--featured {% if current_plan == 'pro' %}pricing-card--current{% endif %}">
+      <span class="pricing-card__badge">추천</span>
+      <div class="pricing-card__head">
+        <h2 class="pricing-card__name">Pro</h2>
+        <p class="pricing-card__tagline">진지하게 비교하는 라이더용</p>
+        <div class="pricing-card__price">
+          <span class="pricing-card__amount">₩9,900</span>
+          <span class="pricing-card__period">/ 월</span>
+        </div>
+      </div>
+      <ul class="pricing-card__features">
+        <li><span class="pricing-check">✓</span>Continental의 모든 기능 포함</li>
+        <li><span class="pricing-check">✓</span><strong>무제한</strong> 분석 · 상세 부품 가격 전부 공개</li>
+        <li><span class="pricing-check">✓</span>부품별 개별 구매가 · 절약 금액 상세 뷰</li>
+        <li><span class="pricing-check">✓</span>우선순위 가격 데이터 업데이트</li>
+      </ul>
+      {% if current_plan == 'pro' %}
+        <button class="pricing-card__cta pricing-card__cta--current" disabled>현재 플랜</button>
+      {% else %}
+        <a href="#" class="pricing-card__cta pricing-card__cta--primary">Pro로 업그레이드</a>
+      {% endif %}
+    </div>
+
+    <!-- World Tour -->
+    <div class="pricing-card {% if current_plan == 'world_tour' %}pricing-card--current{% endif %}">
+      <div class="pricing-card__head">
+        <h2 class="pricing-card__name">World Tour</h2>
+        <p class="pricing-card__tagline">데이터까지 파고드는 고수용</p>
+        <div class="pricing-card__price">
+          <span class="pricing-card__amount">₩19,900</span>
+          <span class="pricing-card__period">/ 월</span>
+        </div>
+      </div>
+      <ul class="pricing-card__features">
+        <li><span class="pricing-check">✓</span>Pro의 모든 기능 포함</li>
+        <li><span class="pricing-check">✓</span>완성차 · 부품별 <strong>3년 가격 변동 그래프</strong></li>
+        <li><span class="pricing-check">✓</span>모델별 시세 추이 기반 구매 타이밍 분석</li>
+        <li><span class="pricing-check">✓</span>신규 기능 우선 제공</li>
+      </ul>
+      {% if current_plan == 'world_tour' %}
+        <button class="pricing-card__cta pricing-card__cta--current" disabled>현재 플랜</button>
+      {% else %}
+        <a href="#" class="pricing-card__cta">World Tour로 업그레이드</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <p class="pricing-footnote">모든 결제는 안전하게 처리되며 언제든지 해지할 수 있습니다.</p>
+</div>
+
+{% endblock %}

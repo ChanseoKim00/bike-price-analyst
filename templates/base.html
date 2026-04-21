@@ -7,7 +7,14 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <a href="/" class="bpa-logo">BPA</a>
+  <div class="top-header-left">
+    <a href="/" class="bpa-logo">BPA</a>
+    <nav class="main-nav">
+      <a href="/" class="main-nav__btn">Home</a>
+      <a href="/history" class="main-nav__btn">내 히스토리</a>
+      <a href="{{ url_for('main.pricing') }}" class="main-nav__btn">Upgrade</a>
+    </nav>
+  </div>
   <nav class="auth-nav">
     {% if session.get('user_nickname') %}
       <span class="auth-plan">
@@ -22,7 +29,6 @@
         {% if session.get('user_role') == 'admin' %}
           <a href="/admin" class="auth-btn auth-btn--admin">관리자</a>
         {% endif %}
-        <a href="/history" class="auth-btn">내 히스토리</a>
         <a href="/logout" class="auth-btn">로그아웃</a>
       </div>
     {% else %}
