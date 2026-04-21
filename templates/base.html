@@ -29,6 +29,7 @@
         {% if session.get('user_role') == 'admin' %}
           <a href="/admin" class="auth-btn auth-btn--admin">관리자</a>
         {% endif %}
+        <a href="/mypage" class="auth-btn">마이페이지</a>
         <a href="/logout" class="auth-btn">로그아웃</a>
       </div>
     {% else %}

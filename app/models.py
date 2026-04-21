@@ -22,6 +22,7 @@ class User(db.Model):
     privacy_agreed_at  = db.Column(db.DateTime, nullable=False)
     provider           = db.Column(db.Text)                      # NULL | 'local' | 'google'
     provider_user_id   = db.Column(db.Text)                      # Google의 sub 값 등
+    notifications_enabled = db.Column(db.Boolean, nullable=False, default=True)
 
     __table_args__ = (
         db.CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),

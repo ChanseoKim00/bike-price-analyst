@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="mypage-wrap">
+  <div class="mypage-inner">
+    <h1 class="mypage-title">마이페이지</h1>
+
+    <div class="mypage-layout">
+      <nav class="mypage-sidebar">
+        {% set tabs = [
+          ('general',  '일반'),
+          ('account',  '계정'),
+          ('billing',  '결제'),
+          ('usage',    '사용량'),
+          ('history',  '검색 히스토리'),
+        ] %}
+        {% for key, label in tabs %}
+          <a href="{{ url_for('main.mypage', tab=key) }}"
+             class="mypage-sidebar__item {% if tab == key %}mypage-sidebar__item--active{% endif %}">
+            {{ label }}
+          </a>
+        {% endfor %}
+      </nav>
+
+      <section class="mypage-content">
+        {% if messages.success %}
+          <div class="mypage-alert mypage-alert--success">{{ messages.success }}</div>
+        {% endif %}
+        {% if messages.error %}
+          <div class="mypage-alert mypage-alert--error">{{ messages.error }}</div>
+        {% endif %}
+
+        {% if tab == 'general' %}
+          <h2 class="mypage-section-title">일반</h2>
+
+          <div class="mypage-card">
+            <h3 class="mypage-card-title">프로필</h3>
+            <dl class="mypage-info">
+              <div class="mypage-info-row">
+                <dt>닉네임</dt>
+                <dd>{{ user.nickname }}</dd>
+              </div>
+              <div class="mypage-info-row">
+                <dt>이메일</dt>
+                <dd>{{ user.email }}</dd>
+              </div>
+              {% if user.name %}
+              <div class="mypage-info-row">
+                <dt>이름</dt>
+                <dd>{{ user.name }}</dd>
+              </div>
+              {% endif %}
+              <div class="mypage-info-row">
+                <dt>현재 플랜</dt>
+                <dd>
+                  {% if user.role == 'admin' %}관리자
+                  {% else %}{{ user.plan }}{% endif %}
+                </dd>
+              </div>
+              <div class="mypage-info-row">
+                <dt>가입 방식</dt>
+                <dd>
+                  {% if user.provider == 'google' %}Google 연동
+                  {% else %}이메일{% endif %}
+                </dd>
+              </div>
+              <div class="mypage-info-row">
+                <dt>가입일</dt>
+                <dd>{{ user.created_at.strftime('%Y.%m.%d') }}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="mypage-card">
+            <h3 class="mypage-card-title">알림</h3>
+            <form method="POST" action="{{ url_for('main.mypage_profile') }}" class="mypage-toggle-form">
+              <label class="mypage-toggle">
+                <input type="checkbox" name="notifications_enabled" {% if user.notifications_enabled %}checked{% endif %}>
+                <span class="mypage-toggle__track"><span class="mypage-toggle__thumb"></span></span>
+                <span class="mypage-toggle__label">알림 받기</span>
+              </label>
+              <p class="mypage-hint">새 기능, 가격 업데이트, 공지사항을 이메일로 받아보실 수 있습니다.</p>
+              <button type="submit" class="mypage-btn">저장</button>
+            </form>
+          </div>
+
+        {% elif tab == 'account' %}
+          <h2 class="mypage-section-title">계정</h2>
+
+          <div class="mypage-card">
+            <h3 class="mypage-card-title">아이디 (이메일)</h3>
+            <form method="POST" action="{{ url_for('main.mypage_account_email') }}" class="mypage-form">
+              <input type="email" name="email" value="{{ user.email }}"
+                     class="mypage-input"
+                     {% if user.provider == 'google' %}disabled{% endif %} required>
+              {% if user.provider == 'google' %}
+                <p class="mypage-hint">Google 연동 계정은 이메일을 변경할 수 없습니다.</p>
+              {% else %}
+                <button type="submit" class="mypage-btn">이메일 변경</button>
+              {% endif %}
+            </form>
+          </div>
+
+          <div class="mypage-card">
+            <h3 class="mypage-card-title">닉네임</h3>
+            <form method="POST" action="{{ url_for('main.mypage_account_nickname') }}" class="mypage-form">
+              <input type="text" name="nickname" value="{{ user.nickname }}"
+                     class="mypage-input" maxlength="30" required>
+              <button type="submit" class="mypage-btn">닉네임 변경</button>
+            </form>
+          </div>
+
+          <div class="mypage-card">
+            <h3 class="mypage-card-title">비밀번호</h3>
+            {% if user.password_hash %}
+              <form method="POST" action="{{ url_for('main.mypage_account_password') }}" class="mypage-form">
+                <label class="mypage-field-label">현재 비밀번호</label>
+                <input type="password" name="current_password" class="mypage-input" required>
+
+                <label class="mypage-field-label">새 비밀번호 (최소 8자)</label>
+                <input type="password" name="new_password" class="mypage-input" minlength="8" required>
+
+                <label class="mypage-field-label">새 비밀번호 확인</label>
+                <input type="password" name="new_password_confirm" class="mypage-input" minlength="8" required>
+
+                <button type="submit" class="mypage-btn">비밀번호 변경</button>
+              </form>
+            {% else %}
+              <p class="mypage-hint">소셜 로그인 계정은 비밀번호를 설정할 수 없습니다.</p>
+            {% endif %}
+          </div>
+
+        {% elif tab == 'billing' %}
+          <h2 class="mypage-section-title">결제</h2>
+          <div class="mypage-card mypage-card--placeholder">
+            <p class="mypage-placeholder-text">결제 기능은 준비 중입니다.</p>
+            <p class="mypage-hint">곧 카드 등록, 결제 내역, 구독 관리 기능이 제공될 예정입니다.</p>
+          </div>
+
+        {% elif tab == 'usage' %}
+          <h2 class="mypage-section-title">사용량</h2>
+          <div class="mypage-card mypage-card--placeholder">
+            <p class="mypage-placeholder-text">사용량 조회는 준비 중입니다.</p>
+            <p class="mypage-hint">플랜별 분석 횟수, 상담 이용 기록 등을 확인하실 수 있게 됩니다.</p>
+          </div>
+
+        {% elif tab == 'history' %}
+          <h2 class="mypage-section-title">검색 히스토리</h2>
+          <div class="mypage-card mypage-card--placeholder">
+            <p class="mypage-placeholder-text">검색 히스토리는 준비 중입니다.</p>
+            <p class="mypage-hint">전체 기록은 상단의 '내 히스토리' 메뉴에서 확인하실 수 있습니다.</p>
+          </div>
+
+        {% endif %}
+      </section>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

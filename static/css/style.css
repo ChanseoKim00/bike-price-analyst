@@ -1619,6 +1619,299 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
+/* ===== 마이페이지 ===== */
+.mypage-wrap {
+  min-height: 100vh;
+  padding: 7rem 2rem 4rem;
+  display: flex;
+  justify-content: center;
+}
+
+.mypage-inner {
+  width: 100%;
+  max-width: 1000px;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.mypage-title {
+  font-size: 2rem;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  color: #B3CDFF;
+}
+
+.mypage-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.mypage-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: #3a3a46;
+  border: 1px solid #4a4a58;
+  border-radius: 12px;
+  padding: 0.75rem;
+  position: sticky;
+  top: 7rem;
+}
+
+.mypage-sidebar__item {
+  font-size: 0.9rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  color: #a0a0b0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mypage-sidebar__item:hover {
+  background: #44445a;
+  color: #e0e0e8;
+}
+
+.mypage-sidebar__item--active,
+.mypage-sidebar__item--active:hover {
+  background: #B3CDFF;
+  color: #1a1a2e;
+  font-weight: 600;
+}
+
+.mypage-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.mypage-section-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #e0e0e8;
+  letter-spacing: 0.02em;
+}
+
+.mypage-alert {
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.mypage-alert--success {
+  background: rgba(142, 207, 142, 0.12);
+  border: 1px solid rgba(142, 207, 142, 0.35);
+  color: #a3dba3;
+}
+
+.mypage-alert--error {
+  background: rgba(255, 138, 128, 0.12);
+  border: 1px solid rgba(255, 138, 128, 0.35);
+  color: #ff8a80;
+}
+
+.mypage-card {
+  background: #3a3a46;
+  border: 1px solid #4a4a58;
+  border-radius: 12px;
+  padding: 1.5rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mypage-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #B3CDFF;
+  letter-spacing: 0.02em;
+}
+
+.mypage-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mypage-info-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 0.75rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.mypage-info-row dt {
+  color: #8a8aa0;
+}
+
+.mypage-info-row dd {
+  color: #e0e0e8;
+}
+
+.mypage-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+
+.mypage-field-label {
+  font-size: 0.78rem;
+  color: #a0a0b0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-top: 0.4rem;
+}
+
+.mypage-field-label:first-child {
+  margin-top: 0;
+}
+
+.mypage-input {
+  width: 100%;
+  max-width: 360px;
+  background: #2e2e38;
+  border: 1px solid #4a4a58;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  color: #ffffff;
+  font-size: 0.92rem;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.mypage-input:focus {
+  border-color: #B3CDFF;
+}
+
+.mypage-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mypage-hint {
+  font-size: 0.82rem;
+  color: #8a8aa0;
+  line-height: 1.5;
+}
+
+.mypage-btn {
+  margin-top: 0.35rem;
+  background: transparent;
+  border: 1px solid #4a4a58;
+  color: #e0e0e8;
+  font-size: 0.88rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.mypage-btn:hover {
+  border-color: #B3CDFF;
+  color: #B3CDFF;
+}
+
+.mypage-toggle-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.mypage-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mypage-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mypage-toggle__track {
+  width: 42px;
+  height: 24px;
+  background: #4a4a58;
+  border-radius: 999px;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.mypage-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e0e0e8;
+  transition: transform 0.2s;
+}
+
+.mypage-toggle input:checked + .mypage-toggle__track {
+  background: #B3CDFF;
+}
+
+.mypage-toggle input:checked + .mypage-toggle__track .mypage-toggle__thumb {
+  transform: translateX(18px);
+  background: #1a1a2e;
+}
+
+.mypage-toggle__label {
+  font-size: 0.92rem;
+  color: #e0e0e8;
+}
+
+.mypage-card--placeholder {
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.mypage-placeholder-text {
+  color: #e0e0e8;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .mypage-wrap {
+    padding: 8.5rem 1.25rem 3rem;
+  }
+
+  .mypage-layout {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .mypage-sidebar {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0.35rem;
+  }
+
+  .mypage-sidebar__item {
+    flex-shrink: 0;
+  }
+
+  .mypage-info-row {
+    grid-template-columns: 90px 1fr;
+  }
+}
+
 /* ===== 챗봇 플로팅 버튼 ===== */
 .chatbot-fab {
   position: fixed;

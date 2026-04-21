@@ -552,6 +552,129 @@ def admin_required(f):
     return wrapper
 
 
+def login_required(f):
+    """로그인 사용자만 허용. 비로그인은 /login으로 리다이렉트."""
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("user_id"):
+            return redirect(url_for("main.login"))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+_MYPAGE_TABS = {"general", "account", "billing", "usage", "history"}
+
+
+def _current_user_or_logout():
+    """세션의 user_id로 User 로드. 없으면 세션 클리어 후 None."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    user = db.session.get(User, user_id)
+    if not user:
+        session.clear()
+    return user
+
+
+def _mypage_render(user, tab, messages=None):
+    if tab not in _MYPAGE_TABS:
+        tab = "general"
+    return render_template(
+        "mypage.html",
+        user=user,
+        tab=tab,
+        messages=messages or {},
+    )
+
+
+@bp.route("/mypage")
+@login_required
+def mypage():
+    user = _current_user_or_logout()
+    if not user:
+        return redirect(url_for("main.login"))
+    tab = request.args.get("tab", "general")
+    messages = {}
+    if request.args.get("saved") == "1":
+        messages["success"] = "변경사항이 저장되었습니다."
+    return _mypage_render(user, tab, messages)
+
+
+@bp.route("/mypage/profile", methods=["POST"])
+@login_required
+def mypage_profile():
+    user = _current_user_or_logout()
+    if not user:
+        return redirect(url_for("main.login"))
+    user.notifications_enabled = bool(request.form.get("notifications_enabled"))
+    db.session.commit()
+    return redirect(url_for("main.mypage", tab="general", saved=1))
+
+
+@bp.route("/mypage/account/nickname", methods=["POST"])
+@login_required
+def mypage_account_nickname():
+    user = _current_user_or_logout()
+    if not user:
+        return redirect(url_for("main.login"))
+    new_nick = request.form.get("nickname", "").strip()
+    if not new_nick:
+        return _mypage_render(user, "account", {"error": "닉네임을 입력해주세요."})
+    if len(new_nick) > 30:
+        return _mypage_render(user, "account", {"error": "닉네임은 30자 이하로 입력해주세요."})
+    if new_nick == user.nickname:
+        return redirect(url_for("main.mypage", tab="account"))
+    if User.query.filter(User.nickname == new_nick, User.id != user.id).first():
+        return _mypage_render(user, "account", {"error": "이미 사용 중인 닉네임입니다."})
+    user.nickname = new_nick
+    db.session.commit()
+    session["user_nickname"] = new_nick
+    return redirect(url_for("main.mypage", tab="account", saved=1))
+
+
+@bp.route("/mypage/account/email", methods=["POST"])
+@login_required
+def mypage_account_email():
+    user = _current_user_or_logout()
+    if not user:
+        return redirect(url_for("main.login"))
+    if user.provider == "google":
+        return _mypage_render(user, "account", {"error": "Google 연동 계정은 이메일을 변경할 수 없습니다."})
+    new_email = request.form.get("email", "").strip().lower()
+    if not _EMAIL_RE.match(new_email):
+        return _mypage_render(user, "account", {"error": "올바른 이메일 형식을 입력해주세요."})
+    if new_email == user.email:
+        return redirect(url_for("main.mypage", tab="account"))
+    if User.query.filter(User.email == new_email, User.id != user.id).first():
+        return _mypage_render(user, "account", {"error": "이미 사용 중인 이메일입니다."})
+    user.email = new_email
+    db.session.commit()
+    session["user_email"] = new_email
+    return redirect(url_for("main.mypage", tab="account", saved=1))
+
+
+@bp.route("/mypage/account/password", methods=["POST"])
+@login_required
+def mypage_account_password():
+    user = _current_user_or_logout()
+    if not user:
+        return redirect(url_for("main.login"))
+    if not user.password_hash:
+        return _mypage_render(user, "account", {"error": "소셜 로그인 계정은 비밀번호를 설정할 수 없습니다."})
+    current = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm = request.form.get("new_password_confirm", "")
+    if not check_password_hash(user.password_hash, current):
+        return _mypage_render(user, "account", {"error": "현재 비밀번호가 올바르지 않습니다."})
+    if len(new_password) < 8:
+        return _mypage_render(user, "account", {"error": "새 비밀번호는 최소 8자 이상이어야 합니다."})
+    if new_password != confirm:
+        return _mypage_render(user, "account", {"error": "새 비밀번호와 확인이 일치하지 않습니다."})
+    user.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+    return redirect(url_for("main.mypage", tab="account", saved=1))
+
+
 @bp.route("/admin")
 @admin_required
 def admin():
