@@ -347,13 +347,7 @@
             </div>
         </div>
 
-        <div id="chat-box">
-            <div class="empty-state" id="empty-state">
-                <div class="empty-state-icon">🚲</div>
-                <span>안녕하세요! BPA 상담원입니다.</span>
-                <span class="empty-state-hint">앱 사용법이나 요금제에 대해<br/>무엇이든 편하게 물어봐 주세요.</span>
-            </div>
-        </div>
+        <div id="chat-box"></div>
 
         <div class="input-area">
             <div class="input-wrapper">
@@ -401,13 +395,7 @@
             return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
         }
 
-        function hideEmptyState() {
-            const el = document.getElementById('empty-state');
-            if (el) el.remove();
-        }
-
         function addMessage(text, role) {
-            hideEmptyState();
             const row = document.createElement('div');
             row.className = `message-row ${role}`;
 
@@ -467,6 +455,7 @@
             }
         }
 
+        addMessage('안녕하세요! BPA 상담원입니다.\n앱 사용법이나 요금제에 대해 무엇이든 편하게 물어봐 주세요.', 'bot');
         userInput.focus();
     </script>
 </body>
