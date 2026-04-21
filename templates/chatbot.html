@@ -212,21 +212,23 @@
 
         .quick-replies {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 8px;
-            padding: 4px 0 4px 2px;
+            margin-top: 12px;
         }
 
         .quick-reply-btn {
+            width: 100%;
             font-family: inherit;
             font-size: 13px;
             font-weight: 500;
             color: var(--accent);
             background: var(--surface);
             border: 1.5px solid var(--accent);
-            border-radius: 999px;
-            padding: 8px 14px;
+            border-radius: 12px;
+            padding: 9px 14px;
             cursor: pointer;
+            text-align: center;
             transition: background 0.2s, color 0.2s, transform 0.15s;
         }
 
@@ -452,7 +454,9 @@
             { label: '기타 질문',      key: 'other' },
         ];
 
-        async function renderQuickReplies() {
+        async function renderQuickReplies(container) {
+            if (!container) return;
+
             let messages;
             try {
                 const res = await fetch("{{ url_for('static', filename='auto_message.json') }}", { cache: 'no-store' });
@@ -462,9 +466,9 @@
                 return;
             }
 
-            const row = document.createElement('div');
-            row.className = 'quick-replies';
-            row.id = 'quick-replies';
+            const group = document.createElement('div');
+            group.className = 'quick-replies';
+            group.id = 'quick-replies';
 
             QUICK_REPLIES.forEach(({ label, key }) => {
                 const text = messages[key];
@@ -477,10 +481,10 @@
                     removeQuickReplies();
                     sendMessageText(text);
                 });
-                row.appendChild(btn);
+                group.appendChild(btn);
             });
 
-            chatBox.appendChild(row);
+            container.appendChild(group);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
@@ -529,8 +533,8 @@
             if (message) sendMessageText(message);
         }
 
-        addMessage('안녕하세요! BPA 상담원입니다.\n앱 사용법이나 요금제에 대해 무엇이든 편하게 물어봐 주세요.', 'bot');
-        renderQuickReplies();
+        const greetingRow = addMessage('안녕하세요! BPA 상담원입니다.\n앱 사용법이나 요금제에 대해 무엇이든 편하게 물어봐 주세요.', 'bot');
+        renderQuickReplies(greetingRow.querySelector('.message'));
         userInput.focus();
     </script>
 </body>
