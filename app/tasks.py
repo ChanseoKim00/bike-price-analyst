@@ -15,9 +15,8 @@ import logging
 import traceback
 from datetime import datetime
 
-from celery import shared_task
-
 from .ai_analyzer import AnalysisError, ServiceBusyError, extract_bike_info
+from .celery_app import celery
 from .exchange_rate import get_exchange_rates
 from .models import Analysis, AnalysisLog, Bike, UserAnalysis, db
 from .price_calculator import calculate_parts_sum, get_or_fetch_part
@@ -61,7 +60,7 @@ def _err(message, hint, url):
     return {"status": "error", "message": message, "hint": hint, "url": url}
 
 
-@shared_task(bind=True, name="app.tasks.analyze_bike")
+@celery.task(bind=True, name="app.tasks.analyze_bike")
 def analyze_bike_task(self, url: str, user_id: str | None, ip: str, is_detailed: bool) -> dict:
     # 순환 import 방지 — routes 안의 헬퍼를 여기서 재사용
     from .routes import record_bike_price_history
