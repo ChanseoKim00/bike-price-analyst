@@ -58,11 +58,24 @@
 ### Phase 6 — 가격 알림
 - 알림 설정 UI (자전거별 목표 가격 입력)
 - 가격 체크는 Phase 5 워커에 훅으로 연동
-- 이메일 발송 (SendGrid 또는 SMTP)
+- 이메일 발송 (SendGrid)
 
-### Phase 7 — AI 상담원 개선 (부가)
-- 현재 `/chatbot` 에서 Claude Sonnet 4.6 + README/ROADMAP 컨텍스트 + prompt caching 운영 중
-- 추후: 대화 이력 유지, 자주 묻는 질문 프리셋, 관리자 피드백 수집
+### ✅ Phase 7 — 비동기 분석 + 취소 기능 (완료)
+- `app/tasks.py` — Celery + Redis 기반 비동기 분석 작업 큐
+- 분석 요청 시 즉시 task_id 반환, `/analyze/status/<task_id>` 폴링으로 진행 상황 확인
+- `/analyze/cancel/<task_id>` — 진행 중인 분석 취소 가능
+- `celery_worker.py` — Railway Celery 서비스 진입점
+
+### ✅ Phase 8 — 회원 기능 고도화 (완료)
+- 비밀번호 재설정 (`/forgot-password`, `/reset-password/<token>`) — 30분 일회용 토큰, SendGrid 이메일 발송
+- Google 소셜 로그인 (authlib OIDC) — 동일 이메일 자동 연결, 신규 가입 시 닉네임 자동 생성
+- 마이페이지 (`/mypage`) — 프로필 조회, 이메일 알림 수신 설정
+- 분석 히스토리 키워드 검색 (`/history`) — 과거 분석 결과 조회 및 검색
+
+### ✅ Phase 9 — AI 상담원 (완료)
+- `/chatbot` — Claude Sonnet 4.6 + README/ROADMAP 컨텍스트 + prompt caching 운영 중
+- `auto_message.json` 기반 자주 묻는 질문 자동응답 버튼 — 채팅창 내 원클릭 선택
+- 방문자별 하루 30개 메시지 제한, admin은 무제한
 
 ---
 
@@ -71,9 +84,8 @@
 | 기능 | 상태 | 비고 |
 |------|------|------|
 | 가성비 티어리스트 | 검토 중 | 개인별 기준 차이 문제 — 기준 정립 후 결정 |
-| 아이디 / 비밀번호 찾기 | 예정 | 이메일 발송 기능 구현 후 추가 |
-| 분석 취소 기능 | 예정 | Celery + Redis 또는 gevent 워커 전환 필요 |
 | 파워미터 포함 여부 표시 | 검토 중 | AI 추출 정확도 확보 후 |
+| 대화 이력 유지 (챗봇) | 검토 중 | 챗봇 사용량 증가 후 우선순위 결정 |
 
 ---
 
@@ -85,9 +97,8 @@
 | 로그인 필요 사이트 미지원 | 세션·AJAX 기반 사이트는 Playwright로도 어려움 | 구조상 보류 |
 | 프레임셋 가격 조회 불가 | 공식 대리점 한정 판매 | AI 검색 제외, 가격 제안 승인으로 수동 입력 |
 | part_name_normalized 중복 | AI 출력 불일치 | 프롬프트 강화 + 정규화 후처리 + 접두어 매칭으로 완화 중 |
-| 분석 중 백엔드 취소 불가 | gunicorn 동기 워커 한계 | Celery + Redis 도입 후 해결 |
 | Stripe 미연동 | 구현 전 | Phase 4 |
 
 ---
 
-*마지막 업데이트: 2026-04-20*
+*마지막 업데이트: 2026-04-24*
