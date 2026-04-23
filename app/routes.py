@@ -576,14 +576,38 @@ def _current_user_or_logout():
     return user
 
 
+def _load_history_items(user_id):
+    rows = (
+        db.session.query(UserAnalysis, Analysis, Bike)
+        .join(Analysis, Analysis.id == UserAnalysis.analysis_id)
+        .join(Bike,     Bike.id     == Analysis.bike_id)
+        .filter(UserAnalysis.user_id == user_id)
+        .order_by(UserAnalysis.viewed_at.desc())
+        .all()
+    )
+    return [
+        {
+            "brand":      bike.brand,
+            "model_name": bike.model_name,
+            "model_year": bike.model_year,
+            "saving_krw": analysis.saving_krw,
+            "saving_pct": analysis.saving_pct,
+            "viewed_at":  ua.viewed_at,
+        }
+        for ua, analysis, bike in rows
+    ]
+
+
 def _mypage_render(user, tab, messages=None):
     if tab not in _MYPAGE_TABS:
         tab = "general"
+    history_items = _load_history_items(user.id) if tab == "history" else None
     return render_template(
         "mypage.html",
         user=user,
         tab=tab,
         messages=messages or {},
+        history_items=history_items,
     )
 
 
@@ -848,27 +872,7 @@ def history():
     if not session.get("user_id"):
         return redirect(url_for("main.login"))
 
-    rows = (
-        db.session.query(UserAnalysis, Analysis, Bike)
-        .join(Analysis, Analysis.id == UserAnalysis.analysis_id)
-        .join(Bike,     Bike.id     == Analysis.bike_id)
-        .filter(UserAnalysis.user_id == session["user_id"])   # 반드시 본인 데이터만
-        .order_by(UserAnalysis.viewed_at.desc())
-        .all()
-    )
-
-    history_items = [
-        {
-            "brand":      bike.brand,
-            "model_name": bike.model_name,
-            "model_year": bike.model_year,
-            "saving_krw": analysis.saving_krw,
-            "saving_pct": analysis.saving_pct,
-            "viewed_at":  ua.viewed_at,
-        }
-        for ua, analysis, bike in rows
-    ]
-
+    history_items = _load_history_items(session["user_id"])
     return render_template("history.html", history=history_items)
 
 

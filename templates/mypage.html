@@ -146,10 +146,46 @@
 
         {% elif tab == 'history' %}
           <h2 class="mypage-section-title">검색 히스토리</h2>
+          {% if history_items %}
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>자전거</th>
+                <th>절약 금액</th>
+                <th>분석 일시</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in history_items %}
+              <tr>
+                <td class="history-bike">
+                  <span class="history-brand">{{ item.brand.replace('_', ' ')|title }}</span>
+                  {{ item.model_name }}
+                  {% if item.model_year %}
+                  <span class="history-year">({{ item.model_year }})</span>
+                  {% endif %}
+                </td>
+                <td class="history-saving">
+                  {% if item.saving_krw > 0 %}
+                    {{ "{:,}".format(item.saving_krw) }}원
+                    <span class="history-pct">{{ item.saving_pct }}%</span>
+                  {% else %}
+                    <span class="history-muted">-</span>
+                  {% endif %}
+                </td>
+                <td class="history-date">
+                  {{ item.viewed_at.strftime('%Y.%m.%d %H:%M') }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
           <div class="mypage-card mypage-card--placeholder">
-            <p class="mypage-placeholder-text">검색 히스토리는 준비 중입니다.</p>
-            <p class="mypage-hint">전체 기록은 상단의 '내 히스토리' 메뉴에서 확인하실 수 있습니다.</p>
+            <p class="mypage-placeholder-text">아직 분석한 자전거가 없습니다.</p>
+            <a href="/" class="mypage-btn">첫 번째 자전거 분석하기</a>
           </div>
+          {% endif %}
 
         {% endif %}
       </section>
