@@ -69,7 +69,11 @@
         </thead>
         <tbody>
           {% for item in feedbacks %}
+          {% if item.has_details %}
           <tr onclick="location.href='/admin/feedback/{{ item.id }}'">
+          {% else %}
+          <tr class="admin-row-inactive" title="상세 내용 없음">
+          {% endif %}
             <td class="admin-nickname">{{ item.nickname }}</td>
             <td class="admin-email">{{ item.plan }}</td>
             <td class="admin-date">{{ item.created_at.strftime('%Y.%m.%d %H:%M') }}</td>

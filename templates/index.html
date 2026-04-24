@@ -173,6 +173,29 @@
   </div>
 
 </div>
+
+<!-- 이탈 시 간단 피드백 팝업 -->
+<div class="exit-popup-overlay" id="exitPopup" role="dialog" aria-modal="true" aria-labelledby="exitPopupTitle" aria-hidden="true">
+  <div class="exit-popup-card">
+    <button type="button" class="exit-popup-close" id="exitPopupClose" aria-label="닫기">&times;</button>
+    <p class="exit-popup-title" id="exitPopupTitle">가격 분석에 만족 하셨나요?</p>
+
+    <div class="exit-popup-ratings">
+      {% for n in range(1, 11) %}
+      <div class="exit-rating-cell">
+        <button type="button" class="exit-rating-btn" data-value="{{ n }}">{{ n }}</button>
+        <span class="exit-rating-label">
+          {%- if n == 1 -%}불만족{%- elif n == 10 -%}만족{%- endif -%}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button type="button" class="exit-popup-submit" id="exitPopupSubmit" disabled>제출</button>
+    <a href="{{ url_for('main.feedback') }}" class="exit-popup-link">피드백 남기기</a>
+  </div>
+</div>
+
 {% endif %}
 
 <a href="{{ url_for('chatbot.index') }}" target="_blank" rel="noopener" class="chatbot-fab" title="AI 상담원에게 문의하기" aria-label="AI 상담원에게 문의하기">
@@ -334,6 +357,89 @@
     ['bike', 'frameset', 'groupset', 'wheelset'].forEach(function(key) {
       renderChart('chart-' + key, history[key] || []);
     });
+  })();
+
+  // 결과 페이지 이탈 시 간단 피드백 팝업
+  (function() {
+    var popup = document.getElementById('exitPopup');
+    if (!popup) return;
+
+    var SHOWN_KEY = 'exitFeedbackShown';
+    if (sessionStorage.getItem(SHOWN_KEY) === '1') return;
+
+    var submitBtn  = document.getElementById('exitPopupSubmit');
+    var closeBtn   = document.getElementById('exitPopupClose');
+    var ratingBtns = popup.querySelectorAll('.exit-rating-btn');
+
+    var rating = null;
+    var shown = false;
+    var pendingHref = null;
+
+    function openPopup() {
+      if (shown) return;
+      shown = true;
+      sessionStorage.setItem(SHOWN_KEY, '1');
+      popup.classList.add('active');
+      popup.setAttribute('aria-hidden', 'false');
+    }
+
+    function closePopup() {
+      popup.classList.remove('active');
+      popup.setAttribute('aria-hidden', 'true');
+      if (pendingHref) {
+        var href = pendingHref;
+        pendingHref = null;
+        window.location.href = href;
+      }
+    }
+
+    // 1) 데스크톱 — 커서가 상단 밖으로 이탈할 때
+    document.addEventListener('mouseleave', function(e) {
+      if (e.clientY <= 0) openPopup();
+    });
+
+    // 2) 전 디바이스 — 내부 링크 클릭 시 가로채기
+    document.body.addEventListener('click', function(e) {
+      if (shown) return;
+      var link = e.target.closest('a[href]');
+      if (!link) return;
+      if (link.target === '_blank') return;
+      if (link.closest('#exitPopup')) return;
+      var href = link.getAttribute('href');
+      if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0) return;
+      var url;
+      try { url = new URL(link.href, window.location.href); } catch (_) { return; }
+      if (url.host !== window.location.host) return;
+      if (url.pathname === window.location.pathname && url.hash) return;
+
+      e.preventDefault();
+      pendingHref = url.href;
+      openPopup();
+    });
+
+    // 3) 점수 선택
+    ratingBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        ratingBtns.forEach(function(b) { b.classList.remove('selected'); });
+        btn.classList.add('selected');
+        rating = parseInt(btn.dataset.value, 10);
+        submitBtn.disabled = false;
+      });
+    });
+
+    // 4) 제출
+    submitBtn.addEventListener('click', function() {
+      if (!rating) return;
+      var body = new FormData();
+      body.append('rating', String(rating));
+      try {
+        fetch('/feedback/quick', { method: 'POST', body: body, keepalive: true }).catch(function() {});
+      } catch (_) { /* noop */ }
+      closePopup();
+    });
+
+    // 5) X 버튼
+    closeBtn.addEventListener('click', closePopup);
   })();
 </script>
 

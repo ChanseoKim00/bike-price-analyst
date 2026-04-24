@@ -346,6 +346,29 @@ def feedback_complete():
     return render_template("feedback_complete.html")
 
 
+@bp.route("/feedback/quick", methods=["POST"])
+def feedback_quick():
+    """결과 페이지 이탈 팝업 — 점수만 받는 간단 피드백."""
+    rating_raw = request.form.get("rating", "").strip()
+    try:
+        rating = int(rating_raw)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "invalid_rating"}), 400
+    if rating < 1 or rating > 10:
+        return jsonify({"ok": False, "error": "out_of_range"}), 400
+
+    fb = UserFeedback(
+        user_id=session.get("user_id") or None,
+        rating=rating,
+        pain_point=None,
+        good_point=None,
+        message_to_dev=None,
+    )
+    db.session.add(fb)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
 # ── 인증 ──────────────────────────────────────────────────────
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -818,6 +841,7 @@ def admin():
             "plan":       (u.plan if u else "-"),
             "created_at": fb.created_at,
             "rating":     fb.rating,
+            "has_details": bool(fb.pain_point or fb.good_point or fb.message_to_dev),
         }
         for fb, u in feedback_rows
     ]
@@ -950,6 +974,9 @@ def admin_suggestion_reject(suggestion_id):
 def admin_feedback(feedback_id):
     fb = UserFeedback.query.filter_by(id=feedback_id).first()
     if not fb:
+        return redirect(url_for("main.admin"))
+
+    if not (fb.pain_point or fb.good_point or fb.message_to_dev):
         return redirect(url_for("main.admin"))
 
     user = fb.user
