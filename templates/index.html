@@ -174,8 +174,9 @@
 
 </div>
 
+{% if show_exit_popup %}
 <!-- 이탈 시 간단 피드백 팝업 -->
-<div class="exit-popup-overlay" id="exitPopup" role="dialog" aria-modal="true" aria-labelledby="exitPopupTitle" aria-hidden="true">
+<div class="exit-popup-overlay" id="exitPopup" role="dialog" aria-modal="true" aria-labelledby="exitPopupTitle" aria-hidden="true" data-cooldown-hours="{{ exit_feedback_cooldown_hours }}">
   <div class="exit-popup-card">
     <button type="button" class="exit-popup-close" id="exitPopupClose" aria-label="닫기">&times;</button>
     <p class="exit-popup-title" id="exitPopupTitle">가격 분석에 만족 하셨나요?</p>
@@ -195,6 +196,7 @@
     <a href="{{ url_for('main.feedback') }}" class="exit-popup-link">피드백 남기기</a>
   </div>
 </div>
+{% endif %}
 
 {% endif %}
 
@@ -364,8 +366,15 @@
     var popup = document.getElementById('exitPopup');
     if (!popup) return;
 
-    var SHOWN_KEY = 'exitFeedbackShown';
-    if (sessionStorage.getItem(SHOWN_KEY) === '1') return;
+    var SUBMIT_KEY = 'exitFeedbackSubmittedAt';
+    var cooldownHours = parseInt(popup.getAttribute('data-cooldown-hours'), 10) || 72;
+    var cooldownMs = cooldownHours * 60 * 60 * 1000;
+
+    // 평가 완료 후 쿨타임 내면 아예 동작하지 않음. X로 닫은 경우는 저장하지 않아 다음 검색 때 다시 뜸.
+    try {
+      var submittedAt = parseInt(localStorage.getItem(SUBMIT_KEY) || '0', 10);
+      if (submittedAt && (Date.now() - submittedAt) < cooldownMs) return;
+    } catch (_) { /* storage 접근 실패 시 팝업 동작은 계속 */ }
 
     var submitBtn  = document.getElementById('exitPopupSubmit');
     var closeBtn   = document.getElementById('exitPopupClose');
@@ -378,7 +387,6 @@
     function openPopup() {
       if (shown) return;
       shown = true;
-      sessionStorage.setItem(SHOWN_KEY, '1');
       popup.classList.add('active');
       popup.setAttribute('aria-hidden', 'false');
     }
@@ -427,7 +435,7 @@
       });
     });
 
-    // 4) 제출
+    // 4) 제출 — 성공 여부와 무관하게 쿨타임 타임스탬프 기록 (X로 닫은 경우엔 기록 안 함)
     submitBtn.addEventListener('click', function() {
       if (!rating) return;
       var body = new FormData();
@@ -435,6 +443,7 @@
       try {
         fetch('/feedback/quick', { method: 'POST', body: body, keepalive: true }).catch(function() {});
       } catch (_) { /* noop */ }
+      try { localStorage.setItem(SUBMIT_KEY, String(Date.now())); } catch (_) { /* noop */ }
       closePopup();
     });
 

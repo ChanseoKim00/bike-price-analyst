@@ -289,6 +289,7 @@ def suggest_complete():
 # ── 유저 피드백 ────────────────────────────────────────────────
 
 _FEEDBACK_TEXT_MAX = 2000
+_EXIT_FEEDBACK_COOLDOWN_HOURS = 72
 
 
 @bp.route("/feedback", methods=["GET", "POST"])
@@ -1178,6 +1179,17 @@ def result(analysis_id):
         if user and (user.plan == "world_tour" or user.role == "admin"):
             price_history = build_price_history(bike, parts)
 
+    # 이탈 피드백 팝업 — 로그인 유저가 72시간 내 평가를 완료했다면 서버에서 아예 렌더하지 않음.
+    # 게스트는 클라이언트 localStorage로 쿨타임 적용.
+    show_exit_popup = True
+    if user_id:
+        cutoff = datetime.utcnow() - timedelta(hours=_EXIT_FEEDBACK_COOLDOWN_HOURS)
+        if UserFeedback.query.filter(
+            UserFeedback.user_id == user_id,
+            UserFeedback.created_at >= cutoff,
+        ).first():
+            show_exit_popup = False
+
     return render_template(
         "index.html",
         bike=bike,
@@ -1187,4 +1199,6 @@ def result(analysis_id):
         blur_mode=blur_mode,
         blur_reset_minutes=blur_reset_minutes,
         price_history=price_history,
+        show_exit_popup=show_exit_popup,
+        exit_feedback_cooldown_hours=_EXIT_FEEDBACK_COOLDOWN_HOURS,
     )

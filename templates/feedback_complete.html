@@ -9,4 +9,9 @@
   </div>
 </div>
 
+<script>
+  // /feedback 풀 폼으로 제출한 유저도 결과 페이지 이탈 팝업 쿨타임(72h) 적용.
+  try { localStorage.setItem('exitFeedbackSubmittedAt', String(Date.now())); } catch (_) {}
+</script>
+
 {% endblock %}
