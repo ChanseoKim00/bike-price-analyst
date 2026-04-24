@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="admin-wrap">
+  <div class="admin-inner">
+
+    <div class="admin-suggestion-header">
+      <a href="/admin" class="admin-back">← 대시보드로</a>
+      <h1 class="admin-title">유저 피드백 상세</h1>
+    </div>
+
+    <!-- 메타 -->
+    <div class="admin-suggestion-meta">
+      <div class="admin-meta-row">
+        <span class="admin-meta-label">닉네임</span>
+        <span class="admin-meta-value">{{ nickname }}</span>
+      </div>
+      <div class="admin-meta-row">
+        <span class="admin-meta-label">플랜</span>
+        <span class="admin-meta-value">{{ plan }}</span>
+      </div>
+      {% if email %}
+      <div class="admin-meta-row">
+        <span class="admin-meta-label">이메일</span>
+        <span class="admin-meta-value">{{ email }}</span>
+      </div>
+      {% endif %}
+      <div class="admin-meta-row">
+        <span class="admin-meta-label">일시</span>
+        <span class="admin-meta-value">{{ fb.created_at.strftime('%Y.%m.%d %H:%M') }}</span>
+      </div>
+      <div class="admin-meta-row">
+        <span class="admin-meta-label">평가 점수</span>
+        <span class="admin-meta-value"><strong>{{ fb.rating }}</strong> / 10</span>
+      </div>
+    </div>
+
+    <!-- 피드백 내용 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">불편한 점</h2>
+      <div class="admin-feedback-body">
+        {% if fb.pain_point %}{{ fb.pain_point }}{% else %}<span class="admin-muted">작성하지 않음</span>{% endif %}
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2 class="admin-section-title">좋은 점</h2>
+      <div class="admin-feedback-body">
+        {% if fb.good_point %}{{ fb.good_point }}{% else %}<span class="admin-muted">작성하지 않음</span>{% endif %}
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2 class="admin-section-title">개발자에게 하고 싶은 말</h2>
+      <div class="admin-feedback-body">
+        {% if fb.message_to_dev %}{{ fb.message_to_dev }}{% else %}<span class="admin-muted">작성하지 않음</span>{% endif %}
+      </div>
+    </section>
+
+  </div>
+</div>
+
+{% endblock %}

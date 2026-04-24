@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="suggest-wrap">
+  <div class="suggest-inner">
+
+    <div class="suggest-header">
+      <h1 class="suggest-title">앱 개선 피드백</h1>
+      <p class="suggest-sub">여러분의 의견이 더 나은 서비스를 만듭니다.</p>
+    </div>
+
+    <form class="suggest-form" method="POST" action="{{ url_for('main.feedback') }}" novalidate>
+
+      <!-- 만족도 1~10 -->
+      <div class="suggest-card">
+        <div class="suggest-card-meta">
+          <span class="suggest-part-label">만족도</span>
+          <span class="suggest-part-name">서비스에 얼마나 만족하시나요? (1~10)</span>
+        </div>
+        <div class="rating-row">
+          {% set selected = form.get('rating') %}
+          {% for n in range(1, 11) %}
+          <label class="rating-option">
+            <input
+              type="radio"
+              name="rating"
+              value="{{ n }}"
+              class="rating-input"
+              {% if selected and selected|int == n %}checked{% endif %}
+            >
+            <span class="rating-bubble">{{ n }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="rating-scale">
+          <span>매우 불만족</span>
+          <span>매우 만족</span>
+        </div>
+        {% if errors.get('rating') %}
+        <p class="suggest-field-error">{{ errors['rating'] }}</p>
+        {% endif %}
+      </div>
+
+      <!-- 불편한 점 -->
+      <div class="suggest-card">
+        <div class="suggest-card-meta">
+          <span class="suggest-part-label">불편한 점</span>
+          <span class="suggest-part-name">사용 중 불편하셨던 부분을 알려주세요.</span>
+        </div>
+        <textarea
+          name="pain_point"
+          class="suggest-input feedback-textarea{% if errors.get('pain_point') %} suggest-input--error{% endif %}"
+          rows="4"
+          placeholder="예: 분석 결과 화면에서 부품 가격이 잘 안 보여요."
+          maxlength="2000"
+        >{{ form.get('pain_point', '') }}</textarea>
+        {% if errors.get('pain_point') %}
+        <p class="suggest-field-error">{{ errors['pain_point'] }}</p>
+        {% endif %}
+      </div>
+
+      <!-- 좋은 점 -->
+      <div class="suggest-card">
+        <div class="suggest-card-meta">
+          <span class="suggest-part-label">좋은 점</span>
+          <span class="suggest-part-name">마음에 드셨던 점을 알려주세요.</span>
+        </div>
+        <textarea
+          name="good_point"
+          class="suggest-input feedback-textarea{% if errors.get('good_point') %} suggest-input--error{% endif %}"
+          rows="4"
+          placeholder="예: 절약 금액이 한눈에 보여서 좋았어요."
+          maxlength="2000"
+        >{{ form.get('good_point', '') }}</textarea>
+        {% if errors.get('good_point') %}
+        <p class="suggest-field-error">{{ errors['good_point'] }}</p>
+        {% endif %}
+      </div>
+
+      <!-- 개발자에게 -->
+      <div class="suggest-card">
+        <div class="suggest-card-meta">
+          <span class="suggest-part-label">개발자에게</span>
+          <span class="suggest-part-name">개발자에게 하고 싶은 말이 있다면 자유롭게 적어주세요.</span>
+        </div>
+        <textarea
+          name="message_to_dev"
+          class="suggest-input feedback-textarea{% if errors.get('message_to_dev') %} suggest-input--error{% endif %}"
+          rows="4"
+          placeholder="기능 제안, 응원, 무엇이든 환영합니다."
+          maxlength="2000"
+        >{{ form.get('message_to_dev', '') }}</textarea>
+        {% if errors.get('message_to_dev') %}
+        <p class="suggest-field-error">{{ errors['message_to_dev'] }}</p>
+        {% endif %}
+      </div>
+
+      <div class="suggest-actions">
+        <button type="submit" class="suggest-submit">전송하기</button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

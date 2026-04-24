@@ -269,3 +269,26 @@ class ChatbotUsageLog(db.Model):
 
     def __repr__(self):
         return f"<ChatbotUsageLog visitor={self.visitor_id} at={self.created_at}>"
+
+
+class UserFeedback(db.Model):
+    __tablename__ = "user_feedbacks"
+
+    id             = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id        = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
+    rating         = db.Column(db.Integer, nullable=False)
+    pain_point     = db.Column(db.Text)
+    good_point     = db.Column(db.Text)
+    message_to_dev = db.Column(db.Text)
+    created_at     = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", backref="feedbacks")
+
+    __table_args__ = (
+        db.CheckConstraint("rating BETWEEN 1 AND 10", name="ck_user_feedbacks_rating"),
+        db.Index("idx_user_feedbacks_created_at", "created_at"),
+        db.Index("idx_user_feedbacks_user_id",    "user_id"),
+    )
+
+    def __repr__(self):
+        return f"<UserFeedback user={self.user_id} rating={self.rating}>"

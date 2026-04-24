@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken
+from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken, UserFeedback
 from .email_sender import send_password_reset_email
 from .utils.nickname import generate_unique_nickname
 from .price_calculator import _normalize_part_name
@@ -284,6 +284,66 @@ def suggest():
 @bp.route("/suggest/complete")
 def suggest_complete():
     return render_template("suggest_complete.html")
+
+
+# ── 유저 피드백 ────────────────────────────────────────────────
+
+_FEEDBACK_TEXT_MAX = 2000
+
+
+@bp.route("/feedback", methods=["GET", "POST"])
+def feedback():
+    if request.method == "GET":
+        return render_template("feedback.html", form={}, errors={})
+
+    rating_raw     = request.form.get("rating", "").strip()
+    pain_point     = request.form.get("pain_point", "").strip()
+    good_point     = request.form.get("good_point", "").strip()
+    message_to_dev = request.form.get("message_to_dev", "").strip()
+
+    form = {
+        "rating":         rating_raw,
+        "pain_point":     pain_point,
+        "good_point":     good_point,
+        "message_to_dev": message_to_dev,
+    }
+    errors = {}
+
+    rating = None
+    if not rating_raw:
+        errors["rating"] = "만족도를 선택해주세요."
+    else:
+        try:
+            rating = int(rating_raw)
+            if rating < 1 or rating > 10:
+                errors["rating"] = "1~10 사이의 점수를 선택해주세요."
+        except ValueError:
+            errors["rating"] = "올바른 점수를 선택해주세요."
+
+    for key, label in (("pain_point", "불편한 점"),
+                       ("good_point", "좋은 점"),
+                       ("message_to_dev", "개발자에게 하고 싶은 말")):
+        if len(form[key]) > _FEEDBACK_TEXT_MAX:
+            errors[key] = f"{label}은 {_FEEDBACK_TEXT_MAX}자 이내로 입력해주세요."
+
+    if errors:
+        return render_template("feedback.html", form=form, errors=errors)
+
+    fb = UserFeedback(
+        user_id=session.get("user_id") or None,
+        rating=rating,
+        pain_point=pain_point or None,
+        good_point=good_point or None,
+        message_to_dev=message_to_dev or None,
+    )
+    db.session.add(fb)
+    db.session.commit()
+    return redirect(url_for("main.feedback_complete"))
+
+
+@bp.route("/feedback/complete")
+def feedback_complete():
+    return render_template("feedback_complete.html")
 
 
 # ── 인증 ──────────────────────────────────────────────────────
@@ -745,6 +805,23 @@ def admin():
         for ps, analysis, bike in pending_rows
     ]
 
+    feedback_rows = (
+        db.session.query(UserFeedback, User)
+        .outerjoin(User, User.id == UserFeedback.user_id)
+        .order_by(UserFeedback.created_at.desc())
+        .all()
+    )
+    feedbacks = [
+        {
+            "id":         str(fb.id),
+            "nickname":   (u.nickname if u else "비회원"),
+            "plan":       (u.plan if u else "-"),
+            "created_at": fb.created_at,
+            "rating":     fb.rating,
+        }
+        for fb, u in feedback_rows
+    ]
+
     return render_template(
         "admin.html",
         total_users=total_users,
@@ -752,6 +829,7 @@ def admin():
         recent=recent,
         users=users,
         pending=pending,
+        feedbacks=feedbacks,
     )
 
 
@@ -865,6 +943,23 @@ def admin_suggestion_reject(suggestion_id):
     ps.status = "rejected"
     db.session.commit()
     return redirect(url_for("main.admin"))
+
+
+@bp.route("/admin/feedback/<feedback_id>")
+@admin_required
+def admin_feedback(feedback_id):
+    fb = UserFeedback.query.filter_by(id=feedback_id).first()
+    if not fb:
+        return redirect(url_for("main.admin"))
+
+    user = fb.user
+    return render_template(
+        "admin_feedback.html",
+        fb=fb,
+        nickname=(user.nickname if user else "비회원"),
+        plan=(user.plan if user else "-"),
+        email=(user.email if user else None),
+    )
 
 
 @bp.route("/history")
