@@ -54,7 +54,7 @@
                 <dt>현재 플랜</dt>
                 <dd>
                   {% if user.role == 'admin' %}관리자
-                  {% else %}{{ user.plan }}{% endif %}
+                  {% else %}{{ user.plan|replace('_', ' ') }}{% endif %}
                 </dd>
               </div>
               <div class="mypage-info-row">
