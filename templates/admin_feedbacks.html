@@ -8,6 +8,79 @@
     </p>
     <h1 class="admin-title">피드백 대시보드</h1>
 
+    <!-- 일별 평균 만족도 그래프 -->
+    <section class="admin-section">
+      <div class="price-chart-card">
+        <div class="price-chart-header">일별 평균 만족도 (최근 30일)</div>
+        <div class="price-chart-body">
+          <canvas id="adminRatingChart"></canvas>
+          <div id="adminRatingChartEmpty" class="price-chart-empty" style="display:none;">데이터가 없습니다</div>
+        </div>
+      </div>
+    </section>
+
+    <script id="admin-rating-chart-data" type="application/json">{{ rating_chart | tojson }}</script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script>
+      (function () {
+        var node = document.getElementById('admin-rating-chart-data');
+        var canvas = document.getElementById('adminRatingChart');
+        var empty = document.getElementById('adminRatingChartEmpty');
+        if (!node || !canvas || typeof Chart === 'undefined') return;
+        var points = [];
+        try { points = JSON.parse(node.textContent) || []; } catch (e) { points = []; }
+        if (!points.length) {
+          if (empty) empty.style.display = 'flex';
+          return;
+        }
+        var colors = { line: '#B3CDFF', fill: 'rgba(179, 205, 255, 0.12)', grid: 'rgba(255, 255, 255, 0.05)', tick: '#8a8aa0' };
+        new Chart(canvas, {
+          type: 'line',
+          data: {
+            datasets: [{
+              data: points,
+              borderColor: colors.line,
+              backgroundColor: colors.fill,
+              borderWidth: 2,
+              tension: 0.25,
+              pointRadius: 2,
+              pointHoverRadius: 4,
+              pointBackgroundColor: colors.line,
+              fill: true,
+              spanGaps: true,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#2a2a34', borderColor: '#4a4a58', borderWidth: 1,
+                titleColor: '#B3CDFF', bodyColor: '#e0e0e8', displayColors: false,
+                callbacks: { label: function (item) { return item.parsed.y + ' / 10'; } }
+              }
+            },
+            scales: {
+              x: {
+                type: 'time',
+                time: { unit: 'day', tooltipFormat: 'yyyy-MM-dd', displayFormats: { day: 'MM-dd' } },
+                grid: { color: colors.grid, drawBorder: false },
+                ticks: { color: colors.tick, maxRotation: 0, autoSkipPadding: 16, font: { size: 10 } },
+              },
+              y: {
+                min: 0,
+                max: 10,
+                grid: { color: colors.grid, drawBorder: false },
+                ticks: { color: colors.tick, font: { size: 10 }, stepSize: 2 },
+              }
+            }
+          }
+        });
+      })();
+    </script>
+
     <!-- 유저 피드백 -->
     <section class="admin-section">
       <h2 class="admin-section-title">

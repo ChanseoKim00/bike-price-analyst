@@ -8,7 +8,20 @@ from types import SimpleNamespace
 from urllib.parse import urlparse
 from flask import Blueprint, current_app, jsonify, render_template, request, session, redirect, url_for, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_, and_, cast, Date
+
+
+def _admin_chart_since_utc(days: int = 30):
+    """KST 기준 최근 `days`일의 시작 시각을 UTC naive datetime으로 반환."""
+    try:
+        from zoneinfo import ZoneInfo
+        _kst = ZoneInfo("Asia/Seoul")
+        _now_kst = datetime.now(_kst)
+        return (_now_kst - timedelta(days=days - 1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    except Exception:
+        return datetime.utcnow() - timedelta(days=days)
 
 logger = logging.getLogger(__name__)
 
@@ -884,7 +897,21 @@ def admin_users():
         .order_by(User.created_at.desc())
         .all()
     )
-    return render_template("admin_users.html", users=users)
+
+    try:
+        since_utc = _admin_chart_since_utc(30)
+        rows = (
+            db.session.query(cast(User.created_at, Date), func.count())
+            .filter(User.created_at >= since_utc)
+            .group_by(cast(User.created_at, Date))
+            .order_by(cast(User.created_at, Date).asc())
+            .all()
+        )
+        signup_chart = [{"x": str(d), "y": cnt} for d, cnt in rows]
+    except Exception:
+        signup_chart = []
+
+    return render_template("admin_users.html", users=users, signup_chart=signup_chart)
 
 
 @bp.route("/admin/analyses")
@@ -905,7 +932,21 @@ def admin_analyses():
         }
         for analysis, bike in rows
     ]
-    return render_template("admin_analyses.html", recent=recent)
+
+    try:
+        since_utc = _admin_chart_since_utc(30)
+        chart_rows = (
+            db.session.query(cast(Analysis.analyzed_at, Date), func.count())
+            .filter(Analysis.analyzed_at >= since_utc)
+            .group_by(cast(Analysis.analyzed_at, Date))
+            .order_by(cast(Analysis.analyzed_at, Date).asc())
+            .all()
+        )
+        analyses_chart = [{"x": str(d), "y": cnt} for d, cnt in chart_rows]
+    except Exception:
+        analyses_chart = []
+
+    return render_template("admin_analyses.html", recent=recent, analyses_chart=analyses_chart)
 
 
 @bp.route("/admin/feedbacks")
@@ -928,7 +969,21 @@ def admin_feedbacks():
         }
         for fb, u in rows
     ]
-    return render_template("admin_feedbacks.html", feedbacks=feedbacks)
+
+    try:
+        since_utc = _admin_chart_since_utc(30)
+        chart_rows = (
+            db.session.query(cast(UserFeedback.created_at, Date), func.avg(UserFeedback.rating))
+            .filter(UserFeedback.created_at >= since_utc)
+            .group_by(cast(UserFeedback.created_at, Date))
+            .order_by(cast(UserFeedback.created_at, Date).asc())
+            .all()
+        )
+        rating_chart = [{"x": str(d), "y": round(float(avg), 1)} for d, avg in chart_rows if avg is not None]
+    except Exception:
+        rating_chart = []
+
+    return render_template("admin_feedbacks.html", feedbacks=feedbacks, rating_chart=rating_chart)
 
 
 @bp.route("/admin/suggestion/<suggestion_id>")
