@@ -48,6 +48,12 @@
 - 분석 결과 화면에서 사용자가 부품별 더 저렴한 가격과 판매처 URL 제안 (`/suggest`)
 - 제안은 `pending` 상태로 저장되며 관리자가 `/admin/suggestion/<id>`에서 검토·반영·반려
 
+### 유저 피드백
+- `/feedback` — 만족도(1–10점) + 불편한 점 / 좋은 점 / 개발자에게 하고 싶은 말 입력 (각 2000자 이내)
+- 분석 결과 페이지 이탈 시 이탈 팝업 — 만족도 점수만 빠르게 받는 간단 피드백 (`/feedback/quick` POST)
+- 로그인 유저는 72시간 내 피드백을 완료했으면 팝업 미표시 (게스트는 브라우저 localStorage로 쿨타임 관리)
+- 비로그인 제출 가능 (user_id nullable)
+
 ### AI 상담원 (챗봇)
 - `/chatbot` — Claude Sonnet 4.6 기반 앱 사용법·요금제·로드맵 안내 챗봇
 - 시스템 프롬프트에 README / ROADMAP을 컨텍스트로 주입 + prompt caching 적용
@@ -58,6 +64,7 @@
 - `role=admin`인 계정만 `/admin` 접근 가능
 - 전체 사용자 수 / 분석 수 / 최근 분석 / 사용자 목록 조회
 - 대기 중인 가격 제안(`PriceSuggestion`) 검토 및 반영·반려
+- 유저 피드백(`UserFeedback`) 목록 조회 및 상세 내용 확인 (`/admin/feedback/<id>`)
 - admin은 모든 플랜 기능(가격 그래프 포함) 및 챗봇 사용 제한 없음
 
 ---
@@ -108,9 +115,13 @@
 | `/mypage` | 마이페이지 (로그인 필요) |
 | `/history` | 본인 분석 히스토리 (로그인 필요) |
 | `/suggest` | 부품 가격 제안 |
+| `/feedback` | 유저 피드백 폼 |
+| `/feedback/complete` | 피드백 제출 완료 |
+| `/feedback/quick` | 이탈 팝업 빠른 피드백 (POST) |
 | `/chatbot` | AI 상담원 챗봇 |
 | `/admin` | 관리자 대시보드 (admin 전용) |
 | `/admin/suggestion/<id>` | 가격 제안 상세 · 승인 / 반려 |
+| `/admin/feedback/<id>` | 유저 피드백 상세 조회 (admin 전용) |
 
 ---
 

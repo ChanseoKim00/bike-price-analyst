@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from urllib.parse import urlparse
 from flask import Blueprint, current_app, jsonify, render_template, request, session, redirect, url_for, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import func, or_, and_
 
 logger = logging.getLogger(__name__)
 
@@ -847,6 +848,65 @@ def admin():
         for fb, u in feedback_rows
     ]
 
+    # --- KPI 지표 ---
+    stats = {}
+
+    # KST 기준 오늘 자정 → UTC naive 로 변환 (Analysis/User.created_at 은 naive UTC)
+    try:
+        from zoneinfo import ZoneInfo
+        _kst = ZoneInfo("Asia/Seoul")
+        _today_kst = datetime.now(_kst).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_utc = _today_kst.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    except Exception:
+        # zoneinfo 미지원 폴백: UTC+9 고정
+        _now_kst_naive = datetime.utcnow() + timedelta(hours=9)
+        today_utc = _now_kst_naive.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(hours=9)
+
+    try:
+        stats["new_users_today"] = User.query.filter(User.created_at >= today_utc).count()
+    except Exception:
+        stats["new_users_today"] = None
+
+    try:
+        plan_counts = db.session.query(User.plan, func.count()).group_by(User.plan).all()
+        stats["plan_dist"] = {(plan or "continental"): cnt for plan, cnt in plan_counts}
+    except Exception:
+        stats["plan_dist"] = None
+
+    try:
+        stats["analyses_today"] = Analysis.query.filter(Analysis.analyzed_at >= today_utc).count()
+    except Exception:
+        stats["analyses_today"] = None
+
+    try:
+        stats["analyses_guest"]  = AnalysisLog.query.filter(AnalysisLog.user_id.is_(None)).count()
+        stats["analyses_member"] = AnalysisLog.query.filter(AnalysisLog.user_id.isnot(None)).count()
+    except Exception:
+        stats["analyses_guest"]  = None
+        stats["analyses_member"] = None
+
+    try:
+        avg = db.session.query(func.avg(UserFeedback.rating)).scalar()
+        stats["avg_rating"] = round(float(avg), 1) if avg is not None else None
+    except Exception:
+        stats["avg_rating"] = None
+
+    # UserFeedback 에는 feedback_type 컬럼이 없음.
+    # pain_point/good_point/message_to_dev 중 하나라도 비어있지 않으면 full, 전부 비어있으면 quick 으로 집계.
+    try:
+        detail_present = or_(
+            and_(UserFeedback.pain_point.isnot(None),     UserFeedback.pain_point     != ""),
+            and_(UserFeedback.good_point.isnot(None),     UserFeedback.good_point     != ""),
+            and_(UserFeedback.message_to_dev.isnot(None), UserFeedback.message_to_dev != ""),
+        )
+        _full_count = UserFeedback.query.filter(detail_present).count()
+        _total_fb   = UserFeedback.query.count()
+        stats["feedback_full"]  = _full_count
+        stats["feedback_quick"] = _total_fb - _full_count
+    except Exception:
+        stats["feedback_full"]  = None
+        stats["feedback_quick"] = None
+
     return render_template(
         "admin.html",
         total_users=total_users,
@@ -855,6 +915,7 @@ def admin():
         users=users,
         pending=pending,
         feedbacks=feedbacks,
+        stats=stats,
     )
 
 

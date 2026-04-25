@@ -5,6 +5,78 @@
   <div class="admin-inner">
     <h1 class="admin-title">관리자 대시보드</h1>
 
+    <!-- KPI: 유저 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">유저</h2>
+      <div class="admin-stats">
+        <div class="stat-card">
+          <p class="stat-label">전체 가입자</p>
+          <p class="stat-value">{{ total_users }}명</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">오늘 신규</p>
+          <p class="stat-value">{% if stats.new_users_today is none %}-{% else %}{{ stats.new_users_today }}명{% endif %}</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">플랜 분포</p>
+          <p class="stat-value" style="font-size:1rem; line-height:1.5;">
+            {% if stats.plan_dist is none %}
+              -
+            {% else %}
+              continental {{ stats.plan_dist.get('continental', 0) }}<br>
+              pro {{ stats.plan_dist.get('pro', 0) }}<br>
+              world_tour {{ stats.plan_dist.get('world_tour', 0) }}
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI: 분석 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">분석</h2>
+      <div class="admin-stats">
+        <div class="stat-card">
+          <p class="stat-label">전체 분석</p>
+          <p class="stat-value">{{ total_analyses }}건</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">오늘 분석</p>
+          <p class="stat-value">{% if stats.analyses_today is none %}-{% else %}{{ stats.analyses_today }}건{% endif %}</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">로그인 vs 게스트</p>
+          <p class="stat-value" style="font-size:1rem; line-height:1.5;">
+            {% if stats.analyses_member is none or stats.analyses_guest is none %}
+              -
+            {% else %}
+              로그인 {{ stats.analyses_member }}<br>
+              게스트 {{ stats.analyses_guest }}
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI: 피드백 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">피드백</h2>
+      <div class="admin-stats">
+        <div class="stat-card">
+          <p class="stat-label">평균 만족도</p>
+          <p class="stat-value">{% if stats.avg_rating is none %}-{% else %}{{ stats.avg_rating }}점{% endif %}</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">full 피드백</p>
+          <p class="stat-value">{% if stats.feedback_full is none %}-{% else %}{{ stats.feedback_full }}건{% endif %}</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">quick 피드백</p>
+          <p class="stat-value">{% if stats.feedback_quick is none %}-{% else %}{{ stats.feedback_quick }}건{% endif %}</p>
+        </div>
+      </div>
+    </section>
+
     <!-- 통계 카드 -->
     <div class="admin-stats">
       <div class="stat-card">
