@@ -790,28 +790,6 @@ def admin():
     total_users    = User.query.count()
     total_analyses = Analysis.query.count()
 
-    recent_analyses = (
-        db.session.query(Analysis, Bike)
-        .join(Bike, Bike.id == Analysis.bike_id)
-        .order_by(Analysis.analyzed_at.desc())
-        .limit(10)
-        .all()
-    )
-    recent = [
-        {
-            "bike_name":   f"{bike.brand} {bike.model_name}" + (f" ({bike.model_year})" if bike.model_year else ""),
-            "analyzed_at": analysis.analyzed_at,
-            "saving_krw":  analysis.saving_krw,
-        }
-        for analysis, bike in recent_analyses
-    ]
-
-    users = (
-        User.query
-        .order_by(User.created_at.desc())
-        .all()
-    )
-
     pending_rows = (
         db.session.query(PriceSuggestion, Analysis, Bike)
         .join(Analysis, Analysis.id == PriceSuggestion.analysis_id)
@@ -828,24 +806,6 @@ def admin():
             "status":     ps.status,
         }
         for ps, analysis, bike in pending_rows
-    ]
-
-    feedback_rows = (
-        db.session.query(UserFeedback, User)
-        .outerjoin(User, User.id == UserFeedback.user_id)
-        .order_by(UserFeedback.created_at.desc())
-        .all()
-    )
-    feedbacks = [
-        {
-            "id":         str(fb.id),
-            "nickname":   (u.nickname if u else "비회원"),
-            "plan":       (u.plan if u else "-"),
-            "created_at": fb.created_at,
-            "rating":     fb.rating,
-            "has_details": bool(fb.pain_point or fb.good_point or fb.message_to_dev),
-        }
-        for fb, u in feedback_rows
     ]
 
     # --- KPI 지표 ---
@@ -911,12 +871,64 @@ def admin():
         "admin.html",
         total_users=total_users,
         total_analyses=total_analyses,
-        recent=recent,
-        users=users,
         pending=pending,
-        feedbacks=feedbacks,
         stats=stats,
     )
+
+
+@bp.route("/admin/users")
+@admin_required
+def admin_users():
+    users = (
+        User.query
+        .order_by(User.created_at.desc())
+        .all()
+    )
+    return render_template("admin_users.html", users=users)
+
+
+@bp.route("/admin/analyses")
+@admin_required
+def admin_analyses():
+    rows = (
+        db.session.query(Analysis, Bike)
+        .join(Bike, Bike.id == Analysis.bike_id)
+        .order_by(Analysis.analyzed_at.desc())
+        .limit(200)
+        .all()
+    )
+    recent = [
+        {
+            "bike_name":   f"{bike.brand} {bike.model_name}" + (f" ({bike.model_year})" if bike.model_year else ""),
+            "analyzed_at": analysis.analyzed_at,
+            "saving_krw":  analysis.saving_krw,
+        }
+        for analysis, bike in rows
+    ]
+    return render_template("admin_analyses.html", recent=recent)
+
+
+@bp.route("/admin/feedbacks")
+@admin_required
+def admin_feedbacks():
+    rows = (
+        db.session.query(UserFeedback, User)
+        .outerjoin(User, User.id == UserFeedback.user_id)
+        .order_by(UserFeedback.created_at.desc())
+        .all()
+    )
+    feedbacks = [
+        {
+            "id":         str(fb.id),
+            "nickname":   (u.nickname if u else "비회원"),
+            "plan":       (u.plan if u else "-"),
+            "created_at": fb.created_at,
+            "rating":     fb.rating,
+            "has_details": bool(fb.pain_point or fb.good_point or fb.message_to_dev),
+        }
+        for fb, u in rows
+    ]
+    return render_template("admin_feedbacks.html", feedbacks=feedbacks)
 
 
 @bp.route("/admin/suggestion/<suggestion_id>")

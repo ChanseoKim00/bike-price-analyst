@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="admin-wrap">
+  <div class="admin-inner">
+    <p class="admin-back">
+      <a href="/admin">← 관리자 대시보드</a>
+    </p>
+    <h1 class="admin-title">유저 대시보드</h1>
+
+    <!-- 가입자 목록 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">
+        가입자 목록
+        {% if users %}
+          <span class="admin-pending-count">{{ users|length }}</span>
+        {% endif %}
+      </h2>
+      {% if users %}
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>닉네임</th>
+            <th>이메일</th>
+            <th>가입일</th>
+            <th>마지막 로그인</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td class="admin-nickname">
+              {{ u.nickname }}
+              {% if u.role == 'admin' %}
+                <span class="admin-badge">admin</span>
+              {% endif %}
+            </td>
+            <td class="admin-email">{{ u.email }}</td>
+            <td class="admin-date">{{ u.created_at.strftime('%Y.%m.%d') }}</td>
+            <td class="admin-date">
+              {% if u.last_login_at %}
+                {{ u.last_login_at.strftime('%Y.%m.%d %H:%M') }}
+              {% else %}
+                <span class="admin-muted">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="admin-empty">가입자가 없습니다.</p>
+      {% endif %}
+    </section>
+
+  </div>
+</div>
+
+{% endblock %}

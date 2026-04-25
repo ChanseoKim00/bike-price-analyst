@@ -6,7 +6,9 @@
     <h1 class="admin-title">관리자 대시보드</h1>
 
     <!-- KPI: 유저 -->
-    <section class="admin-section">
+    <section class="admin-section admin-kpi-clickable"
+             onclick="location.href='/admin/users'"
+             style="cursor:pointer;">
       <h2 class="admin-section-title">유저</h2>
       <div class="admin-stats">
         <div class="stat-card">
@@ -33,7 +35,9 @@
     </section>
 
     <!-- KPI: 분석 -->
-    <section class="admin-section">
+    <section class="admin-section admin-kpi-clickable"
+             onclick="location.href='/admin/analyses'"
+             style="cursor:pointer;">
       <h2 class="admin-section-title">분석</h2>
       <div class="admin-stats">
         <div class="stat-card">
@@ -59,7 +63,9 @@
     </section>
 
     <!-- KPI: 피드백 -->
-    <section class="admin-section">
+    <section class="admin-section admin-kpi-clickable"
+             onclick="location.href='/admin/feedbacks'"
+             style="cursor:pointer;">
       <h2 class="admin-section-title">피드백</h2>
       <div class="admin-stats">
         <div class="stat-card">
@@ -76,18 +82,6 @@
         </div>
       </div>
     </section>
-
-    <!-- 통계 카드 -->
-    <div class="admin-stats">
-      <div class="stat-card">
-        <p class="stat-label">총 가입자</p>
-        <p class="stat-value">{{ total_users }}</p>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">총 분석 횟수</p>
-        <p class="stat-value">{{ total_analyses }}</p>
-      </div>
-    </div>
 
     <!-- 미처리 가격 수정 제안 -->
     <section class="admin-section">
@@ -118,117 +112,6 @@
       </table>
       {% else %}
       <p class="admin-empty">미처리 제안이 없습니다.</p>
-      {% endif %}
-    </section>
-
-    <!-- 유저 피드백 -->
-    <section class="admin-section">
-      <h2 class="admin-section-title">
-        유저 피드백
-        {% if feedbacks %}
-          <span class="admin-pending-count">{{ feedbacks|length }}</span>
-        {% endif %}
-      </h2>
-      {% if feedbacks %}
-      <table class="admin-table admin-table--clickable">
-        <thead>
-          <tr>
-            <th>닉네임</th>
-            <th>플랜</th>
-            <th>일시</th>
-            <th>평가 점수</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in feedbacks %}
-          {% if item.has_details %}
-          <tr onclick="location.href='/admin/feedback/{{ item.id }}'">
-          {% else %}
-          <tr class="admin-row-inactive" title="상세 내용 없음">
-          {% endif %}
-            <td class="admin-nickname">{{ item.nickname }}</td>
-            <td class="admin-email">{{ item.plan }}</td>
-            <td class="admin-date">{{ item.created_at.strftime('%Y.%m.%d %H:%M') }}</td>
-            <td class="admin-saving">{{ item.rating }} / 10</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="admin-empty">피드백이 없습니다.</p>
-      {% endif %}
-    </section>
-
-    <!-- 최근 분석 10개 -->
-    <section class="admin-section">
-      <h2 class="admin-section-title">최근 분석</h2>
-      {% if recent %}
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th>자전거</th>
-            <th>절약 금액</th>
-            <th>분석 일시</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in recent %}
-          <tr>
-            <td class="admin-bike">{{ item.bike_name }}</td>
-            <td class="admin-saving">
-              {% if item.saving_krw > 0 %}
-                {{ "{:,}".format(item.saving_krw) }}원
-              {% else %}
-                <span class="admin-muted">-</span>
-              {% endif %}
-            </td>
-            <td class="admin-date">{{ item.analyzed_at.strftime('%Y.%m.%d %H:%M') }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="admin-empty">분석 기록이 없습니다.</p>
-      {% endif %}
-    </section>
-
-    <!-- 가입자 목록 -->
-    <section class="admin-section">
-      <h2 class="admin-section-title">가입자 목록</h2>
-      {% if users %}
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th>닉네임</th>
-            <th>이메일</th>
-            <th>가입일</th>
-            <th>마지막 로그인</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for u in users %}
-          <tr>
-            <td class="admin-nickname">
-              {{ u.nickname }}
-              {% if u.role == 'admin' %}
-                <span class="admin-badge">admin</span>
-              {% endif %}
-            </td>
-            <td class="admin-email">{{ u.email }}</td>
-            <td class="admin-date">{{ u.created_at.strftime('%Y.%m.%d') }}</td>
-            <td class="admin-date">
-              {% if u.last_login_at %}
-                {{ u.last_login_at.strftime('%Y.%m.%d %H:%M') }}
-              {% else %}
-                <span class="admin-muted">-</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="admin-empty">가입자가 없습니다.</p>
       {% endif %}
     </section>
 

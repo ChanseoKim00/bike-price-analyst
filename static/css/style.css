@@ -892,6 +892,30 @@ a { color: inherit; text-decoration: none; }
   gap: 1rem;
 }
 
+.admin-kpi-clickable {
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  border-radius: 12px;
+}
+
+.admin-kpi-clickable:hover .stat-card {
+  background: #45454f;
+  border-color: #5a5a6a;
+}
+
+.admin-back {
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.admin-back a {
+  color: #a0a0b0;
+  text-decoration: none;
+}
+
+.admin-back a:hover {
+  color: #B3CDFF;
+}
+
 .stat-card {
   flex: 1;
   background: #3e3e4a;

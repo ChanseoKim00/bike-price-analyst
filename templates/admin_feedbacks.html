@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="admin-wrap">
+  <div class="admin-inner">
+    <p class="admin-back">
+      <a href="/admin">← 관리자 대시보드</a>
+    </p>
+    <h1 class="admin-title">피드백 대시보드</h1>
+
+    <!-- 유저 피드백 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">
+        유저 피드백
+        {% if feedbacks %}
+          <span class="admin-pending-count">{{ feedbacks|length }}</span>
+        {% endif %}
+      </h2>
+      {% if feedbacks %}
+      <table class="admin-table admin-table--clickable">
+        <thead>
+          <tr>
+            <th>닉네임</th>
+            <th>플랜</th>
+            <th>일시</th>
+            <th>평가 점수</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in feedbacks %}
+          {% if item.has_details %}
+          <tr onclick="location.href='/admin/feedback/{{ item.id }}'">
+          {% else %}
+          <tr class="admin-row-inactive" title="상세 내용 없음">
+          {% endif %}
+            <td class="admin-nickname">{{ item.nickname }}</td>
+            <td class="admin-email">{{ item.plan }}</td>
+            <td class="admin-date">{{ item.created_at.strftime('%Y.%m.%d %H:%M') }}</td>
+            <td class="admin-saving">{{ item.rating }} / 10</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="admin-empty">피드백이 없습니다.</p>
+      {% endif %}
+    </section>
+
+  </div>
+</div>
+
+{% endblock %}

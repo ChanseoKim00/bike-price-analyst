@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="admin-wrap">
+  <div class="admin-inner">
+    <p class="admin-back">
+      <a href="/admin">← 관리자 대시보드</a>
+    </p>
+    <h1 class="admin-title">분석 대시보드</h1>
+
+    <!-- 최근 분석 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">
+        최근 분석
+        {% if recent %}
+          <span class="admin-pending-count">{{ recent|length }}</span>
+        {% endif %}
+      </h2>
+      {% if recent %}
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>자전거</th>
+            <th>절약 금액</th>
+            <th>분석 일시</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recent %}
+          <tr>
+            <td class="admin-bike">{{ item.bike_name }}</td>
+            <td class="admin-saving">
+              {% if item.saving_krw > 0 %}
+                {{ "{:,}".format(item.saving_krw) }}원
+              {% else %}
+                <span class="admin-muted">-</span>
+              {% endif %}
+            </td>
+            <td class="admin-date">{{ item.analyzed_at.strftime('%Y.%m.%d %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="admin-empty">분석 기록이 없습니다.</p>
+      {% endif %}
+    </section>
+
+  </div>
+</div>
+
+{% endblock %}
