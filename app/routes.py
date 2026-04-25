@@ -290,7 +290,7 @@ def suggest_complete():
 # ── 유저 피드백 ────────────────────────────────────────────────
 
 _FEEDBACK_TEXT_MAX = 2000
-_EXIT_FEEDBACK_COOLDOWN_HOURS = 72
+_EXIT_FEEDBACK_COOLDOWN_HOURS = 336  # 14일
 
 
 @bp.route("/feedback", methods=["GET", "POST"])
