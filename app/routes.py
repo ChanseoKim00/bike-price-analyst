@@ -983,7 +983,20 @@ def admin_feedbacks():
     except Exception:
         rating_chart = []
 
-    return render_template("admin_feedbacks.html", feedbacks=feedbacks, rating_chart=rating_chart)
+    try:
+        rating_dist_rows = (
+            db.session.query(UserFeedback.rating, func.count())
+            .filter(UserFeedback.rating.isnot(None))
+            .group_by(UserFeedback.rating)
+            .order_by(UserFeedback.rating.asc())
+            .all()
+        )
+        dist_map = {r: cnt for r, cnt in rating_dist_rows}
+        rating_dist = [{"score": i, "count": dist_map.get(i, 0)} for i in range(1, 11)]
+    except Exception:
+        rating_dist = [{"score": i, "count": 0} for i in range(1, 11)]
+
+    return render_template("admin_feedbacks.html", feedbacks=feedbacks, rating_chart=rating_chart, rating_dist=rating_dist)
 
 
 @bp.route("/admin/suggestion/<suggestion_id>")

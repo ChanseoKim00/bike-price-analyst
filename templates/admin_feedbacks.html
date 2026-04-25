@@ -81,6 +81,73 @@
       })();
     </script>
 
+    <!-- 만족도 점수 분포 그래프 -->
+    <section class="admin-section">
+      <div class="price-chart-card">
+        <div class="price-chart-header">만족도 점수 분포</div>
+        <div class="price-chart-body">
+          <canvas id="adminRatingDistChart"></canvas>
+          <div id="adminRatingDistChartEmpty" class="price-chart-empty" style="display:none;">데이터가 없습니다</div>
+        </div>
+      </div>
+    </section>
+
+    <script id="admin-rating-dist-data" type="application/json">{{ rating_dist | tojson }}</script>
+    <script>
+      (function () {
+        var node = document.getElementById('admin-rating-dist-data');
+        var canvas = document.getElementById('adminRatingDistChart');
+        var empty = document.getElementById('adminRatingDistChartEmpty');
+        if (!node || !canvas || typeof Chart === 'undefined') return;
+        var points = [];
+        try { points = JSON.parse(node.textContent) || []; } catch (e) { points = []; }
+        var hasData = points.some(function (p) { return (p.count || 0) > 0; });
+        if (!hasData) {
+          if (empty) empty.style.display = 'flex';
+          return;
+        }
+        var colors = { bar: '#B3CDFF', grid: 'rgba(255, 255, 255, 0.05)', tick: '#8a8aa0' };
+        new Chart(canvas, {
+          type: 'bar',
+          data: {
+            labels: points.map(function (p) { return p.score; }),
+            datasets: [{
+              data: points.map(function (p) { return p.count; }),
+              backgroundColor: colors.bar,
+              borderColor: colors.bar,
+              borderWidth: 0,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#2a2a34', borderColor: '#4a4a58', borderWidth: 1,
+                titleColor: '#B3CDFF', bodyColor: '#e0e0e8', displayColors: false,
+                callbacks: {
+                  title: function (items) { return items[0].label + '점'; },
+                  label: function (item) { return item.parsed.y + '명'; }
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: colors.grid, drawBorder: false },
+                ticks: { color: colors.tick, font: { size: 10 } },
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: colors.grid, drawBorder: false },
+                ticks: { color: colors.tick, font: { size: 10 }, stepSize: 1, precision: 0 },
+              }
+            }
+          }
+        });
+      })();
+    </script>
+
     <!-- 유저 피드백 -->
     <section class="admin-section">
       <h2 class="admin-section-title">
