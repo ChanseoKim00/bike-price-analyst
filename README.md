@@ -39,10 +39,11 @@
 - 플랜별 분석 횟수 및 상세 정보 열람 제한 (아래 "플랜 구조" 참조)
 
 ### 마이페이지
-- `/mypage` — 닉네임, 이름, 생년월일 등 프로필 정보 조회
-- 최근 분석 히스토리 목록 확인 및 키워드 검색
+- `/mypage` — 탭 구조: 일반 / 계정 / 결제 / 사용량 / 검색 히스토리
+- **일반 탭** — 프로필 조회 (닉네임·이메일·이름·현재 플랜), 이메일 알림 수신 여부 설정
+- **계정 탭** — 닉네임 변경 / 이메일 변경 (로컬 계정 전용) / 비밀번호 변경 (로컬 계정 전용)
+- **검색 히스토리 탭** — 과거 분석 결과 목록 조회
 - 현재 가입 플랜 및 요금제 안내 링크 제공
-- 이메일 알림 수신 여부 설정
 
 ### 부품 가격 제안
 - 분석 결과 화면에서 사용자가 부품별 더 저렴한 가격과 판매처 URL 제안 (`/suggest`)
@@ -51,7 +52,7 @@
 ### 유저 피드백
 - `/feedback` — 만족도(1–10점) + 불편한 점 / 좋은 점 / 개발자에게 하고 싶은 말 입력 (각 2000자 이내)
 - 분석 결과 페이지 이탈 시 이탈 팝업 — 만족도 점수만 빠르게 받는 간단 피드백 (`/feedback/quick` POST)
-- 로그인 유저는 72시간 내 피드백을 완료했으면 팝업 미표시 (게스트는 브라우저 localStorage로 쿨타임 관리)
+- 로그인 유저는 14일(336시간) 내 피드백을 완료했으면 팝업 미표시 (게스트는 브라우저 localStorage로 쿨타임 관리)
 - 비로그인 제출 가능 (user_id nullable)
 
 ### AI 상담원 (챗봇)
@@ -62,9 +63,12 @@
 
 ### 관리자 기능
 - `role=admin`인 계정만 `/admin` 접근 가능
-- 전체 사용자 수 / 분석 수 / 최근 분석 / 사용자 목록 조회
+- 메인 대시보드 — 전체 가입자·오늘 신규·플랜 분포·분석 수·평균 피드백 점수 등 KPI 카드
+- `/admin/users` — 일별 신규 가입자 추이 차트 (최근 30일) + 전체 회원 목록
+- `/admin/analyses` — 일별 분석 건수 추이 차트 (최근 30일) + 최근 분석 목록
+- `/admin/feedbacks` — 일별 평균 만족도 선 차트 + 점수별 분포 막대그래프 (최근 30일) + 피드백 목록
 - 대기 중인 가격 제안(`PriceSuggestion`) 검토 및 반영·반려
-- 유저 피드백(`UserFeedback`) 목록 조회 및 상세 내용 확인 (`/admin/feedback/<id>`)
+- 유저 피드백(`UserFeedback`) 상세 내용 확인 (`/admin/feedback/<id>`)
 - admin은 모든 플랜 기능(가격 그래프 포함) 및 챗봇 사용 제한 없음
 
 ---
@@ -107,12 +111,18 @@
 | `/` | 메인 (URL 입력) |
 | `/analyze` | 분석 실행 (POST) |
 | `/analyze/status/<task_id>` | 분석 진행 상태 폴링 |
-| `/analyze/cancel/<task_id>` | 분석 작업 취소 |
+| `/analyze/cancel/<task_id>` | 분석 작업 취소 (POST) |
+| `/analyze/error` | 분석 오류 페이지 |
+| `/result/<analysis_id>` | 분석 결과 화면 |
 | `/pricing` | 요금제 안내 |
 | `/register`, `/login`, `/logout` | 인증 |
 | `/forgot-password`, `/reset-password/<token>` | 비밀번호 재설정 |
 | `/auth/google/login`, `/auth/google/callback` | Google OAuth |
 | `/mypage` | 마이페이지 (로그인 필요) |
+| `/mypage/profile` | 알림 수신 설정 저장 (POST) |
+| `/mypage/account/nickname` | 닉네임 변경 (POST) |
+| `/mypage/account/email` | 이메일 변경 (POST, 로컬 계정 전용) |
+| `/mypage/account/password` | 비밀번호 변경 (POST, 로컬 계정 전용) |
 | `/history` | 본인 분석 히스토리 (로그인 필요) |
 | `/suggest` | 부품 가격 제안 |
 | `/feedback` | 유저 피드백 폼 |
@@ -120,7 +130,12 @@
 | `/feedback/quick` | 이탈 팝업 빠른 피드백 (POST) |
 | `/chatbot` | AI 상담원 챗봇 |
 | `/admin` | 관리자 대시보드 (admin 전용) |
-| `/admin/suggestion/<id>` | 가격 제안 상세 · 승인 / 반려 |
+| `/admin/users` | 유저 대시보드 — 가입자 추이 차트 + 회원 목록 (admin 전용) |
+| `/admin/analyses` | 분석 대시보드 — 분석 추이 차트 + 목록 (admin 전용) |
+| `/admin/feedbacks` | 피드백 대시보드 — 만족도 차트 + 분포 막대그래프 (admin 전용) |
+| `/admin/suggestion/<id>` | 가격 제안 상세 조회 (admin 전용) |
+| `/admin/suggestion/<id>/approve` | 가격 제안 승인 (POST, admin 전용) |
+| `/admin/suggestion/<id>/reject` | 가격 제안 반려 (POST, admin 전용) |
 | `/admin/feedback/<id>` | 유저 피드백 상세 조회 (admin 전용) |
 
 ---
@@ -132,6 +147,7 @@
 | `DATABASE_URL` | PostgreSQL 접속 문자열 |
 | `FLASK_SECRET_KEY` | Flask 세션 암호화 키 (미설정 시 부팅 시 랜덤) |
 | `ANTHROPIC_API_KEY` | Claude API (자전거 분석 · 부품 검색 · 챗봇) |
+| `REDIS_URL` | Celery 브로커 및 결과 저장소 (Railway Redis 플러그인 자동 주입) |
 | `BOK_API_KEY` | 한국은행 ECOS 환율 API (미설정 시 폴백 환율 사용) |
 | `SENDGRID_API_KEY` | SendGrid 이메일 발송 (비밀번호 재설정 메일) |
 | `SENDGRID_FROM_EMAIL` | SendGrid Verified Sender 주소 |
