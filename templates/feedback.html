@@ -10,6 +10,7 @@
     </div>
 
     <form class="suggest-form" method="POST" action="{{ url_for('main.feedback') }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <!-- 만족도 1~10 -->
       <div class="suggest-card">

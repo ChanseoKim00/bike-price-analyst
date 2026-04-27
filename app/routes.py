@@ -25,6 +25,7 @@ def _admin_chart_since_utc(days: int = 30):
 
 logger = logging.getLogger(__name__)
 
+from . import csrf
 from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken, UserFeedback
 from .email_sender import send_password_reset_email
 from .utils.nickname import generate_unique_nickname
@@ -123,7 +124,10 @@ _CONTINENTAL_LIMIT = 10
 
 
 def _get_client_ip() -> str:
-    return request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    # ProxyFix(x_for=1)가 Railway 프록시 1홉만큼 X-Forwarded-For를 신뢰해 remote_addr를 보정한다.
+    # 헤더를 직접 읽으면 클라이언트가 임의 X-Forwarded-For를 보내 게스트 rate limit를 우회하게 되므로
+    # 반드시 보정된 remote_addr만 사용한다.
+    return (request.remote_addr or "").strip()
 
 
 def _check_rate_limit(ip: str):
@@ -1169,6 +1173,16 @@ def analyze():
             "http:// 또는 https://로 시작하는 자전거 판매 페이지 링크를 입력해주세요.",
         )
 
+    # SSRF 방지 — 사설/loopback/링크로컬 IP로 해석되는 URL은 거부
+    from .scraper import ScrapeError, assert_safe_url
+    try:
+        assert_safe_url(url)
+    except ScrapeError:
+        return _err(
+            "지원하지 않는 링크 형식입니다.",
+            "공개된 자전거 판매 페이지 링크를 입력해주세요.",
+        )
+
     ip = _get_client_ip()
     blocked, detail_limited, reset_minutes = _check_rate_limit(ip)
 
@@ -1228,6 +1242,7 @@ def analyze_status(task_id):
 
 
 @bp.route("/analyze/cancel/<task_id>", methods=["POST"])
+@csrf.exempt
 def analyze_cancel(task_id):
     """task를 revoke — 워커 프로세스를 SIGTERM으로 종료해 즉시 중단.
 

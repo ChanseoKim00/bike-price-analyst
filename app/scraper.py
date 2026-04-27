@@ -1,4 +1,7 @@
+import ipaddress
 import re
+import socket
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -23,6 +26,45 @@ class ScrapeError(Exception):
         self.code = code
 
 
+def assert_safe_url(url: str) -> None:
+    """
+    SSRF 방지 — 사용자 입력 URL이 가리키는 호스트가 사설/loopback/링크로컬 등
+    내부 자원에 해당하면 ScrapeError를 발생시킨다.
+
+    DNS rebinding을 완벽히 막진 못하지만, 입력단·요청단 모두에서 호출해
+    일반적인 내부망·메타데이터 엔드포인트(예: 169.254.169.254) 접근은 차단한다.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ScrapeError("지원하지 않는 URL 스킴", code="blocked")
+
+    host = parsed.hostname
+    if not host:
+        raise ScrapeError("URL 호스트가 없습니다.", code="blocked")
+
+    try:
+        addrs = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        raise ScrapeError(f"호스트 조회 실패: {host}", code="connection_error")
+
+    for addr in addrs:
+        try:
+            ip = ipaddress.ip_address(addr[4][0])
+        except (ValueError, IndexError):
+            continue
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            raise ScrapeError("내부 네트워크 주소로의 요청은 허용되지 않습니다.", code="blocked")
+
+
 def fetch_html(url: str) -> str:
     """
     URL에서 HTML을 가져와 본문 텍스트만 정제해서 반환.
@@ -34,6 +76,9 @@ def fetch_html(url: str) -> str:
     Raises:
         ScrapeError: 네트워크 오류, 봇 차단(403/429), 링크 만료(404) 등
     """
+    # SSRF 방지 — 호스트가 사설망/loopback이면 즉시 차단
+    assert_safe_url(url)
+
     # 1차 시도: requests
     try:
         resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)

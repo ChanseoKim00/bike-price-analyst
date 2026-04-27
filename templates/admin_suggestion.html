@@ -82,9 +82,11 @@
     {% if ps.status == 'pending' %}
     <div class="admin-suggestion-actions">
       <form method="post" action="{{ url_for('main.admin_suggestion_reject', suggestion_id=ps.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="admin-btn admin-btn--reject">제안 거절</button>
       </form>
       <form method="post" action="{{ url_for('main.admin_suggestion_approve', suggestion_id=ps.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="admin-btn admin-btn--approve">제안 수락</button>
       </form>
     </div>

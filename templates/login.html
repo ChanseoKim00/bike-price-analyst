@@ -34,6 +34,7 @@
     <div class="oauth-divider"><span>또는</span></div>
 
     <form class="auth-form" method="POST" action="/login">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="auth-field">
         <label class="auth-label" for="email">이메일</label>
         <input

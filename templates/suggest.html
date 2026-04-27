@@ -13,6 +13,7 @@
     </div>
 
     <form class="suggest-form" method="POST" action="/suggest" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="analysis_id" value="{{ analysis.id }}">
 
       <div class="suggest-card-list">

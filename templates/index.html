@@ -24,6 +24,7 @@
     </p>
     {% endif %}
     <form class="input-form" action="/analyze" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="input-row">
         <input
           type="url"
@@ -440,6 +441,7 @@
       if (!rating) return;
       var body = new FormData();
       body.append('rating', String(rating));
+      body.append('csrf_token', {{ csrf_token() | tojson }});
       try {
         fetch('/feedback/quick', { method: 'POST', body: body, keepalive: true }).catch(function() {});
       } catch (_) { /* noop */ }

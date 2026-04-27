@@ -74,6 +74,7 @@
           <div class="mypage-card">
             <h3 class="mypage-card-title">알림</h3>
             <form method="POST" action="{{ url_for('main.mypage_profile') }}" class="mypage-toggle-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <label class="mypage-toggle">
                 <input type="checkbox" name="notifications_enabled" {% if user.notifications_enabled %}checked{% endif %}>
                 <span class="mypage-toggle__track"><span class="mypage-toggle__thumb"></span></span>
@@ -90,6 +91,7 @@
           <div class="mypage-card">
             <h3 class="mypage-card-title">아이디 (이메일)</h3>
             <form method="POST" action="{{ url_for('main.mypage_account_email') }}" class="mypage-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="email" name="email" value="{{ user.email }}"
                      class="mypage-input"
                      {% if user.provider == 'google' %}disabled{% endif %} required>
@@ -104,6 +106,7 @@
           <div class="mypage-card">
             <h3 class="mypage-card-title">닉네임</h3>
             <form method="POST" action="{{ url_for('main.mypage_account_nickname') }}" class="mypage-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="text" name="nickname" value="{{ user.nickname }}"
                      class="mypage-input" maxlength="30" required>
               <button type="submit" class="mypage-btn">닉네임 변경</button>
@@ -114,6 +117,7 @@
             <h3 class="mypage-card-title">비밀번호</h3>
             {% if user.password_hash %}
               <form method="POST" action="{{ url_for('main.mypage_account_password') }}" class="mypage-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <label class="mypage-field-label">현재 비밀번호</label>
                 <input type="password" name="current_password" class="mypage-input" required>
 
