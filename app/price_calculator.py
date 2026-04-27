@@ -4,6 +4,7 @@ import time
 from datetime import datetime, timedelta
 
 import anthropic
+from sqlalchemy import func
 
 from .models import db, Part, PartPriceHistory
 
@@ -204,9 +205,13 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
     if part is None:
         # 1-b. AI 값이 DB normalized의 접두어인 경우
         #      예) AI: dt_swiss_arc_1100_dicut  DB: dt_swiss_arc_1100_dicut_db_55
+        # LIKE의 `_` 와일드카드 오매칭 방지 위해 substr로 정확 비교
+        ai_prefix = part_name_normalized + "_"
+        ai_prefix_len = len(ai_prefix)
         part = Part.query.filter(
             Part.part_type == part_type,
-            Part.part_name_normalized.like(part_name_normalized + "_%"),
+            func.length(Part.part_name_normalized) > ai_prefix_len,
+            func.substr(Part.part_name_normalized, 1, ai_prefix_len) == ai_prefix,
         ).first()
         if part:
             prefix_matched = True
@@ -214,9 +219,15 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
     if part is None:
         # 1-c. DB normalized가 AI 값의 접두어인 경우
         #      예) AI: dt_swiss_arc_1100_dicut_db_55  DB: dt_swiss_arc_1100_dicut
+        ai_total_len = len(part_name_normalized)
         part = Part.query.filter(
             Part.part_type == part_type,
-            db.literal(part_name_normalized).like(Part.part_name_normalized + "_%"),
+            func.length(Part.part_name_normalized) < ai_total_len,
+            func.substr(
+                db.literal(part_name_normalized),
+                1,
+                func.length(Part.part_name_normalized) + 1,
+            ) == func.concat(Part.part_name_normalized, "_"),
         ).first()
         if part:
             prefix_matched = True
