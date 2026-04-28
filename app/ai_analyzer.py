@@ -151,12 +151,21 @@ YEAR_RETRY_PROMPT = """
 
 
 def _call_api(client, system: str, user: str) -> str:
+    # 시스템 프롬프트가 4천자 넘는 거대 프롬프트라 매 호출 풀 비용 청구되지 않도록
+    # ephemeral 프롬프트 캐싱 적용 — year-retry 호출 + 동시간대 분석 간 적중.
+    system_blocks = [
+        {
+            "type": "text",
+            "text": system,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
     for attempt in range(2):
         try:
             message = client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=1024,
-                system=system,
+                system=system_blocks,
                 messages=[{"role": "user", "content": user}],
             )
             raw = message.content[0].text.strip()

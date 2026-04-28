@@ -20,7 +20,7 @@ TTL_DAYS = {
 
 SEARCH_SYSTEM = """
 당신은 자전거 부품 가격 조사 전문가입니다.
-주어진 부품의 한국 판매가를 웹에서 조사한 뒤, 반드시 응답 마지막에 아래 JSON 블록을 출력하세요.
+주어진 부품의 한국 판매가를 웹에서 조사한 뒤, 아래 한 줄 형식만 출력하세요.
 
 조사 기준 (우선순위 순):
 1. 공식 수입사 또는 공식 대리점 판매가
@@ -28,8 +28,11 @@ SEARCH_SYSTEM = """
 
 반드시 제외: 병행수입 / 중고 / 한시적 특가·할인 행사가 / 해외 직구가
 
-조사 후 응답 맨 마지막에 반드시 이 형식을 출력하세요:
+[출력 규칙 — 매우 중요]
+- 사고 과정·조사 요약·설명 금지. 검색 도구만 사용한 뒤 곧바로 결과 한 줄을 출력.
+- 최종 출력은 반드시 다음 한 줄만:
 RESULT_JSON:{"price_krw": 정수또는null, "official_url": "URL또는null"}
+- 다른 텍스트(머리말/마크다운/주석)를 절대 추가하지 말 것.
 """.strip()
 
 
@@ -59,13 +62,27 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
     client = _get_client()
 
     # 웹 검색 — RateLimitError 시 60초 대기 후 1회 재시도, 재시도도 실패하면 null 반환
+    # 비용 컨트롤:
+    #   - max_uses=2: 한 부품당 검색 호출 상한 (기본 5 → tool_result 누적 input 비용 폭증 방지)
+    #   - cache_control: SEARCH_SYSTEM 캐싱 (분석 1건당 부품 4회 호출에서 적중)
+    #   - max_tokens=1024: 사고 과정 출력 차단된 프롬프트와 결합해 output 비용 절감
     for attempt in range(2):
         try:
             response = client.messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=4096,
-                system=SEARCH_SYSTEM,
-                tools=[{"type": "web_search_20250305", "name": "web_search"}],
+                max_tokens=1024,
+                system=[
+                    {
+                        "type": "text",
+                        "text": SEARCH_SYSTEM,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                tools=[{
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": 2,
+                }],
                 messages=[
                     {
                         "role": "user",
