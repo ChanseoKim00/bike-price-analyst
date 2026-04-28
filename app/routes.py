@@ -1013,14 +1013,8 @@ def admin_suggestion(suggestion_id):
     analysis = ps.analysis
     bike     = analysis.bike
 
-    # 부품별 현재 정보 (FK가 없는 frameset/handlebar는 None)
-    part_objects = {
-        "groupset":  bike.groupset,
-        "wheelset":  bike.wheelset,
-        "saddle":    bike.saddle,
-        "frameset":  None,
-        "handlebar": None,
-    }
+    # parts_snapshot 기반으로 frameset/handlebar 포함 전체 부품 객체 복원
+    part_objects = _load_parts_for_result(analysis)
     part_labels = {
         "groupset":  "구동계",
         "wheelset":  "휠셋",
@@ -1031,7 +1025,7 @@ def admin_suggestion(suggestion_id):
 
     rows = []
     for key in ("groupset", "wheelset", "frameset", "saddle", "handlebar"):
-        part      = part_objects[key]
+        part      = part_objects.get(key)
         suggested = ps.suggestions.get(key, {}) or {}
         rows.append({
             "label":           part_labels[key],
@@ -1065,14 +1059,8 @@ def admin_suggestion_approve(suggestion_id):
     if not ps or ps.status != "pending":
         return redirect(url_for("main.admin"))
 
-    bike = ps.analysis.bike
+    parts = _load_parts_for_result(ps.analysis)
     now = datetime.utcnow()
-
-    fk_parts = {
-        "groupset": bike.groupset,
-        "wheelset": bike.wheelset,
-        "saddle":   bike.saddle,
-    }
 
     for key, suggested in (ps.suggestions or {}).items():
         if not suggested:
@@ -1081,21 +1069,14 @@ def admin_suggestion_approve(suggestion_id):
         if not new_price:
             continue
 
-        if key in fk_parts:
-            part = fk_parts[key]
-        elif key == "frameset":
-            part = Part.query.filter_by(
-                part_name_normalized=_normalize_part_name(bike.model_name),
-                part_type="frameset",
-            ).first()
-        else:
-            # handlebar 등 Part로 저장되지 않는 항목은 건너뜀
-            continue
-
+        part = parts.get(key)
         if part is None:
             continue
 
         part.price_krw = int(new_price)
+        new_url = suggested.get("source_url")
+        if new_url:
+            part.official_url = new_url
         part.last_verified_at = now
 
     ps.status = "approved"
