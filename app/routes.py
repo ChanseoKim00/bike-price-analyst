@@ -123,6 +123,20 @@ _WINDOW_HOURS = 5
 _GUEST_LIMIT = 3
 _CONTINENTAL_LIMIT = 10
 
+# ════════════════════════════════════════════════════════════════════
+# PROMO_PRO_FOR_CONTINENTAL — 홍보 기간 임시 권한 부스트 (2026-04-29 추가)
+# ────────────────────────────────────────────────────────────────────
+# True인 동안 continental 유저를 _effective_plan()에서 'pro'로 취급한다.
+# 효과: 분석 횟수 무제한 + 부품가 블러 해제 (pro와 동일).
+# user.plan 컬럼은 손대지 않으므로 마이페이지/결제/표시는 영향 없음.
+# 가격 이력 그래프는 'world_tour' 정확 매칭이라 풀리지 않음.
+#
+# 홍보 종료 시 되돌리는 법 — 이 파일에서 'PROMO_PRO_FOR_CONTINENTAL'를
+# grep하면 2곳(이 상수 블록 + _effective_plan() 내부 분기)이 나옴.
+# 두 블록을 모두 삭제하면 원본 그대로 복원된다.
+# ════════════════════════════════════════════════════════════════════
+_PROMO_PRO_FOR_CONTINENTAL = True
+
 
 def _effective_plan(user) -> str:
     """plan_expires_at이 지났는데 워커가 아직 다운그레이드 안 했을 때 권한을 차단하기 위한 보조.
@@ -130,6 +144,10 @@ def _effective_plan(user) -> str:
     if user is None:
         return "continental"
     if user.plan == "continental":
+        # ── PROMO_PRO_FOR_CONTINENTAL: 홍보 기간 한정 (revert: 이 if 블록 삭제) ──
+        if _PROMO_PRO_FOR_CONTINENTAL:
+            return "pro"
+        # ── PROMO_PRO_FOR_CONTINENTAL END ──
         return "continental"
     if user.plan_expires_at and user.plan_expires_at <= datetime.utcnow():
         return "continental"
