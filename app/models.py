@@ -343,3 +343,42 @@ class UserFeedback(db.Model):
 
     def __repr__(self):
         return f"<UserFeedback user={self.user_id} rating={self.rating}>"
+
+
+class SurveyResponse(db.Model):
+    """결과 페이지 이탈 설문 응답 — 4문항(예/아니요 3 + 자유입력 1)."""
+    __tablename__ = "survey_responses"
+
+    id                 = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id            = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
+    q1_useful          = db.Column(db.Boolean, nullable=False)  # 가격 분석 기능이 유용했나요
+    q2_price_diff      = db.Column(db.Boolean, nullable=False)  # 가격이 실제와 많이 달랐나요
+    q3_paid_intent     = db.Column(db.Boolean, nullable=False)  # 정확도 향상 시 유료 사용 의향
+    q4_feature_request = db.Column(db.Text)                     # 추가되면 좋겠다 싶은 기능 (자유)
+    created_at         = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", backref="survey_responses")
+
+    __table_args__ = (
+        db.Index("idx_survey_responses_created_at", "created_at"),
+        db.Index("idx_survey_responses_user_id",    "user_id"),
+    )
+
+    def __repr__(self):
+        return f"<SurveyResponse user={self.user_id} at={self.created_at}>"
+
+
+class SurveyImpression(db.Model):
+    """설문 팝업 노출 카운트 — 응답률 계산(응답 / 노출) 분모로 사용."""
+    __tablename__ = "survey_impressions"
+
+    id         = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id    = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index("idx_survey_impressions_created_at", "created_at"),
+    )
+
+    def __repr__(self):
+        return f"<SurveyImpression user={self.user_id} at={self.created_at}>"

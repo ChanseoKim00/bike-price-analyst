@@ -104,6 +104,27 @@
       </div>
     </section>
 
+    <!-- KPI: 이탈 설문조사 -->
+    <section class="admin-section admin-kpi-clickable"
+             onclick="location.href='/admin/surveys'"
+             style="cursor:pointer;">
+      <h2 class="admin-section-title">이탈 설문조사</h2>
+      <div class="admin-stats">
+        <div class="stat-card">
+          <p class="stat-label">팝업 노출</p>
+          <p class="stat-value">{% if stats.survey_impressions is none %}-{% else %}{{ stats.survey_impressions }}회{% endif %}</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">응답</p>
+          <p class="stat-value">{% if stats.survey_responses is none %}-{% else %}{{ stats.survey_responses }}건{% endif %}</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">응답률</p>
+          <p class="stat-value">{% if stats.survey_response_rate is none %}-{% else %}{{ stats.survey_response_rate }}%{% endif %}</p>
+        </div>
+      </div>
+    </section>
+
     <!-- 미처리 가격 수정 제안 -->
     <section class="admin-section">
       <h2 class="admin-section-title">

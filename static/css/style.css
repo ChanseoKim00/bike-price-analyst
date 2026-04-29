@@ -2234,6 +2234,81 @@ a { color: inherit; text-decoration: none; }
   .exit-rating-label { font-size: 0.6rem; }
 }
 
+/* ===== 이탈 설문조사 팝업 (임시) ===== */
+.exit-popup-card--survey {
+  max-width: 480px;
+  gap: 1rem;
+}
+
+.survey-q {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.survey-q-text {
+  font-size: 0.92rem;
+  color: #e0e0e8;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.survey-yn {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.survey-yn-btn {
+  height: 2.3rem;
+  border: 1px solid #4a4a58;
+  border-radius: 8px;
+  background: #31313C;
+  color: #c8c8d0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.survey-yn-btn:hover {
+  border-color: #B3CDFF;
+  color: #B3CDFF;
+}
+.survey-yn-btn.selected {
+  background: #B3CDFF;
+  border-color: #B3CDFF;
+  color: #1f1f28;
+}
+
+.survey-text-input {
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #4a4a58;
+  border-radius: 8px;
+  background: #31313C;
+  color: #e0e0e8;
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.survey-text-input:focus {
+  outline: none;
+  border-color: #B3CDFF;
+}
+.survey-text-input::placeholder { color: #6b6b7e; }
+
+@media (max-width: 480px) {
+  .exit-popup-card--survey {
+    padding: 1.8rem 1rem 1.1rem;
+    gap: 0.9rem;
+  }
+  .survey-q-text { font-size: 0.86rem; }
+  .survey-yn-btn { height: 2.1rem; font-size: 0.82rem; }
+  .survey-text-input { font-size: 0.84rem; }
+}
+
 /* ===== Checkout 페이지 ===== */
 .checkout-wrap {
   min-height: 100vh;

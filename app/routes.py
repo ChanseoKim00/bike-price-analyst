@@ -26,7 +26,7 @@ def _admin_chart_since_utc(days: int = 30):
 logger = logging.getLogger(__name__)
 
 from . import csrf
-from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken, UserFeedback, Payment
+from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken, UserFeedback, Payment, SurveyResponse, SurveyImpression
 from .email_sender import send_password_reset_email
 from .utils.nickname import generate_unique_nickname
 from .price_calculator import _normalize_part_name
@@ -380,7 +380,9 @@ def feedback_complete():
 
 @bp.route("/feedback/quick", methods=["POST"])
 def feedback_quick():
-    """결과 페이지 이탈 팝업 — 점수만 받는 간단 피드백."""
+    """결과 페이지 이탈 팝업 — 점수만 받는 간단 피드백.
+    (설문조사 팝업으로 임시 전환됨. 호출자 없음 — 추후 복원 시 재사용.)
+    """
     rating_raw = request.form.get("rating", "").strip()
     try:
         rating = int(rating_raw)
@@ -397,6 +399,54 @@ def feedback_quick():
         message_to_dev=None,
     )
     db.session.add(fb)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+_SURVEY_TEXT_MAX = 2000
+
+
+def _parse_yn(raw: str | None) -> bool | None:
+    if raw is None:
+        return None
+    v = raw.strip().lower()
+    if v in ("yes", "y", "true", "1", "예", "네"):
+        return True
+    if v in ("no", "n", "false", "0", "아니요", "아니오"):
+        return False
+    return None
+
+
+@bp.route("/feedback/survey", methods=["POST"])
+def feedback_survey():
+    """결과 페이지 이탈 팝업 — 4문항 설문(예/아니요 3 + 자유입력 1)."""
+    q1 = _parse_yn(request.form.get("q1"))
+    q2 = _parse_yn(request.form.get("q2"))
+    q3 = _parse_yn(request.form.get("q3"))
+    q4 = (request.form.get("q4") or "").strip()
+
+    if q1 is None or q2 is None or q3 is None:
+        return jsonify({"ok": False, "error": "missing_answer"}), 400
+    if len(q4) > _SURVEY_TEXT_MAX:
+        return jsonify({"ok": False, "error": "too_long"}), 400
+
+    sr = SurveyResponse(
+        user_id=session.get("user_id") or None,
+        q1_useful=q1,
+        q2_price_diff=q2,
+        q3_paid_intent=q3,
+        q4_feature_request=(q4 or None),
+    )
+    db.session.add(sr)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@bp.route("/feedback/survey/impression", methods=["POST"])
+def feedback_survey_impression():
+    """설문 팝업이 실제로 노출됐을 때 호출 — 응답률 분모."""
+    imp = SurveyImpression(user_id=session.get("user_id") or None)
+    db.session.add(imp)
     db.session.commit()
     return jsonify({"ok": True})
 
@@ -905,6 +955,20 @@ def admin():
     except Exception:
         stats["avg_rating"] = None
 
+    # 설문 응답률 KPI — 응답수 / 노출수
+    try:
+        sv_resp_count = SurveyResponse.query.count()
+        sv_imp_count  = SurveyImpression.query.count()
+        stats["survey_responses"]   = sv_resp_count
+        stats["survey_impressions"] = sv_imp_count
+        stats["survey_response_rate"] = (
+            round(sv_resp_count * 100.0 / sv_imp_count, 1) if sv_imp_count else None
+        )
+    except Exception:
+        stats["survey_responses"]     = None
+        stats["survey_impressions"]   = None
+        stats["survey_response_rate"] = None
+
     # UserFeedback 에는 feedback_type 컬럼이 없음.
     # pain_point/good_point/message_to_dev 중 하나라도 비어있지 않으면 full, 전부 비어있으면 quick 으로 집계.
     try:
@@ -1114,6 +1178,61 @@ def admin_feedbacks():
         rating_dist = [{"score": i, "count": 0} for i in range(1, 11)]
 
     return render_template("admin_feedbacks.html", feedbacks=feedbacks, rating_chart=rating_chart, rating_dist=rating_dist)
+
+
+@bp.route("/admin/surveys")
+@admin_required
+def admin_surveys():
+    rows = (
+        db.session.query(SurveyResponse, User)
+        .outerjoin(User, User.id == SurveyResponse.user_id)
+        .order_by(SurveyResponse.created_at.desc())
+        .all()
+    )
+    responses = [
+        {
+            "nickname":   (u.nickname if u else "비회원"),
+            "plan":       (u.plan if u else "-"),
+            "created_at": sr.created_at,
+            "q1":         sr.q1_useful,
+            "q2":         sr.q2_price_diff,
+            "q3":         sr.q3_paid_intent,
+            "q4":         sr.q4_feature_request,
+        }
+        for sr, u in rows
+    ]
+
+    try:
+        resp_count = SurveyResponse.query.count()
+        imp_count  = SurveyImpression.query.count()
+    except Exception:
+        resp_count = 0
+        imp_count  = 0
+    response_rate = (round(resp_count * 100.0 / imp_count, 1) if imp_count else None)
+
+    # 예/아니요 집계 (Q1~Q3)
+    def _yn_counts(col):
+        try:
+            yes = SurveyResponse.query.filter(col.is_(True)).count()
+            no  = SurveyResponse.query.filter(col.is_(False)).count()
+            return {"yes": yes, "no": no}
+        except Exception:
+            return {"yes": 0, "no": 0}
+
+    yn_summary = {
+        "q1": _yn_counts(SurveyResponse.q1_useful),
+        "q2": _yn_counts(SurveyResponse.q2_price_diff),
+        "q3": _yn_counts(SurveyResponse.q3_paid_intent),
+    }
+
+    return render_template(
+        "admin_surveys.html",
+        responses=responses,
+        resp_count=resp_count,
+        imp_count=imp_count,
+        response_rate=response_rate,
+        yn_summary=yn_summary,
+    )
 
 
 @bp.route("/admin/suggestion/<suggestion_id>")
@@ -1429,14 +1548,14 @@ def result(analysis_id):
         if user and (_effective_plan(user) == "world_tour" or user.role == "admin"):
             price_history = build_price_history(bike, parts)
 
-    # 이탈 피드백 팝업 — 로그인 유저가 72시간 내 평가를 완료했다면 서버에서 아예 렌더하지 않음.
+    # 이탈 설문 팝업 — 로그인 유저가 쿨타임 내 응답을 완료했다면 서버에서 아예 렌더하지 않음.
     # 게스트는 클라이언트 localStorage로 쿨타임 적용.
     show_exit_popup = True
     if user_id:
         cutoff = datetime.utcnow() - timedelta(hours=_EXIT_FEEDBACK_COOLDOWN_HOURS)
-        if UserFeedback.query.filter(
-            UserFeedback.user_id == user_id,
-            UserFeedback.created_at >= cutoff,
+        if SurveyResponse.query.filter(
+            SurveyResponse.user_id == user_id,
+            SurveyResponse.created_at >= cutoff,
         ).first():
             show_exit_popup = False
 

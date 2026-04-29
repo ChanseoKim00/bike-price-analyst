@@ -176,27 +176,69 @@
 </div>
 
 {% if show_exit_popup %}
-<!-- 이탈 시 간단 피드백 팝업 -->
+{# ──────────────────────────────────────────────────────────────
+   설문조사 팝업 (임시) — 기존 1~10점 평가 팝업은 아래 주석에 보존.
+   복원 방법: 아래 설문조사 블록을 지우고 주석 안 HTML/JS/CSS를 활성화.
+   ────────────────────────────────────────────────────────────── #}
 <div class="exit-popup-overlay" id="exitPopup" role="dialog" aria-modal="true" aria-labelledby="exitPopupTitle" aria-hidden="true" data-cooldown-hours="{{ exit_feedback_cooldown_hours }}">
-  <div class="exit-popup-card">
+  <div class="exit-popup-card exit-popup-card--survey">
     <button type="button" class="exit-popup-close" id="exitPopupClose" aria-label="닫기">&times;</button>
-    <p class="exit-popup-title" id="exitPopupTitle">가격 분석에 만족 하셨나요?</p>
+    <p class="exit-popup-title" id="exitPopupTitle">잠시 시간 내주실 수 있나요?</p>
 
-    <div class="exit-popup-ratings">
-      {% for n in range(1, 11) %}
-      <div class="exit-rating-cell">
-        <button type="button" class="exit-rating-btn" data-value="{{ n }}">{{ n }}</button>
-        <span class="exit-rating-label">
-          {%- if n == 1 -%}불만족{%- elif n == 10 -%}만족{%- endif -%}
-        </span>
+    <div class="survey-q">
+      <p class="survey-q-text">1. 가격 분석 기능이 유용했나요?</p>
+      <div class="survey-yn" data-q="q1">
+        <button type="button" class="survey-yn-btn" data-value="yes">네</button>
+        <button type="button" class="survey-yn-btn" data-value="no">아니요</button>
       </div>
-      {% endfor %}
     </div>
 
-    <button type="button" class="exit-popup-submit" id="exitPopupSubmit" disabled>제출</button>
-    <a href="{{ url_for('main.feedback') }}" class="exit-popup-link">피드백 남기기</a>
+    <div class="survey-q">
+      <p class="survey-q-text">2. 가격이 실제랑 많이 다른 부분이 있었나요?</p>
+      <div class="survey-yn" data-q="q2">
+        <button type="button" class="survey-yn-btn" data-value="yes">네</button>
+        <button type="button" class="survey-yn-btn" data-value="no">아니요</button>
+      </div>
+    </div>
+
+    <div class="survey-q">
+      <p class="survey-q-text">3. 데이터 정확도가 훨씬 올라간다면 유료로 사용할 의향이 있나요?</p>
+      <div class="survey-yn" data-q="q3">
+        <button type="button" class="survey-yn-btn" data-value="yes">네</button>
+        <button type="button" class="survey-yn-btn" data-value="no">아니요</button>
+      </div>
+    </div>
+
+    <div class="survey-q">
+      <p class="survey-q-text">4. 추가되면 좋겠다 싶은 기능이 있나요?</p>
+      <textarea class="survey-text-input" id="surveyQ4" maxlength="2000" rows="2" placeholder="자유롭게 입력해주세요 (선택)"></textarea>
+    </div>
+
+    <button type="button" class="exit-popup-submit" id="exitPopupSubmit" disabled>완료</button>
   </div>
 </div>
+
+{#
+  ── 기존 1~10점 평가 팝업 (설문조사 종료 후 복원용 — 삭제 금지) ──
+  <div class="exit-popup-overlay" id="exitPopup" role="dialog" aria-modal="true" aria-labelledby="exitPopupTitle" aria-hidden="true" data-cooldown-hours="{{ exit_feedback_cooldown_hours }}">
+    <div class="exit-popup-card">
+      <button type="button" class="exit-popup-close" id="exitPopupClose" aria-label="닫기">&times;</button>
+      <p class="exit-popup-title" id="exitPopupTitle">가격 분석에 만족 하셨나요?</p>
+      <div class="exit-popup-ratings">
+        {% for n in range(1, 11) %}
+        <div class="exit-rating-cell">
+          <button type="button" class="exit-rating-btn" data-value="{{ n }}">{{ n }}</button>
+          <span class="exit-rating-label">
+            {%- if n == 1 -%}불만족{%- elif n == 10 -%}만족{%- endif -%}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="exit-popup-submit" id="exitPopupSubmit" disabled>제출</button>
+      <a href="{{ url_for('main.feedback') }}" class="exit-popup-link">피드백 남기기</a>
+    </div>
+  </div>
+#}
 {% endif %}
 
 {% endif %}
@@ -362,16 +404,17 @@
     });
   })();
 
-  // 결과 페이지 이탈 시 간단 피드백 팝업
+  // 결과 페이지 이탈 시 설문조사 팝업
   (function() {
     var popup = document.getElementById('exitPopup');
     if (!popup) return;
 
-    var SUBMIT_KEY = 'exitFeedbackSubmittedAt';
+    var SUBMIT_KEY = 'exitSurveySubmittedAt';
     var cooldownHours = parseInt(popup.getAttribute('data-cooldown-hours'), 10) || 72;
     var cooldownMs = cooldownHours * 60 * 60 * 1000;
+    var CSRF_TOKEN = {{ csrf_token() | tojson }};
 
-    // 평가 완료 후 쿨타임 내면 아예 동작하지 않음. X로 닫은 경우는 저장하지 않아 다음 검색 때 다시 뜸.
+    // 응답 완료 후 쿨타임 내면 아예 동작하지 않음. X로 닫은 경우는 저장하지 않아 다음 검색 때 다시 뜸.
     try {
       var submittedAt = parseInt(localStorage.getItem(SUBMIT_KEY) || '0', 10);
       if (submittedAt && (Date.now() - submittedAt) < cooldownMs) return;
@@ -379,17 +422,33 @@
 
     var submitBtn  = document.getElementById('exitPopupSubmit');
     var closeBtn   = document.getElementById('exitPopupClose');
-    var ratingBtns = popup.querySelectorAll('.exit-rating-btn');
+    var q4Input    = document.getElementById('surveyQ4');
+    var ynGroups   = popup.querySelectorAll('.survey-yn');
 
-    var rating = null;
+    var answers = { q1: null, q2: null, q3: null };
     var shown = false;
+    var impressionLogged = false;
     var pendingHref = null;
+
+    function refreshSubmitState() {
+      submitBtn.disabled = !(answers.q1 && answers.q2 && answers.q3);
+    }
 
     function openPopup() {
       if (shown) return;
       shown = true;
       popup.classList.add('active');
       popup.setAttribute('aria-hidden', 'false');
+
+      // 노출 로깅 — 응답률 분모
+      if (!impressionLogged) {
+        impressionLogged = true;
+        var body = new FormData();
+        body.append('csrf_token', CSRF_TOKEN);
+        try {
+          fetch('/feedback/survey/impression', { method: 'POST', body: body, keepalive: true }).catch(function() {});
+        } catch (_) { /* noop */ }
+      }
     }
 
     function closePopup() {
@@ -426,24 +485,31 @@
       openPopup();
     });
 
-    // 3) 점수 선택
-    ratingBtns.forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        ratingBtns.forEach(function(b) { b.classList.remove('selected'); });
-        btn.classList.add('selected');
-        rating = parseInt(btn.dataset.value, 10);
-        submitBtn.disabled = false;
+    // 3) Y/N 선택
+    ynGroups.forEach(function(group) {
+      var qKey = group.getAttribute('data-q');
+      var btns = group.querySelectorAll('.survey-yn-btn');
+      btns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          btns.forEach(function(b) { b.classList.remove('selected'); });
+          btn.classList.add('selected');
+          answers[qKey] = btn.dataset.value; // 'yes' | 'no'
+          refreshSubmitState();
+        });
       });
     });
 
-    // 4) 제출 — 성공 여부와 무관하게 쿨타임 타임스탬프 기록 (X로 닫은 경우엔 기록 안 함)
+    // 4) 완료 — 성공 여부와 무관하게 쿨타임 타임스탬프 기록
     submitBtn.addEventListener('click', function() {
-      if (!rating) return;
+      if (submitBtn.disabled) return;
       var body = new FormData();
-      body.append('rating', String(rating));
-      body.append('csrf_token', {{ csrf_token() | tojson }});
+      body.append('q1', answers.q1);
+      body.append('q2', answers.q2);
+      body.append('q3', answers.q3);
+      body.append('q4', (q4Input && q4Input.value || '').slice(0, 2000));
+      body.append('csrf_token', CSRF_TOKEN);
       try {
-        fetch('/feedback/quick', { method: 'POST', body: body, keepalive: true }).catch(function() {});
+        fetch('/feedback/survey', { method: 'POST', body: body, keepalive: true }).catch(function() {});
       } catch (_) { /* noop */ }
       try { localStorage.setItem(SUBMIT_KEY, String(Date.now())); } catch (_) { /* noop */ }
       closePopup();
