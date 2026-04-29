@@ -1551,6 +1551,10 @@ def result(analysis_id):
     if not session.get("user_id"):
         blur_mode = "guest"
         blur_reset_minutes = 0
+        # ── PROMO_PRO_FOR_CONTINENTAL: 홍보 기간 한정 — 비로그인도 블러 해제 (revert: 이 if 블록 삭제) ──
+        if _PROMO_PRO_FOR_CONTINENTAL:
+            blur_mode = None
+        # ── PROMO_PRO_FOR_CONTINENTAL END ──
     elif detail_limited:
         blur_mode = "continental"
         blur_reset_minutes = reset_minutes
