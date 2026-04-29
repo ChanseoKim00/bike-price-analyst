@@ -1,0 +1,2 @@
+[deploy]
+startCommand = "python -m worker.billing_charger"

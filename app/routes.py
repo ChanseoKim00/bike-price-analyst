@@ -26,10 +26,11 @@ def _admin_chart_since_utc(days: int = 30):
 logger = logging.getLogger(__name__)
 
 from . import csrf
-from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken, UserFeedback
+from .models import db, Bike, Analysis, User, UserAnalysis, PriceSuggestion, AnalysisLog, BikePriceHistory, PartPriceHistory, Part, PasswordResetToken, UserFeedback, Payment
 from .email_sender import send_password_reset_email
 from .utils.nickname import generate_unique_nickname
 from .price_calculator import _normalize_part_name
+from . import billing as billing_api
 
 bp = Blueprint("main", __name__)
 
@@ -123,6 +124,18 @@ _GUEST_LIMIT = 3
 _CONTINENTAL_LIMIT = 10
 
 
+def _effective_plan(user) -> str:
+    """plan_expires_at이 지났는데 워커가 아직 다운그레이드 안 했을 때 권한을 차단하기 위한 보조.
+    admin은 항상 무제한이라 plan과 무관하므로 호출자가 별도로 user.role == 'admin'을 검사해야 한다."""
+    if user is None:
+        return "continental"
+    if user.plan == "continental":
+        return "continental"
+    if user.plan_expires_at and user.plan_expires_at <= datetime.utcnow():
+        return "continental"
+    return user.plan
+
+
 def _get_client_ip() -> str:
     # ProxyFix(x_for=1)가 Railway 프록시 1홉만큼 X-Forwarded-For를 신뢰해 remote_addr를 보정한다.
     # 헤더를 직접 읽으면 클라이언트가 임의 X-Forwarded-For를 보내 게스트 rate limit를 우회하게 되므로
@@ -142,7 +155,7 @@ def _check_rate_limit(ip: str):
 
     if user_id:
         user = db.session.get(User, user_id)
-        plan = (user.plan if user else None) or "continental"
+        plan = _effective_plan(user)
 
         if plan in ("pro", "world_tour") or (user and user.role == "admin"):
             return False, False, 0
@@ -700,16 +713,34 @@ def _load_history_items(user_id):
     ]
 
 
+def _load_billing_context(user: User) -> dict:
+    """마이페이지 결제 탭용 데이터 — 현재 구독, 카드, 최근 결제 내역."""
+    payments = (
+        Payment.query
+        .filter_by(user_id=user.id)
+        .order_by(Payment.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    return {
+        "billing_payments": payments,
+        "plan_label":  billing_api.PLAN_LABELS.get(user.plan, user.plan),
+        "cycle_label": billing_api.CYCLE_LABELS.get(user.subscription_cycle or "", ""),
+    }
+
+
 def _mypage_render(user, tab, messages=None):
     if tab not in _MYPAGE_TABS:
         tab = "general"
     history_items = _load_history_items(user.id) if tab == "history" else None
+    extra = _load_billing_context(user) if tab == "billing" else {}
     return render_template(
         "mypage.html",
         user=user,
         tab=tab,
         messages=messages or {},
         history_items=history_items,
+        **extra,
     )
 
 
@@ -723,6 +754,12 @@ def mypage():
     messages = {}
     if request.args.get("saved") == "1":
         messages["success"] = "변경사항이 저장되었습니다."
+    if request.args.get("paid") == "1":
+        messages["success"] = "결제가 완료되었습니다. 즐거운 라이딩 되세요!"
+    if request.args.get("canceled") == "1":
+        messages["success"] = "구독이 취소되었습니다. 결제된 기간 만료까지 계속 이용할 수 있습니다."
+    if request.args.get("resumed") == "1":
+        messages["success"] = "구독을 다시 활성화했습니다."
     return _mypage_render(user, tab, messages)
 
 
@@ -884,6 +921,26 @@ def admin():
         stats["feedback_full"]  = None
         stats["feedback_quick"] = None
 
+    # 결제 KPI
+    try:
+        stats["paid_today"] = (
+            db.session.query(func.count(Payment.id))
+            .filter(Payment.status == "paid", Payment.paid_at >= today_utc)
+            .scalar() or 0
+        )
+        stats["revenue_today"] = (
+            db.session.query(func.coalesce(func.sum(Payment.amount_krw), 0))
+            .filter(Payment.status == "paid", Payment.paid_at >= today_utc)
+            .scalar() or 0
+        )
+        stats["active_subscribers"] = (
+            User.query.filter(User.subscription_status == "active").count()
+        )
+    except Exception:
+        stats["paid_today"]         = None
+        stats["revenue_today"]      = None
+        stats["active_subscribers"] = None
+
     return render_template(
         "admin.html",
         total_users=total_users,
@@ -891,6 +948,62 @@ def admin():
         pending=pending,
         stats=stats,
     )
+
+
+@bp.route("/admin/payments")
+@admin_required
+def admin_payments():
+    rows = (
+        db.session.query(Payment, User)
+        .outerjoin(User, User.id == Payment.user_id)
+        .order_by(Payment.created_at.desc())
+        .limit(200)
+        .all()
+    )
+    payments = [
+        {
+            "id":         str(p.id),
+            "email":      (u.email if u else "-"),
+            "plan":       p.plan,
+            "cycle":      p.cycle,
+            "amount_krw": p.amount_krw,
+            "status":     p.status,
+            "charge_type": p.charge_type,
+            "paid_at":    p.paid_at,
+            "created_at": p.created_at,
+            "failure_reason": p.failure_reason,
+        }
+        for p, u in rows
+    ]
+
+    # 최근 30일 매출 차트
+    try:
+        since_utc = _admin_chart_since_utc(30)
+        chart_rows = (
+            db.session.query(cast(Payment.paid_at, Date), func.sum(Payment.amount_krw))
+            .filter(Payment.status == "paid", Payment.paid_at >= since_utc)
+            .group_by(cast(Payment.paid_at, Date))
+            .order_by(cast(Payment.paid_at, Date).asc())
+            .all()
+        )
+        revenue_chart = [{"x": str(d), "y": int(s or 0)} for d, s in chart_rows]
+    except Exception:
+        revenue_chart = []
+
+    # 합계
+    try:
+        total_revenue = (
+            db.session.query(func.coalesce(func.sum(Payment.amount_krw), 0))
+            .filter(Payment.status == "paid")
+            .scalar() or 0
+        )
+    except Exception:
+        total_revenue = 0
+
+    return render_template("admin_payments.html",
+                           payments=payments,
+                           revenue_chart=revenue_chart,
+                           total_revenue=total_revenue)
 
 
 @bp.route("/admin/users")
@@ -1313,7 +1426,7 @@ def result(analysis_id):
     user_id = session.get("user_id")
     if user_id:
         user = db.session.get(User, user_id)
-        if user and (user.plan == "world_tour" or user.role == "admin"):
+        if user and (_effective_plan(user) == "world_tour" or user.role == "admin"):
             price_history = build_price_history(bike, parts)
 
     # 이탈 피드백 팝업 — 로그인 유저가 72시간 내 평가를 완료했다면 서버에서 아예 렌더하지 않음.
@@ -1339,3 +1452,234 @@ def result(analysis_id):
         show_exit_popup=show_exit_popup,
         exit_feedback_cooldown_hours=_EXIT_FEEDBACK_COOLDOWN_HOURS,
     )
+
+
+# ── 결제 (토스페이먼츠 빌링키) ────────────────────────────────
+
+from calendar import monthrange
+
+
+def _add_months(dt: datetime, months: int) -> datetime:
+    """캘린더 기준 N개월 후. 말일 보정 (예: 1/31 + 1개월 → 2/28)."""
+    new_month = dt.month + months
+    new_year  = dt.year + (new_month - 1) // 12
+    new_month = ((new_month - 1) % 12) + 1
+    last_day  = monthrange(new_year, new_month)[1]
+    return dt.replace(year=new_year, month=new_month, day=min(dt.day, last_day))
+
+
+def _next_billing_at(cycle: str, base: datetime | None = None) -> datetime:
+    base = base or datetime.utcnow()
+    if cycle == "yearly":
+        return _add_months(base, 12)
+    return _add_months(base, 1)
+
+
+_VALID_PLANS  = {"pro", "world_tour"}
+_VALID_CYCLES = {"monthly", "yearly"}
+
+
+def _apply_paid_subscription(user: User, plan: str, cycle: str, paid_at: datetime) -> None:
+    """결제 성공 시 user 플랜/만료일/다음 결제일 갱신."""
+    user.plan = plan
+    user.subscription_cycle  = cycle
+    user.subscription_status = "active"
+    next_at = _next_billing_at(cycle, paid_at)
+    user.plan_expires_at = next_at
+    user.next_billing_at = next_at
+    user.billing_failed_count = 0
+
+
+@bp.route("/billing/checkout/<plan>/<cycle>")
+@login_required
+def billing_checkout(plan, cycle):
+    """결제 페이지. 토스 SDK로 카드 등록 → 빌링키 발급."""
+    user = _current_user_or_logout()
+    if not user:
+        return redirect(url_for("main.login"))
+
+    if plan not in _VALID_PLANS or cycle not in _VALID_CYCLES:
+        return redirect(url_for("main.pricing"))
+
+    amount = billing_api.get_price(plan, cycle)
+    if amount is None:
+        return redirect(url_for("main.pricing"))
+
+    # customerKey는 user.id를 그대로 사용 (UUID — 토스 customerKey는 1~50자, 영숫자/_/-/=/.@)
+    customer_key = str(user.id)
+
+    return render_template(
+        "checkout.html",
+        plan=plan,
+        cycle=cycle,
+        amount=amount,
+        plan_label=billing_api.PLAN_LABELS.get(plan, plan),
+        cycle_label=billing_api.CYCLE_LABELS.get(cycle, cycle),
+        order_name=billing_api.order_name(plan, cycle),
+        customer_key=customer_key,
+        customer_email=user.email,
+        customer_name=user.name or user.nickname,
+        toss_client_key=billing_api.get_client_key(),
+    )
+
+
+@bp.route("/billing/success")
+@login_required
+def billing_success():
+    """토스 successUrl 콜백.
+
+    쿼리: customerKey, authKey, plan, cycle
+    1) authKey + customerKey → billingKey 발급
+    2) billingKey 즉시 1회 청구 → 첫 결제 완료
+    3) user.plan 업데이트, payment 기록
+    """
+    user = _current_user_or_logout()
+    if not user:
+        return redirect(url_for("main.login"))
+
+    auth_key     = (request.args.get("authKey") or "").strip()
+    customer_key = (request.args.get("customerKey") or "").strip()
+    plan         = (request.args.get("plan") or "").strip()
+    cycle        = (request.args.get("cycle") or "").strip()
+
+    if not auth_key or not customer_key or plan not in _VALID_PLANS or cycle not in _VALID_CYCLES:
+        return _err("결제 정보가 올바르지 않습니다.",
+                    "결제를 다시 시도해주세요.", url=url_for("main.pricing"))
+
+    # 본인 customerKey 검증 — 다른 유저의 callback을 가로채지 못하도록
+    if customer_key != str(user.id):
+        logger.warning("billing customerKey 불일치 user=%s req=%s", user.id, customer_key)
+        return _err("결제 정보가 일치하지 않습니다.",
+                    "다시 로그인 후 결제를 시도해주세요.", url=url_for("main.pricing"))
+
+    amount = billing_api.get_price(plan, cycle)
+    if amount is None:
+        return _err("요금제 정보가 올바르지 않습니다.",
+                    "결제를 다시 시도해주세요.", url=url_for("main.pricing"))
+
+    # 1) 빌링키 발급
+    try:
+        bk_res = billing_api.issue_billing_key(auth_key, customer_key)
+    except billing_api.BillingError as e:
+        logger.error("billingKey 발급 실패 user=%s code=%s msg=%s", user.id, e.code, e.message)
+        return _err("카드 등록에 실패했습니다.",
+                    e.message or "다시 시도해주세요.", url=url_for("main.pricing"))
+
+    billing_key  = bk_res.get("billingKey")
+    card_company = bk_res.get("cardCompany") or (bk_res.get("card") or {}).get("issuerCode")
+    card_number  = bk_res.get("cardNumber") or (bk_res.get("card") or {}).get("number")
+
+    if not billing_key:
+        logger.error("billingKey 발급 응답에 billingKey 없음 user=%s res=%s", user.id, bk_res)
+        return _err("카드 등록에 실패했습니다.",
+                    "결제를 다시 시도해주세요.", url=url_for("main.pricing"))
+
+    user.billing_key          = billing_key
+    user.billing_customer_key = customer_key
+    user.billing_card_company = card_company
+    user.billing_card_number  = card_number
+    db.session.commit()
+
+    # 2) 즉시 1회 청구 — payment row 미리 생성 후 토스 호출
+    order_id = billing_api.make_order_id()
+    payment = Payment(
+        user_id=user.id,
+        plan=plan,
+        cycle=cycle,
+        amount_krw=amount,
+        toss_order_id=order_id,
+        charge_type="initial",
+        status="pending",
+    )
+    db.session.add(payment)
+    db.session.commit()
+
+    try:
+        charge_res = billing_api.charge_billing_key(
+            billing_key=billing_key,
+            customer_key=customer_key,
+            amount=amount,
+            order_id=order_id,
+            order_name=billing_api.order_name(plan, cycle),
+            customer_email=user.email,
+            customer_name=user.name or user.nickname,
+        )
+    except billing_api.BillingError as e:
+        payment.status = "failed"
+        payment.failure_reason = f"{e.code}: {e.message}"
+        db.session.commit()
+        logger.error("첫 결제 실패 user=%s code=%s msg=%s", user.id, e.code, e.message)
+        return _err("결제에 실패했습니다.",
+                    e.message or "다른 카드로 다시 시도해주세요.",
+                    url=url_for("main.pricing"))
+
+    if charge_res.get("status") != "DONE":
+        payment.status = "failed"
+        payment.failure_reason = f"unexpected status: {charge_res.get('status')}"
+        db.session.commit()
+        logger.error("첫 결제 비정상 응답 user=%s res=%s", user.id, charge_res)
+        return _err("결제 처리가 완료되지 않았습니다.",
+                    "잠시 후 다시 시도해주세요.", url=url_for("main.pricing"))
+
+    paid_at = datetime.utcnow()
+    payment.status           = "paid"
+    payment.toss_payment_key = charge_res.get("paymentKey")
+    payment.paid_at          = paid_at
+
+    _apply_paid_subscription(user, plan, cycle, paid_at)
+    db.session.commit()
+
+    # 세션 plan 동기화 (base.html 헤더 표시용)
+    session["user_plan"] = user.plan
+
+    return redirect(url_for("main.mypage", tab="billing", paid=1))
+
+
+@bp.route("/billing/fail")
+@login_required
+def billing_fail():
+    """토스 failUrl 콜백 — 카드 등록/결제 실패."""
+    code    = request.args.get("code", "")
+    message = request.args.get("message", "결제가 취소되었거나 실패했습니다.")
+    logger.info("billing fail user=%s code=%s msg=%s", session.get("user_id"), code, message)
+    return _err("결제가 완료되지 않았습니다.", message, url=url_for("main.pricing"))
+
+
+@bp.route("/billing/cancel", methods=["POST"])
+@login_required
+def billing_cancel():
+    """구독 취소 — 다음 결제일에 자동결제 안 하고 만료시 다운그레이드."""
+    user = _current_user_or_logout()
+    if not user:
+        return redirect(url_for("main.login"))
+
+    if user.subscription_status != "active":
+        return redirect(url_for("main.mypage", tab="billing"))
+
+    user.subscription_status = "canceled"
+    # next_billing_at은 None으로 — cron에서 active만 청구
+    user.next_billing_at = None
+    db.session.commit()
+    return redirect(url_for("main.mypage", tab="billing", canceled=1))
+
+
+@bp.route("/billing/resume", methods=["POST"])
+@login_required
+def billing_resume():
+    """취소 철회 — 만료일 전에 다시 active로."""
+    user = _current_user_or_logout()
+    if not user:
+        return redirect(url_for("main.login"))
+
+    if user.subscription_status != "canceled":
+        return redirect(url_for("main.mypage", tab="billing"))
+    if not user.plan_expires_at or user.plan_expires_at <= datetime.utcnow():
+        return redirect(url_for("main.mypage", tab="billing"))
+    if not user.billing_key:
+        # 카드 정보가 사라졌으면 재등록부터
+        return redirect(url_for("main.pricing"))
+
+    user.subscription_status = "active"
+    user.next_billing_at = user.plan_expires_at
+    db.session.commit()
+    return redirect(url_for("main.mypage", tab="billing", resumed=1))

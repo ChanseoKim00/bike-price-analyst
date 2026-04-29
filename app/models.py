@@ -24,6 +24,17 @@ class User(db.Model):
     provider_user_id   = db.Column(db.Text)                      # Google의 sub 값 등
     notifications_enabled = db.Column(db.Boolean, nullable=False, default=True)
 
+    # ── 구독/빌링 (토스페이먼츠 빌링키 기반 정기결제) ──────────
+    plan_expires_at      = db.Column(db.DateTime)                 # 다음 다운그레이드 예정일
+    subscription_cycle   = db.Column(db.Text)                     # 'monthly' | 'yearly' | None
+    subscription_status  = db.Column(db.Text)                     # 'active' | 'canceled' | 'past_due' | None
+    billing_key          = db.Column(db.Text)                     # 토스 빌링키 — 자동결제 식별자
+    billing_customer_key = db.Column(db.Text)                     # 토스에 보낸 customerKey (UUID 그대로)
+    billing_card_company = db.Column(db.Text)                     # UI 표시용
+    billing_card_number  = db.Column(db.Text)                     # 마스킹된 카드번호
+    next_billing_at      = db.Column(db.DateTime)                 # 다음 자동결제 시점
+    billing_failed_count = db.Column(db.Integer, nullable=False, default=0)
+
     __table_args__ = (
         db.CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),
         db.CheckConstraint("plan IN ('continental', 'pro', 'world_tour')", name="ck_users_plan"),
@@ -31,8 +42,17 @@ class User(db.Model):
             "provider IS NULL OR provider IN ('local', 'google')",
             name="ck_users_provider",
         ),
+        db.CheckConstraint(
+            "subscription_cycle IS NULL OR subscription_cycle IN ('monthly', 'yearly')",
+            name="ck_users_subscription_cycle",
+        ),
+        db.CheckConstraint(
+            "subscription_status IS NULL OR subscription_status IN ('active', 'canceled', 'past_due')",
+            name="ck_users_subscription_status",
+        ),
         db.UniqueConstraint("provider", "provider_user_id",
                             name="uq_users_provider_provider_user_id"),
+        db.Index("idx_users_next_billing_at", "next_billing_at"),
     )
 
     def __repr__(self):
@@ -269,6 +289,37 @@ class ChatbotUsageLog(db.Model):
 
     def __repr__(self):
         return f"<ChatbotUsageLog visitor={self.visitor_id} at={self.created_at}>"
+
+
+class Payment(db.Model):
+    __tablename__ = "payments"
+
+    id               = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id          = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    plan             = db.Column(db.Text, nullable=False)
+    cycle            = db.Column(db.Text, nullable=False)
+    amount_krw       = db.Column(db.Integer, nullable=False)
+    status           = db.Column(db.Text, nullable=False, default="pending")
+    toss_payment_key = db.Column(db.Text)
+    toss_order_id    = db.Column(db.Text, nullable=False, unique=True)
+    failure_reason   = db.Column(db.Text)
+    charge_type      = db.Column(db.Text, nullable=False, default="initial")
+    paid_at          = db.Column(db.DateTime)
+    created_at       = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", backref="payments")
+
+    __table_args__ = (
+        db.CheckConstraint("plan IN ('pro', 'world_tour')",                              name="ck_payments_plan"),
+        db.CheckConstraint("cycle IN ('monthly', 'yearly')",                             name="ck_payments_cycle"),
+        db.CheckConstraint("status IN ('pending', 'paid', 'failed', 'canceled')",        name="ck_payments_status"),
+        db.CheckConstraint("charge_type IN ('initial', 'recurring', 'manual')",          name="ck_payments_charge_type"),
+        db.Index("idx_payments_user_id_created_at", "user_id", "created_at"),
+        db.Index("idx_payments_status",             "status"),
+    )
+
+    def __repr__(self):
+        return f"<Payment user={self.user_id} plan={self.plan} cycle={self.cycle} status={self.status}>"
 
 
 class UserFeedback(db.Model):

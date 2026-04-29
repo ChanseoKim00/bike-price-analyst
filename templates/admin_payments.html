@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="admin-wrap">
+  <div class="admin-inner">
+    <p class="admin-back">
+      <a href="/admin">← 관리자 대시보드</a>
+    </p>
+    <h1 class="admin-title">결제 대시보드</h1>
+
+    <section class="admin-section">
+      <div class="admin-stats">
+        <div class="stat-card">
+          <p class="stat-label">누적 매출</p>
+          <p class="stat-value">₩{{ "{:,}".format(total_revenue) }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 일별 매출 그래프 -->
+    <section class="admin-section">
+      <div class="price-chart-card">
+        <div class="price-chart-header">일별 매출 (최근 30일)</div>
+        <div class="price-chart-body">
+          <canvas id="adminRevenueChart"></canvas>
+          <div id="adminRevenueChartEmpty" class="price-chart-empty" style="display:none;">데이터가 없습니다</div>
+        </div>
+      </div>
+    </section>
+
+    <script id="admin-revenue-chart-data" type="application/json">{{ revenue_chart | tojson }}</script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script>
+      (function () {
+        var node = document.getElementById('admin-revenue-chart-data');
+        var canvas = document.getElementById('adminRevenueChart');
+        var empty = document.getElementById('adminRevenueChartEmpty');
+        if (!node || !canvas || typeof Chart === 'undefined') return;
+        var points = [];
+        try { points = JSON.parse(node.textContent) || []; } catch (e) { points = []; }
+        if (!points.length) {
+          if (empty) empty.style.display = 'flex';
+          return;
+        }
+        var colors = { line: '#8ecf8e', fill: 'rgba(142, 207, 142, 0.12)', grid: 'rgba(255, 255, 255, 0.05)', tick: '#8a8aa0' };
+        new Chart(canvas, {
+          type: 'bar',
+          data: {
+            datasets: [{
+              data: points,
+              borderColor: colors.line,
+              backgroundColor: colors.fill,
+              borderWidth: 1,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#2a2a34', borderColor: '#4a4a58', borderWidth: 1,
+                titleColor: '#8ecf8e', bodyColor: '#e0e0e8', displayColors: false,
+                callbacks: { label: function (item) { return '₩' + item.parsed.y.toLocaleString(); } }
+              }
+            },
+            scales: {
+              x: {
+                type: 'time',
+                time: { unit: 'day', tooltipFormat: 'yyyy-MM-dd', displayFormats: { day: 'MM-dd' } },
+                grid: { color: colors.grid, drawBorder: false },
+                ticks: { color: colors.tick, maxRotation: 0, autoSkipPadding: 16, font: { size: 10 } },
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: colors.grid, drawBorder: false },
+                ticks: { color: colors.tick, font: { size: 10 } },
+              }
+            }
+          }
+        });
+      })();
+    </script>
+
+    <!-- 결제 내역 -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">
+        최근 결제 내역
+        {% if payments %}
+          <span class="admin-pending-count">{{ payments|length }}</span>
+        {% endif %}
+      </h2>
+      {% if payments %}
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>일시</th>
+            <th>이메일</th>
+            <th>플랜</th>
+            <th>구분</th>
+            <th>금액</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in payments %}
+          <tr>
+            <td class="admin-date">{{ (p.paid_at or p.created_at).strftime('%Y.%m.%d %H:%M') }}</td>
+            <td>{{ p.email }}</td>
+            <td>
+              {% if p.plan == 'pro' %}Pro{% elif p.plan == 'world_tour' %}World Tour{% else %}{{ p.plan }}{% endif %}
+              · {% if p.cycle == 'monthly' %}월간{% else %}연간{% endif %}
+            </td>
+            <td>
+              {% if p.charge_type == 'initial' %}최초{% elif p.charge_type == 'recurring' %}자동{% else %}수동{% endif %}
+            </td>
+            <td>₩{{ "{:,}".format(p.amount_krw) }}</td>
+            <td>
+              <span class="billing-status-{{ p.status }}">
+                {% if p.status == 'paid' %}결제완료
+                {% elif p.status == 'failed' %}실패
+                {% elif p.status == 'pending' %}대기
+                {% elif p.status == 'canceled' %}취소
+                {% else %}{{ p.status }}{% endif %}
+              </span>
+              {% if p.status == 'failed' and p.failure_reason %}
+                <br><span class="admin-muted" style="font-size:0.72rem;">{{ p.failure_reason }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="admin-empty">결제 내역이 없습니다.</p>
+      {% endif %}
+    </section>
+
+  </div>
+</div>
+
+{% endblock %}

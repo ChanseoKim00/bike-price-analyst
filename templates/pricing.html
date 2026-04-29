@@ -2,11 +2,23 @@
 {% block content %}
 
 {% set current_plan = session.get('user_plan') or ('continental' if session.get('user_nickname') else none) %}
+{% set logged_in    = session.get('user_nickname') is not none %}
 
 <div class="pricing-wrap">
   <div class="pricing-hero">
     <h1 class="pricing-title">Upgrade your plan</h1>
     <p class="pricing-subtitle">필요에 맞는 플랜을 선택하고 Bike Price Analyst를 더 깊이 활용해보세요.</p>
+
+    <div class="pricing-cycle-toggle" role="tablist" aria-label="결제 주기">
+      <button type="button"
+              class="pricing-cycle-toggle__btn pricing-cycle-toggle__btn--active"
+              data-cycle="monthly">월간</button>
+      <button type="button"
+              class="pricing-cycle-toggle__btn"
+              data-cycle="yearly">연간
+        <span class="pricing-cycle-toggle__badge">2개월 무료</span>
+      </button>
+    </div>
   </div>
 
   <div class="pricing-grid">
@@ -39,8 +51,8 @@
         <h2 class="pricing-card__name">Pro</h2>
         <p class="pricing-card__tagline">진지하게 비교하는 라이더용</p>
         <div class="pricing-card__price">
-          <span class="pricing-card__amount">₩9,900</span>
-          <span class="pricing-card__period">/ 월</span>
+          <span class="pricing-card__amount" data-price-monthly="₩9,900" data-price-yearly="₩99,000">₩9,900</span>
+          <span class="pricing-card__period" data-period-monthly="/ 월" data-period-yearly="/ 년">/ 월</span>
         </div>
       </div>
       <ul class="pricing-card__features">
@@ -51,8 +63,13 @@
       </ul>
       {% if current_plan == 'pro' %}
         <button class="pricing-card__cta pricing-card__cta--current" disabled>현재 플랜</button>
+      {% elif logged_in %}
+        <a href="{{ url_for('main.billing_checkout', plan='pro', cycle='monthly') }}"
+           class="pricing-card__cta pricing-card__cta--primary"
+           data-href-monthly="{{ url_for('main.billing_checkout', plan='pro', cycle='monthly') }}"
+           data-href-yearly="{{ url_for('main.billing_checkout', plan='pro', cycle='yearly') }}">Pro로 업그레이드</a>
       {% else %}
-        <a href="#" class="pricing-card__cta pricing-card__cta--primary">Pro로 업그레이드</a>
+        <a href="{{ url_for('main.login') }}" class="pricing-card__cta pricing-card__cta--primary">로그인 후 업그레이드</a>
       {% endif %}
     </div>
 
@@ -62,8 +79,8 @@
         <h2 class="pricing-card__name">World Tour</h2>
         <p class="pricing-card__tagline">데이터까지 파고드는 고수용</p>
         <div class="pricing-card__price">
-          <span class="pricing-card__amount">₩19,900</span>
-          <span class="pricing-card__period">/ 월</span>
+          <span class="pricing-card__amount" data-price-monthly="₩19,900" data-price-yearly="₩199,000">₩19,900</span>
+          <span class="pricing-card__period" data-period-monthly="/ 월" data-period-yearly="/ 년">/ 월</span>
         </div>
       </div>
       <ul class="pricing-card__features">
@@ -74,13 +91,37 @@
       </ul>
       {% if current_plan == 'world_tour' %}
         <button class="pricing-card__cta pricing-card__cta--current" disabled>현재 플랜</button>
+      {% elif logged_in %}
+        <a href="{{ url_for('main.billing_checkout', plan='world_tour', cycle='monthly') }}"
+           class="pricing-card__cta"
+           data-href-monthly="{{ url_for('main.billing_checkout', plan='world_tour', cycle='monthly') }}"
+           data-href-yearly="{{ url_for('main.billing_checkout', plan='world_tour', cycle='yearly') }}">World Tour로 업그레이드</a>
       {% else %}
-        <a href="#" class="pricing-card__cta">World Tour로 업그레이드</a>
+        <a href="{{ url_for('main.login') }}" class="pricing-card__cta">로그인 후 업그레이드</a>
       {% endif %}
     </div>
   </div>
 
-  <p class="pricing-footnote">모든 결제는 안전하게 처리되며 언제든지 해지할 수 있습니다.</p>
+  <p class="pricing-footnote">모든 결제는 토스페이먼츠를 통해 안전하게 처리되며 언제든지 해지할 수 있습니다.</p>
 </div>
+
+<script>
+  (function () {
+    const buttons    = document.querySelectorAll('.pricing-cycle-toggle__btn');
+    const amountEls  = document.querySelectorAll('.pricing-card__amount[data-price-monthly]');
+    const periodEls  = document.querySelectorAll('.pricing-card__period[data-period-monthly]');
+    const ctaEls     = document.querySelectorAll('a.pricing-card__cta[data-href-monthly]');
+
+    function setCycle(cycle) {
+      buttons.forEach(b => b.classList.toggle('pricing-cycle-toggle__btn--active',
+                                              b.dataset.cycle === cycle));
+      amountEls.forEach(el => { el.textContent = el.dataset['price' + (cycle === 'yearly' ? 'Yearly' : 'Monthly')]; });
+      periodEls.forEach(el => { el.textContent = el.dataset['period' + (cycle === 'yearly' ? 'Yearly' : 'Monthly')]; });
+      ctaEls.forEach(el => { el.href = el.dataset['href' + (cycle === 'yearly' ? 'Yearly' : 'Monthly')]; });
+    }
+
+    buttons.forEach(b => b.addEventListener('click', () => setCycle(b.dataset.cycle)));
+  })();
+</script>
 
 {% endblock %}

@@ -136,9 +136,121 @@
 
         {% elif tab == 'billing' %}
           <h2 class="mypage-section-title">결제</h2>
-          <div class="mypage-card mypage-card--placeholder">
-            <p class="mypage-placeholder-text">결제 기능은 준비 중입니다.</p>
-            <p class="mypage-hint">곧 카드 등록, 결제 내역, 구독 관리 기능이 제공될 예정입니다.</p>
+
+          <div class="mypage-card">
+            <h3 class="mypage-card-title">현재 구독</h3>
+            {% if user.plan == 'continental' %}
+              <p class="mypage-hint">현재 무료 플랜(Continental)을 이용 중입니다.</p>
+              <a href="{{ url_for('main.pricing') }}" class="mypage-btn">플랜 업그레이드</a>
+            {% else %}
+              <dl class="mypage-info">
+                <div class="mypage-info-row">
+                  <dt>플랜</dt>
+                  <dd>{{ plan_label }}{% if cycle_label %} · {{ cycle_label }}{% endif %}</dd>
+                </div>
+                <div class="mypage-info-row">
+                  <dt>상태</dt>
+                  <dd>
+                    {% if user.subscription_status == 'active' %}
+                      <span class="billing-pill billing-pill--active">사용 중</span>
+                    {% elif user.subscription_status == 'canceled' %}
+                      <span class="billing-pill billing-pill--canceled">취소됨</span>
+                    {% elif user.subscription_status == 'past_due' %}
+                      <span class="billing-pill billing-pill--past_due">결제 실패</span>
+                    {% else %}
+                      <span class="billing-pill">-</span>
+                    {% endif %}
+                  </dd>
+                </div>
+                {% if user.subscription_status == 'active' and user.next_billing_at %}
+                <div class="mypage-info-row">
+                  <dt>다음 결제일</dt>
+                  <dd>{{ user.next_billing_at.strftime('%Y.%m.%d') }}</dd>
+                </div>
+                {% elif user.subscription_status == 'canceled' and user.plan_expires_at %}
+                <div class="mypage-info-row">
+                  <dt>이용 가능 기한</dt>
+                  <dd>{{ user.plan_expires_at.strftime('%Y.%m.%d') }}까지</dd>
+                </div>
+                {% endif %}
+              </dl>
+
+              <div class="billing-actions">
+                {% if user.subscription_status == 'active' %}
+                  <form method="POST" action="{{ url_for('main.billing_cancel') }}"
+                        onsubmit="return confirm('구독을 취소하시겠습니까? 결제된 기간 만료까지는 계속 이용할 수 있습니다.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="billing-btn billing-btn--danger">구독 취소</button>
+                  </form>
+                {% elif user.subscription_status == 'canceled' %}
+                  <form method="POST" action="{{ url_for('main.billing_resume') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="billing-btn">구독 재개</button>
+                  </form>
+                {% elif user.subscription_status == 'past_due' %}
+                  <a href="{{ url_for('main.pricing') }}" class="billing-btn">결제수단 다시 등록</a>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+
+          {% if user.billing_card_number %}
+          <div class="mypage-card">
+            <h3 class="mypage-card-title">등록된 결제수단</h3>
+            <dl class="mypage-info">
+              <div class="mypage-info-row">
+                <dt>카드</dt>
+                <dd>
+                  {% if user.billing_card_company %}{{ user.billing_card_company }} {% endif %}
+                  {{ user.billing_card_number }}
+                </dd>
+              </div>
+            </dl>
+            <div class="billing-actions">
+              <a href="{{ url_for('main.pricing') }}" class="billing-btn">카드 변경</a>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="mypage-card">
+            <h3 class="mypage-card-title">결제 내역</h3>
+            {% if billing_payments %}
+            <table class="billing-payments-table">
+              <thead>
+                <tr>
+                  <th>일시</th>
+                  <th>플랜</th>
+                  <th>금액</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in billing_payments %}
+                <tr>
+                  <td>{{ (p.paid_at or p.created_at).strftime('%Y.%m.%d') }}</td>
+                  <td>
+                    {% if p.plan == 'pro' %}Pro
+                    {% elif p.plan == 'world_tour' %}World Tour
+                    {% else %}{{ p.plan }}{% endif %}
+                    · {% if p.cycle == 'monthly' %}월간{% else %}연간{% endif %}
+                  </td>
+                  <td>₩{{ "{:,}".format(p.amount_krw) }}</td>
+                  <td>
+                    <span class="billing-status-{{ p.status }}">
+                      {% if p.status == 'paid' %}결제완료
+                      {% elif p.status == 'failed' %}실패
+                      {% elif p.status == 'pending' %}대기
+                      {% elif p.status == 'canceled' %}취소
+                      {% else %}{{ p.status }}{% endif %}
+                    </span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {% else %}
+              <p class="mypage-hint">아직 결제 내역이 없습니다.</p>
+            {% endif %}
           </div>
 
         {% elif tab == 'usage' %}

@@ -62,6 +62,27 @@
       </div>
     </section>
 
+    <!-- KPI: 결제 -->
+    <section class="admin-section admin-kpi-clickable"
+             onclick="location.href='/admin/payments'"
+             style="cursor:pointer;">
+      <h2 class="admin-section-title">결제</h2>
+      <div class="admin-stats">
+        <div class="stat-card">
+          <p class="stat-label">활성 구독자</p>
+          <p class="stat-value">{% if stats.active_subscribers is none %}-{% else %}{{ stats.active_subscribers }}명{% endif %}</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">오늘 결제 건수</p>
+          <p class="stat-value">{% if stats.paid_today is none %}-{% else %}{{ stats.paid_today }}건{% endif %}</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">오늘 매출</p>
+          <p class="stat-value">{% if stats.revenue_today is none %}-{% else %}₩{{ "{:,}".format(stats.revenue_today) }}{% endif %}</p>
+        </div>
+      </div>
+    </section>
+
     <!-- KPI: 피드백 -->
     <section class="admin-section admin-kpi-clickable"
              onclick="location.href='/admin/feedbacks'"
