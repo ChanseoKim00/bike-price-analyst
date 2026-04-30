@@ -33,6 +33,10 @@ def create_app():
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
+    # CSRF 토큰 만료를 세션 쿠키 수명(30일)에 위임. 기본 1시간이면 메인 페이지를
+    # 오래 열어둔 유저가 "분석" 클릭 시 400 에러로 이탈하는 문제가 생긴다.
+    app.config["WTF_CSRF_TIME_LIMIT"] = None
+
     # OAuth 클라이언트 설정 — authlib이 Flask config에서 자동 로드
     app.config["GOOGLE_CLIENT_ID"]     = os.environ.get("GOOGLE_CLIENT_ID")
     app.config["GOOGLE_CLIENT_SECRET"] = os.environ.get("GOOGLE_CLIENT_SECRET")
