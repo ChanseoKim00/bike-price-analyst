@@ -156,10 +156,10 @@ def make_order_id(prefix: str = "BPA") -> str:
 # ── 요금제 가격표 ──────────────────────────────────────────────
 # 부가세 포함 가격. 연간은 월간 * 10 (2달 무료).
 PRICE_TABLE: dict[tuple[str, str], int] = {
-    ("pro",        "monthly"): 9_900,
-    ("pro",        "yearly"):  99_000,
-    ("world_tour", "monthly"): 19_900,
-    ("world_tour", "yearly"):  199_000,
+    ("pro",        "monthly"): 4_900,
+    ("pro",        "yearly"):  49_000,
+    ("world_tour", "monthly"): 9_900,
+    ("world_tour", "yearly"):  99_000,
 }
 
 PLAN_LABELS = {
