@@ -56,8 +56,13 @@
       + '&cycle=' + encodeURIComponent(cycle);
     const failUrl = origin + '/billing/fail';
 
+    // 퍼널 — checkout 진입
+    if (window.bpa) window.bpa.track(window.bpa.events.CHECKOUT_VIEW, { plan: plan, cycle: cycle });
+
     const btn = document.getElementById('btn-pay');
     btn.addEventListener('click', function () {
+      // 퍼널 — 결제 시도 (토스 창 열기). 실제 성공은 /billing/success 리다이렉트로 SUBSCRIBE_COMPLETE에서 측정.
+      if (window.bpa) window.bpa.track(window.bpa.events.PAYMENT_ATTEMPT, { plan: plan, cycle: cycle });
       btn.disabled = true;
       btn.textContent = '결제창을 여는 중...';
       try {

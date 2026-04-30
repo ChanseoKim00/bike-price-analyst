@@ -267,10 +267,42 @@
   // 메인 페이지에서만 로딩 오버레이를 먼저 띄운다. 서버가 loading.html을 반환하면 자연스럽게 이어짐.
   var form = document.querySelector('.input-form');
   if (form) {
+    // 퍼널 1단계 — 메인 진입
+    if (window.bpa) window.bpa.track(window.bpa.events.MAIN_VIEW, {
+      rate_limited: {{ (request.args.get('limit') == 'true')|tojson }}
+    });
+
+    // OAuth 신규 가입 — Google 콜백이 ?signup=google 로 1회 보낸다.
+    {% if request.args.get('signup') == 'google' %}
+    if (window.bpa) window.bpa.track(window.bpa.events.SIGNUP_COMPLETE, { method: 'google' });
+    {% endif %}
+
+    var urlInput = form.querySelector('input[name="url"]');
+    var inputTracked = false;
+    if (urlInput) {
+      // 퍼널 2단계 — URL 입력 (첫 입력/붙여넣기 시 1회만)
+      urlInput.addEventListener('input', function () {
+        if (inputTracked) return;
+        inputTracked = true;
+        if (window.bpa) window.bpa.track(window.bpa.events.URL_INPUT);
+      });
+    }
+
     form.addEventListener('submit', function() {
+      // 퍼널 3단계 — 분석 시작
+      if (window.bpa) window.bpa.track(window.bpa.events.ANALYZE_SUBMIT);
       document.getElementById('loadingOverlay').classList.add('active');
     });
   }
+
+  // 퍼널 4단계 — 결과 도달
+  {% if bike %}
+  if (window.bpa) window.bpa.track(window.bpa.events.RESULT_VIEW, {
+    analysis_id: {{ analysis.id|tojson }},
+    blur_mode:   {{ (blur_mode or 'none')|tojson }},
+    bike_brand:  {{ bike.brand|tojson }}
+  });
+  {% endif %}
 
   // 가격 overlay를 tbody 영역에만 맞게 위치 조정
   (function() {

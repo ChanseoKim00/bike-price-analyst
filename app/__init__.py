@@ -50,6 +50,15 @@ def create_app():
         client_kwargs={"scope": "openid email profile"},
     )
 
+    # PostHog (퍼널 분석) — 키가 비어 있으면 base.html이 스니펫을 렌더하지 않아 자동 비활성.
+    # 로컬/스테이징에서 분석 데이터 섞이지 않게 운영 환경에만 키를 넣는 운영 가정.
+    posthog_key  = os.environ.get("POSTHOG_PROJECT_KEY", "")
+    posthog_host = os.environ.get("POSTHOG_HOST", "https://us.i.posthog.com")
+
+    @app.context_processor
+    def inject_analytics():
+        return {"posthog_key": posthog_key, "posthog_host": posthog_host}
+
     from .routes import bp
     app.register_blueprint(bp)
 

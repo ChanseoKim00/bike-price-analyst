@@ -616,7 +616,9 @@ def google_callback():
             user.provider_user_id = sub
 
     # 3) 신규 가입
+    is_new_signup = False
     if not user:
+        is_new_signup = True
         user = User(
             email=email,
             password_hash=None,
@@ -633,6 +635,9 @@ def google_callback():
     db.session.commit()
 
     _login_user_session(user)
+    # 신규 OAuth 가입은 /login?registered=1 우회 경로가 없으므로 쿼리로 1회 신호 전달 → index에서 funnel 이벤트 발화.
+    if is_new_signup:
+        return redirect(url_for("main.index", signup="google"))
     return redirect(url_for("main.index"))
 
 

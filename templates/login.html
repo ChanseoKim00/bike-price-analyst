@@ -73,4 +73,11 @@
   </div>
 </div>
 
+{% if registered %}
+<script>
+  // 퍼널 5단계 — 회원가입 완료. /register 성공 시 /login?registered=1 로 리다이렉트되므로 여기서 캡처.
+  if (window.bpa) window.bpa.track(window.bpa.events.SIGNUP_COMPLETE, { method: 'email' });
+</script>
+{% endif %}
+
 {% endblock %}

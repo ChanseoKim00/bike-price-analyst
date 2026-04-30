@@ -309,4 +309,14 @@
   </div>
 </div>
 
+{% if request.args.get('paid') == '1' %}
+<script>
+  // 퍼널 6단계 — 구독 결제 완료. /billing/success 가 ?paid=1 로 리다이렉트.
+  if (window.bpa) window.bpa.track(window.bpa.events.SUBSCRIBE_COMPLETE, {
+    plan: {{ (user.plan or '')|tojson }},
+    cycle: {{ (user.subscription_cycle or '')|tojson }}
+  });
+</script>
+{% endif %}
+
 {% endblock %}

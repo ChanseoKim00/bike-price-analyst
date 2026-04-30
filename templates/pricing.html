@@ -121,6 +121,25 @@
     }
 
     buttons.forEach(b => b.addEventListener('click', () => setCycle(b.dataset.cycle)));
+
+    // 퍼널 — pricing 진입 (인입 경로 분석용 referrer 같이 기록)
+    if (window.bpa) window.bpa.track(window.bpa.events.PRICING_VIEW, {
+      current_plan: {{ (current_plan or 'guest')|tojson }}
+    });
+
+    // 퍼널 — 플랜 선택 클릭. 결제 페이지 이탈률 측정용 (선택했지만 결제 안 한 비율)
+    document.querySelectorAll('a.pricing-card__cta[data-href-monthly]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var activeCycleBtn = document.querySelector('.pricing-cycle-toggle__btn--active');
+        var cycle = activeCycleBtn ? activeCycleBtn.dataset.cycle : 'monthly';
+        // href에서 plan 추출 — /billing/checkout/<plan>/<cycle>
+        var m = (el.getAttribute('href') || '').match(/\/billing\/checkout\/([^\/]+)\//);
+        if (window.bpa) window.bpa.track(window.bpa.events.PLAN_SELECT, {
+          plan:  m ? m[1] : 'unknown',
+          cycle: cycle
+        });
+      });
+    });
   })();
 </script>
 
