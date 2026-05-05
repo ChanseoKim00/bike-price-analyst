@@ -1610,9 +1610,12 @@ def og_result_image(analysis_id):
     if not analysis:
         return ("", 404)
 
-    bike = analysis.bike
-    from .og_image import get_or_render_og
+    # import을 try 안에 둬서 Pillow 미설치/폰트 미가용 같은 모든 예외를 로그로 남긴다.
+    # 이전 구조에서는 import 실패 시 ImportError가 그대로 500으로 나가 Railway 로그에
+    # 진짜 원인이 안 남는 문제가 있었다.
     try:
+        from .og_image import get_or_render_og
+        bike = analysis.bike
         png = get_or_render_og(
             analysis_id=analysis.id,
             saving_krw=analysis.saving_krw or 0,

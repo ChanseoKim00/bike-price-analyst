@@ -104,7 +104,16 @@
   // 과거 <a download> 방식은 브라우저가 navigate로 처리할 때 "사이트를 사용할 수 없음"이
   // 뜨는 사례가 있어 폐기.
   function instagramFallback() {
-    window.open(ogUrl, '_blank', 'noopener,noreferrer');
+    // window.open은 팝업 차단으로 막힐 수 있어 합성 <a target="_blank"> 클릭으로 대체.
+    // download 속성은 절대 두지 않는다 — 일부 브라우저가 navigate 처리 시 "사이트를
+    // 사용할 수 없음"으로 폴백되는 사례가 있어 폐기.
+    var a = document.createElement('a');
+    a.href = ogUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     copyToClipboard(shareUrl).catch(function () {});
     showToast('이미지가 새 탭에서 열렸어요. 저장해서 인스타에 올려보세요.');
   }
