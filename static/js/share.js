@@ -1,6 +1,14 @@
 // 결과 페이지 공유 카드 — 카톡/X/스레드/인스타/링크복사 동작.
+//
+// 채널별 동작 매트릭스:
+//   X·스레드           : 데스크톱·모바일 모두 공식 인텐트 URL 새 창 (intent/tweet, intent/post)
+//   카카오톡 / 인스타   : 모바일은 시스템 공유 시트(Web Share API + 이미지 파일),
+//                        데스크톱은 링크 복사. 메타·카카오 모두 데스크톱 웹용 공식 인텐트
+//                        URL을 제공하지 않으므로 동일 처리.
+//   링크 복사          : 항상 클립보드 복사
+//
 // OG 이미지는 카톡·X·스레드가 URL에서 자동으로 가져온다. 인스타는 OG 미리보기를
-// 거의 렌더하지 않으므로 이미지 다운로드를 제공해 스토리/피드 업로드를 유도.
+// 거의 렌더하지 않으므로 모바일 공유 시트에서 이미지 파일을 함께 전달한다.
 (function () {
   'use strict';
 
@@ -53,6 +61,12 @@
     });
   }
 
+  function copyLink(toastMsg) {
+    copyToClipboard(shareUrl)
+      .then(function () { showToast(toastMsg || '링크를 복사했어요.'); })
+      .catch(function () { showToast('링크 복사 실패. 주소창에서 직접 복사해 주세요.'); });
+  }
+
   function openPopup(url) {
     var w = 600, h = 600;
     var left = (window.screen.width - w) / 2;
@@ -61,28 +75,56 @@
     if (!win) window.location.href = url;
   }
 
-  // 카카오톡 — Kakao SDK 키가 있으면 SendDefault, 없으면 링크 복사로 폴백.
-  // SDK 도입 전이라도 OG 이미지가 있는 URL을 채팅창에 붙여넣으면 미리보기가 뜬다.
-  function shareKakao() {
-    if (window.Kakao && window.Kakao.Share && window.Kakao.isInitialized && window.Kakao.isInitialized()) {
-      window.Kakao.Share.sendDefault({
-        objectType: 'feed',
-        content: {
+  function isMobile() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+
+  // 모바일 시스템 공유 시트 — Web Share API Level 2 (파일 포함).
+  // OG 이미지를 fetch해 File로 만들어 navigator.share에 넘긴다.
+  // 인스타·카톡·라인 등이 시트의 옵션으로 등장하고, 사용자가 앱을 선택하면 이미지+텍스트가
+  // 그대로 해당 앱으로 전달된다. 사용자가 시트를 취소하면 AbortError가 떨어지는데,
+  // 이 경우 결과 페이지에 그대로 머물도록 폴백하지 않는다.
+  function shareViaSystemSheet() {
+    return fetch(ogUrl)
+      .then(function (r) { return r.ok ? r.blob() : Promise.reject(new Error('og fetch')); })
+      .then(function (blob) {
+        var file = new File([blob], 'bpa-share.png', { type: 'image/png' });
+        if (!navigator.canShare || !navigator.canShare({ files: [file] })) {
+          return Promise.reject(new Error('canShare files unavailable'));
+        }
+        return navigator.share({
+          files: [file],
           title: shareTitle,
-          description: 'Bike Price Analyst',
-          imageUrl: ogUrl,
-          link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
-        },
-        buttons: [{
-          title: '결과 보기',
-          link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
-        }],
+          text: shareTitle + '\n' + shareUrl,
+        });
+      });
+  }
+
+  function canSystemShare() {
+    return isMobile() && typeof fetch === 'function' && navigator.canShare && navigator.share;
+  }
+
+  // 카카오톡·인스타 공통 핸들러 — 모바일은 시스템 시트, 데스크톱은 링크 복사.
+  // 메타·카카오 모두 데스크톱 웹용 공식 공유 인텐트 URL을 제공하지 않아 동일 처리.
+  function shareViaSheetOrCopy(toastMsg) {
+    if (canSystemShare()) {
+      shareViaSystemSheet().catch(function (err) {
+        // 사용자가 시트를 취소하면 AbortError — 결과 페이지에 머문다 (아무 동작 안 함)
+        if (err && err.name === 'AbortError') return;
+        // 그 외 실패(파일 공유 미지원 등)는 링크 복사로 폴백
+        copyLink(toastMsg);
       });
       return;
     }
-    copyToClipboard(shareUrl)
-      .then(function () { showToast('링크를 복사했어요. 카카오톡 채팅창에 붙여넣어 주세요.'); })
-      .catch(function () { showToast('링크 복사 실패. 주소창에서 직접 복사해 주세요.'); });
+    copyLink(toastMsg);
+  }
+
+  function shareKakao() {
+    shareViaSheetOrCopy('링크를 복사했어요. 카카오톡 채팅창에 붙여넣어 주세요.');
+  }
+
+  function shareInstagram() {
+    shareViaSheetOrCopy('링크를 복사했어요. 인스타 프로필/스토리에 붙여넣어 주세요.');
   }
 
   function shareX() {
@@ -98,50 +140,8 @@
     openPopup(url);
   }
 
-  // 인스타그램 — 외부 URL 공유 API가 없고 OG 미리보기도 거의 안 뜨므로
-  // 모바일은 시스템 공유 시트(Web Share API + 이미지 파일)로, 그 외는 새 탭에 OG 이미지를
-  // 열어 사용자가 직접 저장하도록 한다. 링크는 항상 함께 복사.
-  // 과거 <a download> 방식은 브라우저가 navigate로 처리할 때 "사이트를 사용할 수 없음"이
-  // 뜨는 사례가 있어 폐기.
-  function instagramFallback() {
-    // window.open은 팝업 차단으로 막힐 수 있어 합성 <a target="_blank"> 클릭으로 대체.
-    // download 속성은 절대 두지 않는다 — 일부 브라우저가 navigate 처리 시 "사이트를
-    // 사용할 수 없음"으로 폴백되는 사례가 있어 폐기.
-    var a = document.createElement('a');
-    a.href = ogUrl;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    copyToClipboard(shareUrl).catch(function () {});
-    showToast('이미지가 새 탭에서 열렸어요. 저장해서 인스타에 올려보세요.');
-  }
-
-  function shareInstagram() {
-    var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile && navigator.canShare && navigator.share && typeof fetch === 'function') {
-      fetch(ogUrl)
-        .then(function (r) { return r.ok ? r.blob() : Promise.reject(new Error('og fetch')); })
-        .then(function (blob) {
-          var file = new File([blob], 'bpa-share.png', { type: 'image/png' });
-          if (!navigator.canShare({ files: [file] })) return Promise.reject(new Error('canShare'));
-          return navigator.share({
-            files: [file],
-            title: shareTitle,
-            text: shareTitle + '\n' + shareUrl,
-          });
-        })
-        .catch(function () { instagramFallback(); });
-      return;
-    }
-    instagramFallback();
-  }
-
   function shareCopy() {
-    copyToClipboard(shareUrl)
-      .then(function () { showToast('링크를 복사했어요.'); })
-      .catch(function () { showToast('링크 복사 실패. 주소창에서 직접 복사해 주세요.'); });
+    copyLink('링크를 복사했어요.');
   }
 
   card.addEventListener('click', function (e) {
