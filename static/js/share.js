@@ -98,18 +98,35 @@
     openPopup(url);
   }
 
-  // 인스타그램 — 외부 URL 공유 API가 없어 OG 이미지 다운로드 + 링크 복사를 동시에 제공.
-  // 사용자는 받은 이미지를 스토리/피드에 올리고, 복사된 링크를 프로필/스토리 링크에 첨부할 수 있다.
-  function shareInstagram() {
+  // 인스타그램 — 외부 URL 공유 API가 없고 OG 미리보기도 거의 안 뜨므로
+  // 모바일은 시스템 공유 시트(Web Share API + 이미지 파일)로, 그 외는 새 탭에 OG 이미지를
+  // 열어 사용자가 직접 저장하도록 한다. 링크는 항상 함께 복사.
+  // 과거 <a download> 방식은 브라우저가 navigate로 처리할 때 "사이트를 사용할 수 없음"이
+  // 뜨는 사례가 있어 폐기.
+  function instagramFallback() {
+    window.open(ogUrl, '_blank', 'noopener,noreferrer');
     copyToClipboard(shareUrl).catch(function () {});
-    var a = document.createElement('a');
-    a.href = ogUrl;
-    a.download = 'bpa-share.png';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    showToast('이미지를 저장하고 링크를 복사했어요. 인스타에 올려보세요.');
+    showToast('이미지가 새 탭에서 열렸어요. 저장해서 인스타에 올려보세요.');
+  }
+
+  function shareInstagram() {
+    var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile && navigator.canShare && navigator.share && typeof fetch === 'function') {
+      fetch(ogUrl)
+        .then(function (r) { return r.ok ? r.blob() : Promise.reject(new Error('og fetch')); })
+        .then(function (blob) {
+          var file = new File([blob], 'bpa-share.png', { type: 'image/png' });
+          if (!navigator.canShare({ files: [file] })) return Promise.reject(new Error('canShare'));
+          return navigator.share({
+            files: [file],
+            title: shareTitle,
+            text: shareTitle + '\n' + shareUrl,
+          });
+        })
+        .catch(function () { instagramFallback(); });
+      return;
+    }
+    instagramFallback();
   }
 
   function shareCopy() {
