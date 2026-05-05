@@ -255,8 +255,10 @@ def render_og_image(
 _CACHE_DIR = Path(os.environ.get("BPA_OG_CACHE_DIR", "/tmp/bpa_og_cache"))
 
 
-def _cache_path(analysis_id: str) -> Path:
-    safe = "".join(c for c in analysis_id if c.isalnum() or c in "-_")
+def _cache_path(analysis_id) -> Path:
+    # analysis.id가 SQLAlchemy UUID 객체로 오는 경로가 있어 str() 강제 변환.
+    s = str(analysis_id)
+    safe = "".join(c for c in s if c.isalnum() or c in "-_")
     return _CACHE_DIR / f"{safe}.png"
 
 
