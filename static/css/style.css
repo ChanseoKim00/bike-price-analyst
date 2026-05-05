@@ -2565,16 +2565,16 @@ a { color: inherit; text-decoration: none; }
 .share-card {
   width: 100%;
   max-width: 720px;
-  margin: 0 auto 1.5rem;
-  padding: 1.25rem 2rem 1.5rem;
+  margin: 0 auto 0.5rem;
+  padding: 0.25rem 2rem 0.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.6rem;
 }
 
 .share-card__lead {
-  font-size: 0.85rem;
+  font-size: 0.6rem;
   color: #a0a0b0;
   font-weight: 300;
   letter-spacing: 0.01em;
@@ -2583,25 +2583,27 @@ a { color: inherit; text-decoration: none; }
 .share-card__buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.42rem;
   justify-content: center;
 }
 
 .share-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.95rem;
+  gap: 0.32rem;
+  padding: 0.4rem 0.65rem;
   background: #3e3e4a;
   color: #ffffff;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 0.88rem;
+  font-size: 0.62rem;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.08s;
 }
+
+.share-btn__icon svg { width: 15px; height: 15px; }
 
 .share-btn:hover {
   background: #B3CDFF;
@@ -2635,7 +2637,7 @@ a { color: inherit; text-decoration: none; }
 
 .share-card__toast {
   min-height: 1.2em;
-  font-size: 0.82rem;
+  font-size: 0.58rem;
   color: #B3CDFF;
   opacity: 0;
   transform: translateY(-2px);
@@ -2648,6 +2650,6 @@ a { color: inherit; text-decoration: none; }
 }
 
 @media (max-width: 480px) {
-  .share-card { padding: 1rem 1.25rem 1.25rem; }
-  .share-btn { padding: 0.5rem 0.8rem; font-size: 0.82rem; }
+  .share-card { padding: 0.15rem 1.25rem 0.4rem; }
+  .share-btn { padding: 0.35rem 0.56rem; font-size: 0.58rem; }
 }
