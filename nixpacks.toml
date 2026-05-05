@@ -22,6 +22,8 @@ nixPkgs = [
   "xorg.libXfixes",
   "xorg.libXrandr",
   "xorg.libxcb",
+  "fontconfig",
+  "noto-fonts-cjk-sans",
 ]
 
 [phases.build]

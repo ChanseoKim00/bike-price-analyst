@@ -2559,3 +2559,95 @@ a { color: inherit; text-decoration: none; }
 .billing-status-pending  { color: #ffb464; }
 .billing-status-canceled { color: #8a8aa0; }
 
+
+/* ── 결과 페이지 공유 카드 ─────────────────────────────────── */
+
+.share-card {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto 1.5rem;
+  padding: 1.25rem 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.share-card__lead {
+  font-size: 0.85rem;
+  color: #a0a0b0;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+}
+
+.share-card__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.95rem;
+  background: #3e3e4a;
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.08s;
+}
+
+.share-btn:hover {
+  background: #B3CDFF;
+  color: #1e1e28;
+}
+
+.share-btn:active { transform: scale(0.97); }
+
+.share-btn:focus-visible {
+  outline: none;
+  border-color: #B3CDFF;
+}
+
+.share-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-btn--ghost {
+  background: transparent;
+  border-color: #4a4a58;
+  color: #d0d0e0;
+}
+
+.share-btn--ghost:hover {
+  background: transparent;
+  border-color: #B3CDFF;
+  color: #B3CDFF;
+}
+
+.share-card__toast {
+  min-height: 1.2em;
+  font-size: 0.82rem;
+  color: #B3CDFF;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+}
+
+.share-card__toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+  .share-card { padding: 1rem 1.25rem 1.25rem; }
+  .share-btn { padding: 0.5rem 0.8rem; font-size: 0.82rem; }
+}

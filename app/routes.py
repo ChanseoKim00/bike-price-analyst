@@ -1600,6 +1600,38 @@ def result(analysis_id):
     )
 
 
+# ── OG 공유 카드 이미지 ─────────────────────────────────────
+# 카톡·X·스레드 등에서 결과 URL을 공유할 때 og:image로 노출되는 1200×630 PNG.
+# Analysis는 immutable이라 analysis_id 단위로 디스크 캐시 가능.
+
+@bp.route("/og/result/<analysis_id>.png")
+def og_result_image(analysis_id):
+    analysis = Analysis.query.filter_by(id=analysis_id).first()
+    if not analysis:
+        return ("", 404)
+
+    bike = analysis.bike
+    from .og_image import get_or_render_og
+    try:
+        png = get_or_render_og(
+            analysis_id=analysis.id,
+            saving_krw=analysis.saving_krw or 0,
+            saving_pct=analysis.saving_pct,
+            bike_brand=bike.brand if bike else None,
+            bike_model=bike.model_name if bike else None,
+            bike_year=bike.model_year if bike else None,
+        )
+    except Exception:
+        logger.exception("OG 이미지 렌더 실패 analysis_id=%s", analysis_id)
+        return ("", 500)
+
+    resp = make_response(png)
+    resp.headers["Content-Type"] = "image/png"
+    # 30일 캐시 — 분석 스냅샷은 변하지 않으므로 CDN/SNS 크롤러가 길게 잡아도 안전.
+    resp.headers["Cache-Control"] = "public, max-age=2592000, immutable"
+    return resp
+
+
 # ── 결제 (토스페이먼츠 빌링키) ────────────────────────────────
 
 from calendar import monthrange

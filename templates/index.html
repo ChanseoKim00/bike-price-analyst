@@ -1,4 +1,37 @@
 {% extends "base.html" %}
+
+{# 결과 화면 한정 OG/Twitter 카드 — 카톡·X·스레드에서 미리보기로 노출되는 후킹 메타태그.
+   메인 화면(bike==None)에서는 base.html의 기본 <title>만 노출된다. #}
+{% block head %}
+{% if bike and analysis %}
+  {%- set og_url   = url_for('main.result', analysis_id=analysis.id, _external=True) -%}
+  {%- set og_image = url_for('main.og_result_image', analysis_id=analysis.id, _external=True) -%}
+  {%- set bike_label = bike.brand.replace('_', ' ').title() ~ ' ' ~ bike.model_name -%}
+  {%- if bike.model_year %}{%- set bike_label = bike_label ~ ' (' ~ bike.model_year ~ ')' -%}{%- endif -%}
+  {%- set saving_fmt = '{:,}'.format(analysis.saving_krw) -%}
+  {%- set og_title = '이 자전거, 부품 합산보다 ₩' ~ saving_fmt ~ ' 싸다' -%}
+  {%- set og_desc  = bike_label ~ ' — 부품 개별 구매 대비 ' ~ analysis.saving_pct ~ '% 저렴. Bike Price Analyst가 분석한 결과.' -%}
+  <title>{{ og_title }} · BPA</title>
+  <meta name="description" content="{{ og_desc }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Bike Price Analyst">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:url" content="{{ og_url }}">
+  <meta property="og:title" content="{{ og_title }}">
+  <meta property="og:description" content="{{ og_desc }}">
+  <meta property="og:image" content="{{ og_image }}">
+  <meta property="og:image:secure_url" content="{{ og_image }}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="{{ og_title }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ og_title }}">
+  <meta name="twitter:description" content="{{ og_desc }}">
+  <meta name="twitter:image" content="{{ og_image }}">
+{% endif %}
+{% endblock %}
+
 {% block content %}
 
 <div class="loading-overlay" id="loadingOverlay">
@@ -52,6 +85,63 @@
     <p class="saving-amount">{{ "{:,}".format(analysis.saving_krw) }}원 절약</p>
     <p class="saving-sub">부품 개별 구매 대비 {{ analysis.saving_pct }}% 저렴</p>
   </div>
+
+  {# 공유 카드 — 결과 URL을 카톡/X/스레드 등에 공유하면 OG 이미지가 자동 노출된다.
+     인스타는 OG 미리보기를 거의 렌더하지 않으므로 OG 이미지 다운로드 + 링크 복사를 제공. #}
+  {%- set _share_title = '이 자전거, 부품 합산보다 ₩' ~ '{:,}'.format(analysis.saving_krw) ~ ' 싸다' -%}
+  {%- set _share_url   = url_for('main.result', analysis_id=analysis.id, _external=True) -%}
+  {%- set _og_url      = url_for('main.og_result_image', analysis_id=analysis.id, _external=True) -%}
+  <section class="share-card"
+           data-share-url="{{ _share_url }}"
+           data-share-title="{{ _share_title }}"
+           data-og-url="{{ _og_url }}">
+    <p class="share-card__lead">친구에게 공유하기</p>
+    <div class="share-card__buttons" role="group" aria-label="공유 버튼">
+      <button type="button" class="share-btn" data-share="kakao" aria-label="카카오톡으로 공유">
+        <span class="share-btn__icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 4C6.477 4 2 7.477 2 11.75c0 2.69 1.78 5.06 4.49 6.46l-.93 3.4c-.08.3.25.55.52.4l4.05-2.66c.62.07 1.24.1 1.87.1 5.523 0 10-3.477 10-7.7S17.523 4 12 4Z" fill="currentColor"/>
+          </svg>
+        </span>
+        <span>카카오톡</span>
+      </button>
+      <button type="button" class="share-btn" data-share="x" aria-label="X로 공유">
+        <span class="share-btn__icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18.244 2H21l-6.52 7.45L22 22h-6.844l-4.78-6.31L4.8 22H2.044l6.974-7.97L2 2h7.02l4.32 5.74L18.244 2Zm-1.198 18h1.5L7.044 4H5.46l11.586 16Z" fill="currentColor"/>
+          </svg>
+        </span>
+        <span>X</span>
+      </button>
+      <button type="button" class="share-btn" data-share="threads" aria-label="스레드로 공유">
+        <span class="share-btn__icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12.5 22C6.96 22 3 18.43 3 12.5 3 6.74 6.86 3 12.32 3c4.04 0 6.83 1.97 7.86 5.49l-2.05.6c-.74-2.51-2.74-3.96-5.81-3.96-4.18 0-7.13 2.94-7.13 7.37 0 4.7 3.14 7.41 7.32 7.41 3.13 0 5.18-1.21 5.94-3.4.4-1.18.32-2.32-.21-3.16-.5-.78-1.39-1.36-2.6-1.66-.18 2.43-1.96 4.06-4.42 4.06-1.45 0-2.7-.5-3.5-1.4-.74-.83-1.06-1.94-.91-3.12.3-2.27 2.42-3.66 5.4-3.55 1.06.04 2.05.2 2.95.49.05-.7-.13-1.27-.54-1.7-.55-.57-1.4-.86-2.55-.87h-.04c-.92 0-2.18.25-2.97 1.45l-1.85-1.16c1.07-1.62 2.81-2.4 4.83-2.4h.05c3.4.02 5.43 2.13 5.23 5.43 1.43.45 2.5 1.27 3.16 2.42.92 1.6 1 4.18.13 6.55-1.18 3.21-4.11 4.96-8.4 4.96Zm-.69-9.93c-1.69 0-3.4.62-3.5 1.94-.06.45.06.86.34 1.17.45.5 1.23.79 2.21.79 1.74 0 3-.94 3.18-2.93-.7-.27-1.5-.45-2.23-.48a2.7 2.7 0 0 0 0 0Z" fill="currentColor"/>
+          </svg>
+        </span>
+        <span>스레드</span>
+      </button>
+      <button type="button" class="share-btn" data-share="instagram" aria-label="인스타그램용 이미지 다운로드">
+        <span class="share-btn__icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="17.2" cy="6.8" r="1" fill="currentColor"/>
+          </svg>
+        </span>
+        <span>인스타</span>
+      </button>
+      <button type="button" class="share-btn share-btn--ghost" data-share="copy" aria-label="링크 복사">
+        <span class="share-btn__icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9.5 14.5 14.5 9.5M10 6.5l1-1a3.5 3.5 0 0 1 5 5l-1 1M14 17.5l-1 1a3.5 3.5 0 0 1-5-5l1-1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span>링크 복사</span>
+      </button>
+    </div>
+    <p class="share-card__toast" id="shareToast" role="status" aria-live="polite"></p>
+  </section>
 
   <div class="result-body">
     <h2 class="bike-name">{{ bike.brand.replace('_', ' ')|title }} {{ bike.model_name }} {% if bike.model_year %}({{ bike.model_year }}){% endif %}</h2>
@@ -551,5 +641,9 @@
     closeBtn.addEventListener('click', closePopup);
   })();
 </script>
+
+{% if bike %}
+<script src="{{ url_for('static', filename='js/share.js') }}"></script>
+{% endif %}
 
 {% endblock %}
