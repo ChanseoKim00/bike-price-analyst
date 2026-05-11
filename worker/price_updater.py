@@ -1,16 +1,16 @@
 """
-가격 자동 갱신 워커
+Auto price-refresh worker.
 
-실행 내용:
-  1) parts 테이블에서 TTL 만료된 row 전체를 AI 웹 검색으로 재조회
-     → 가격 변동 있으면 parts 업데이트 + part_price_history 기록
-  2) bikes 테이블에서 stale=True인 row를 official_url 재스크랩으로 재조회
-     → 가격 변동 있으면 bikes 업데이트 + bike_price_history 기록
+What it does:
+  1) For every row in `parts` whose TTL has expired, re-query via AI web search.
+     → If the price changed, update `parts` and write a row into `part_price_history`.
+  2) For every row in `bikes` with `stale=True`, re-scrape from `official_url`.
+     → If the price changed, update `bikes` and write a row into `bike_price_history`.
 
-실행:
+Run:
   python -m worker.price_updater
 
-Railway Cron Job에서 매주 월요일 03:00 KST (UTC 월요일 18:00) 로 예약.
+Scheduled in Railway Cron Job for every Monday 03:00 KST (Monday 18:00 UTC).
 """
 import os
 import sys
@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 load_dotenv()
 
-# 프로젝트 루트를 sys.path에 추가 — `python worker/price_updater.py` 형태 직접 실행 대응
+# Add the project root to sys.path so `python worker/price_updater.py` works directly.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app
@@ -40,7 +40,7 @@ from app.exchange_rate import get_exchange_rates
 
 
 def _ttl_expired(part: Part) -> bool:
-    """part.ttl_days 기준 만료 여부 — last_verified_at 기준."""
+    """Whether the part has expired per part.ttl_days, measured from last_verified_at."""
     if part.last_verified_at is None:
         return True
     ttl = timedelta(days=part.ttl_days or TTL_DAYS.get(part.part_type, 90))
@@ -48,10 +48,10 @@ def _ttl_expired(part: Part) -> bool:
 
 
 def update_parts() -> dict:
-    """TTL 만료 parts 재조회. 반환: 집계 dict."""
+    """Re-query TTL-expired parts. Returns an aggregate stats dict."""
     stats = {"total": 0, "skipped": 0, "unchanged": 0, "updated": 0, "failed": 0}
 
-    # frameset은 AI 검색 대상 아님 → 제외
+    # frameset is not subject to AI search → exclude it
     parts = (
         Part.query
         .filter(~Part.part_type.in_(SKIP_AI_SEARCH_TYPES))
@@ -59,13 +59,13 @@ def update_parts() -> dict:
     )
     expired = [p for p in parts if _ttl_expired(p)]
     stats["total"] = len(expired)
-    print(f"[PARTS] TTL 만료 대상: {len(expired)}개")
+    print(f"[PARTS] TTL-expired candidates: {len(expired)}")
 
     for idx, part in enumerate(expired, 1):
-        # null 가격이고 재검색 안 하는 타입 → 스킵
+        # null price and a type we don't re-search → skip
         if part.price_krw is None and part.part_type not in RETRY_ON_NULL_TYPES:
             stats["skipped"] += 1
-            print(f"  [{idx}/{len(expired)}] SKIP {part.part_type}: {part.part_name} (null 유지)")
+            print(f"  [{idx}/{len(expired)}] SKIP {part.part_type}: {part.part_name} (kept null)")
             continue
 
         try:
@@ -80,19 +80,19 @@ def update_parts() -> dict:
 
         new_price = result.get("price_krw")
         if not new_price:
-            # 검색 실패 — 기존 가격 유지
+            # Search miss — keep the existing price
             stats["failed"] += 1
             db.session.commit()
-            print(f"  [{idx}/{len(expired)}] MISS {part.part_type}: {part.part_name} (검색 실패)")
+            print(f"  [{idx}/{len(expired)}] MISS {part.part_type}: {part.part_name} (search miss)")
             continue
 
         if part.price_krw == new_price:
-            part.last_verified_at = now  # 가격 동일 — 검증일만 갱신
-            # 그래프 연속성을 위해 변동 없어도 이력에 확인 도장 찍기
+            part.last_verified_at = now  # same price — only refresh the verified timestamp
+            # Stamp a confirmation row so the price-history graph stays continuous even with no change
             record_part_price_history(part, new_price, recorded_at=now, force=True)
             db.session.commit()
             stats["unchanged"] += 1
-            print(f"  [{idx}/{len(expired)}] KEEP {part.part_type}: {part.part_name} ({new_price:,}원)")
+            print(f"  [{idx}/{len(expired)}] KEEP {part.part_type}: {part.part_name} ({new_price:,} KRW)")
             continue
 
         old_price = part.price_krw
@@ -102,62 +102,62 @@ def update_parts() -> dict:
         record_part_price_history(part, new_price, recorded_at=now)
         db.session.commit()
         stats["updated"] += 1
-        old_str = f"{old_price:,}원" if old_price else "null"
-        print(f"  [{idx}/{len(expired)}] UPDATE {part.part_type}: {part.part_name} ({old_str} → {new_price:,}원)")
+        old_str = f"{old_price:,} KRW" if old_price else "null"
+        print(f"  [{idx}/{len(expired)}] UPDATE {part.part_type}: {part.part_name} ({old_str} → {new_price:,} KRW)")
 
-        # 레이트 리밋 보호용 짧은 대기
+        # Short pause to stay under rate limits
         time.sleep(1)
 
     return stats
 
 
 def update_bikes() -> dict:
-    """stale=True bikes 재조회. 반환: 집계 dict."""
+    """Re-query bikes where stale=True. Returns an aggregate stats dict."""
     stats = {"total": 0, "unchanged": 0, "updated": 0, "failed": 0}
 
     bikes = Bike.query.filter_by(stale=True).all()
     stats["total"] = len(bikes)
-    print(f"[BIKES] stale=True 대상: {len(bikes)}개")
+    print(f"[BIKES] stale=True candidates: {len(bikes)}")
 
     exchange_rates = get_exchange_rates() if bikes else None
 
     for idx, bike in enumerate(bikes, 1):
         if not bike.official_url:
             stats["failed"] += 1
-            print(f"  [{idx}/{len(bikes)}] FAIL {bike.brand} {bike.model_name}: official_url 없음")
+            print(f"  [{idx}/{len(bikes)}] FAIL {bike.brand} {bike.model_name}: missing official_url")
             continue
 
         try:
             page_text = fetch_html(bike.official_url)
         except ScrapeError as e:
             stats["failed"] += 1
-            print(f"  [{idx}/{len(bikes)}] FAIL {bike.brand} {bike.model_name}: 스크랩 실패 ({e.code})")
+            print(f"  [{idx}/{len(bikes)}] FAIL {bike.brand} {bike.model_name}: scrape failed ({e.code})")
             continue
 
         if not page_text:
             stats["failed"] += 1
-            print(f"  [{idx}/{len(bikes)}] FAIL {bike.brand} {bike.model_name}: 페이지 본문 없음")
+            print(f"  [{idx}/{len(bikes)}] FAIL {bike.brand} {bike.model_name}: empty page body")
             continue
 
         try:
             info = extract_bike_info(page_text, exchange_rates=exchange_rates)
         except (AnalysisError, ServiceBusyError) as e:
             stats["failed"] += 1
-            print(f"  [{idx}/{len(bikes)}] FAIL {bike.brand} {bike.model_name}: AI 분석 실패 ({e})")
+            print(f"  [{idx}/{len(bikes)}] FAIL {bike.brand} {bike.model_name}: AI analysis failed ({e})")
             continue
 
         new_price = info.get("price_krw")
         if not new_price:
             stats["failed"] += 1
-            print(f"  [{idx}/{len(bikes)}] MISS {bike.brand} {bike.model_name}: 가격 추출 실패")
+            print(f"  [{idx}/{len(bikes)}] MISS {bike.brand} {bike.model_name}: price extraction failed")
             continue
 
         if bike.price_krw == new_price:
-            # 그래프 연속성을 위해 변동 없어도 이력에 확인 도장 찍기
+            # Stamp a confirmation row so the price-history graph stays continuous even with no change
             record_bike_price_history(bike, new_price, force=True)
             db.session.commit()
             stats["unchanged"] += 1
-            print(f"  [{idx}/{len(bikes)}] KEEP {bike.brand} {bike.model_name} ({new_price:,}원)")
+            print(f"  [{idx}/{len(bikes)}] KEEP {bike.brand} {bike.model_name} ({new_price:,} KRW)")
             continue
 
         old_price = bike.price_krw
@@ -166,8 +166,8 @@ def update_bikes() -> dict:
         record_bike_price_history(bike, new_price, recorded_at=bike.last_verified_at)
         db.session.commit()
         stats["updated"] += 1
-        old_str = f"{old_price:,}원" if old_price else "null"
-        print(f"  [{idx}/{len(bikes)}] UPDATE {bike.brand} {bike.model_name} ({old_str} → {new_price:,}원)")
+        old_str = f"{old_price:,} KRW" if old_price else "null"
+        print(f"  [{idx}/{len(bikes)}] UPDATE {bike.brand} {bike.model_name} ({old_str} → {new_price:,} KRW)")
 
         time.sleep(1)
 

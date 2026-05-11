@@ -1,12 +1,12 @@
 """
-DB 마이그레이션 스크립트 (psql 없이 실행)
-실행: python3 migrate.py
+DB migration script (runs without psql).
+Run: python3 migrate.py
 
-동작:
-  1) migrations/init.sql 실행 (신규 DB에 전체 스키마 생성, 기존 DB엔 no-op)
-  2) migrations/NNN_*.sql 파일을 파일명 오름차순으로 순차 실행 (기존 DB catch-up)
+What it does:
+  1) Run migrations/init.sql (creates the full schema on a fresh DB; no-op on an existing DB).
+  2) Run migrations/NNN_*.sql files in ascending filename order (catch-up for existing DBs).
 
-모든 스크립트는 idempotent해야 함 (IF NOT EXISTS / DROP CONSTRAINT IF EXISTS 등).
+Every script must be idempotent (IF NOT EXISTS / DROP CONSTRAINT IF EXISTS, etc.).
 """
 import glob
 import os
@@ -18,12 +18,12 @@ load_dotenv()
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
-    print("[ERROR] .env 파일에 DATABASE_URL이 없습니다.")
+    print("[ERROR] DATABASE_URL is not set in the .env file.")
     sys.exit(1)
 
 migrations_dir = os.path.join(os.path.dirname(__file__), "migrations")
 
-# 실행 순서: init.sql → 001_*.sql → 002_*.sql → ...
+# Execution order: init.sql → 001_*.sql → 002_*.sql → ...
 scripts = [os.path.join(migrations_dir, "init.sql")]
 scripts += sorted(glob.glob(os.path.join(migrations_dir, "[0-9]*.sql")))
 
@@ -39,7 +39,7 @@ try:
         print(f"[OK] {name}")
     cur.close()
     conn.close()
-    print("[OK] 마이그레이션 완료")
+    print("[OK] migrations complete")
 except Exception as e:
     print(f"[ERROR] {e}")
     sys.exit(1)

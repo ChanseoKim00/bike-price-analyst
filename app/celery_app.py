@@ -1,14 +1,14 @@
 """
-Celery 초기화 — 모듈 레벨 단일 인스턴스 + include로 task를 확실히 등록.
+Celery initialization — single module-level instance with `include` to guarantee task registration.
 
-포인트:
-  - `celery` 인스턴스는 모듈 import 시점에 생성돼 바로 `include=["app.tasks"]`로 task 경로를 고정.
-  - Flask app은 별도로 `init_celery_for_flask(app)`에서 연결. task 실행 시 Flask app_context를
-    자동 진입하도록 Task 베이스 클래스를 교체한다.
-  - 웹/워커 어디서 import하든 동일한 celery 인스턴스를 보게 되므로, `@shared_task + set_default`
-    패턴에서 발생할 수 있는 "default app에 binding이 안 돼 task 누락" 문제를 제거.
+Notes:
+  - The `celery` instance is created at import time and `include=["app.tasks"]` pins the task path immediately.
+  - The Flask app is wired in separately via `init_celery_for_flask(app)`. The Task base class is swapped
+    so tasks automatically enter a Flask app_context when executed.
+  - Web and worker processes both import the same celery instance, eliminating the "task missing because
+    default app binding never happened" issue you can hit with the `@shared_task + set_default` pattern.
 
-브로커/결과 저장소는 Railway Redis 플러그인이 주입하는 REDIS_URL.
+Broker / result backend = REDIS_URL injected by the Railway Redis plugin.
 """
 import os
 
@@ -25,18 +25,18 @@ celery = Celery(
 
 celery.conf.update(
     task_track_started=True,
-    task_time_limit=300,          # 하드 타임아웃 (SIGKILL)
-    task_soft_time_limit=270,     # 소프트 타임아웃
-    result_expires=3600,          # 결과 1시간 후 만료
+    task_time_limit=300,          # hard timeout (SIGKILL)
+    task_soft_time_limit=270,     # soft timeout
+    result_expires=3600,          # results expire after 1 hour
     broker_connection_retry_on_startup=True,
-    worker_prefetch_multiplier=1, # 분석은 장시간 → 1개씩만 prefetch
-    task_acks_late=False,         # revoke(terminate=True)가 재실행되지 않도록
-    worker_redirect_stdouts_level="INFO",  # print()의 기본 리다이렉트 레벨(WARNING)을 INFO로 — 정상 흐름 로그가 빨갛게 뜨는 것 방지
+    worker_prefetch_multiplier=1, # analyze tasks are long-running → prefetch only one at a time
+    task_acks_late=False,         # so revoke(terminate=True) doesn't cause re-execution
+    worker_redirect_stdouts_level="INFO",  # downgrade print() redirect level from WARNING to INFO — keeps normal logs from showing up red
 )
 
 
 def init_celery_for_flask(flask_app):
-    """Celery task가 Flask app_context 안에서 실행되도록 Task 베이스 교체 + extensions 등록."""
+    """Swap the Task base class so Celery tasks run inside a Flask app_context, and register on extensions."""
     base_task = celery.Task
 
     class FlaskTask(base_task):

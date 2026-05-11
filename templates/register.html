@@ -3,7 +3,7 @@
 
 <div class="auth-wrap">
   <div class="auth-card">
-    <h1 class="auth-title">회원가입</h1>
+    <h1 class="auth-title">Sign up</h1>
 
     {% if error %}
     <p class="auth-error">{{ error }}</p>
@@ -16,15 +16,15 @@
         <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
         <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
       </svg>
-      <span>Google로 계속하기</span>
+      <span>Continue with Google</span>
     </a>
 
-    <div class="oauth-divider"><span>또는</span></div>
+    <div class="oauth-divider"><span>or</span></div>
 
     <form class="auth-form" method="POST" action="/register">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="auth-field">
-        <label class="auth-label" for="email">이메일</label>
+        <label class="auth-label" for="email">Email</label>
         <input
           class="auth-input"
           type="email"
@@ -37,42 +37,42 @@
         >
       </div>
       <div class="auth-field">
-        <label class="auth-label" for="password">비밀번호</label>
+        <label class="auth-label" for="password">Password</label>
         <input
           class="auth-input"
           type="password"
           id="password"
           name="password"
-          placeholder="8자 이상"
+          placeholder="At least 8 characters"
           required
         >
       </div>
       <div class="auth-field">
-        <label class="auth-label" for="name">이름 (실명)</label>
+        <label class="auth-label" for="name">Full name</label>
         <input
           class="auth-input"
           type="text"
           id="name"
           name="name"
           value="{{ name or '' }}"
-          placeholder="홍길동"
+          placeholder="Jane Doe"
           required
         >
       </div>
       <div class="auth-field">
-        <label class="auth-label" for="nickname">닉네임</label>
+        <label class="auth-label" for="nickname">Nickname</label>
         <input
           class="auth-input"
           type="text"
           id="nickname"
           name="nickname"
           value="{{ nickname or '' }}"
-          placeholder="라이더명"
+          placeholder="Your rider handle"
           required
         >
       </div>
       <div class="auth-field">
-        <label class="auth-label" for="birth_date">생년월일</label>
+        <label class="auth-label" for="birth_date">Date of birth</label>
         <input
           class="auth-input"
           type="date"
@@ -85,16 +85,16 @@
       <label class="auth-privacy">
         <input type="checkbox" name="privacy_agreed" value="1" class="auth-checkbox">
         <span>
-          개인정보 수집·이용에 동의합니다.
-          <span class="auth-privacy-required">(필수)</span>
+          I agree to the collection and use of my personal information.
+          <span class="auth-privacy-required">(required)</span>
         </span>
       </label>
-      <button type="submit" class="auth-submit">회원가입</button>
+      <button type="submit" class="auth-submit">Create account</button>
     </form>
 
     <p class="auth-footer">
-      이미 계정이 있으신가요?
-      <a href="/login" class="auth-link">로그인</a>
+      Already have an account?
+      <a href="/login" class="auth-link">Log in</a>
     </p>
   </div>
 </div>

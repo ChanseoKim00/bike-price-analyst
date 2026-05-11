@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,7 +19,7 @@
     <a href="/" class="bpa-logo">BPA</a>
     <nav class="main-nav">
       <a href="/" class="main-nav__btn">Home</a>
-      <a href="/history" class="main-nav__btn">내 히스토리</a>
+      <a href="/history" class="main-nav__btn">My History</a>
       <a href="{{ url_for('main.pricing') }}" class="main-nav__btn">Upgrade</a>
     </nav>
   </div>
@@ -27,27 +27,27 @@
     {% if session.get('user_nickname') %}
       <span class="auth-plan">
         {%- if session.get('user_role') == 'admin' -%}
-          현재 플랜: 관리자
+          Plan: Admin
         {%- else -%}
-          현재 플랜: {{ session.get('user_plan') or 'continental' }}
+          Plan: {{ session.get('user_plan') or 'continental' }}
         {%- endif -%}
       </span>
-      <span class="auth-username">{{ session['user_nickname'] }}님</span>
+      <span class="auth-username">{{ session['user_nickname'] }}</span>
       <div class="auth-btns-row">
         {% if session.get('user_role') == 'admin' %}
-          <a href="/admin" class="auth-btn auth-btn--admin">관리자</a>
+          <a href="/admin" class="auth-btn auth-btn--admin">Admin</a>
         {% endif %}
-        <a href="/mypage" class="auth-btn">마이페이지</a>
-        <a href="/logout" class="auth-btn">로그아웃</a>
+        <a href="/mypage" class="auth-btn">My Page</a>
+        <a href="/logout" class="auth-btn">Log out</a>
       </div>
     {% else %}
-      <span class="auth-plan">플랜 없음</span>
-      <a href="/login" class="auth-btn">로그인</a>
+      <span class="auth-plan">No plan</span>
+      <a href="/login" class="auth-btn">Log in</a>
     {% endif %}
   </nav>
   {% block content %}{% endblock %}
   <script>
-    // 로그인 사용자 식별 — PostHog 퍼널에서 익명 전환을 동일 인물로 묶기 위해.
+    // Identify the logged-in user so PostHog stitches anonymous → identified into one funnel.
     {% if session.get('user_id') %}
     if (window.bpa) {
       window.bpa.identify({{ session['user_id']|tojson }}, {
@@ -56,7 +56,7 @@
       });
     }
     {% endif %}
-    // 로그아웃 클릭 시 distinct_id 분리 — 같은 브라우저의 다음 사용자가 이전 세션과 섞이지 않게.
+    // On logout, reset distinct_id so the next user on this browser doesn't blend with the previous session.
     (function () {
       var logout = document.querySelector('a[href="/logout"]');
       if (logout) {

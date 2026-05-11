@@ -7,16 +7,16 @@
 <div class="pricing-wrap">
   <div class="pricing-hero">
     <h1 class="pricing-title">Upgrade your plan</h1>
-    <p class="pricing-subtitle">필요에 맞는 플랜을 선택하고 Bike Price Analyst를 더 깊이 활용해보세요.</p>
+    <p class="pricing-subtitle">Pick the plan that fits how you use Bike Price Analyst.</p>
 
-    <div class="pricing-cycle-toggle" role="tablist" aria-label="결제 주기">
+    <div class="pricing-cycle-toggle" role="tablist" aria-label="Billing cycle">
       <button type="button"
               class="pricing-cycle-toggle__btn pricing-cycle-toggle__btn--active"
-              data-cycle="monthly">월간</button>
+              data-cycle="monthly">Monthly</button>
       <button type="button"
               class="pricing-cycle-toggle__btn"
-              data-cycle="yearly">연간
-        <span class="pricing-cycle-toggle__badge">2개월 무료</span>
+              data-cycle="yearly">Yearly
+        <span class="pricing-cycle-toggle__badge">2 months free</span>
       </button>
     </div>
   </div>
@@ -26,50 +26,50 @@
     <div class="pricing-card {% if current_plan == 'continental' %}pricing-card--current{% endif %}">
       <div class="pricing-card__head">
         <h2 class="pricing-card__name">Continental</h2>
-        <p class="pricing-card__tagline">가볍게 시작하기</p>
+        <p class="pricing-card__tagline">A casual start</p>
         <div class="pricing-card__price">
-          <span class="pricing-card__amount">무료</span>
+          <span class="pricing-card__amount">Free</span>
         </div>
       </div>
       <ul class="pricing-card__features">
-        <li><span class="pricing-check">✓</span>5시간마다 최대 10회 분석</li>
-        <li><span class="pricing-check">✓</span>완성차 vs 부품 합산 절약 금액 비교</li>
-        <li><span class="pricing-check">✓</span>분석 히스토리 저장</li>
-        <li><span class="pricing-check">✓</span>가격 수정 제안 참여</li>
+        <li><span class="pricing-check">✓</span>Up to 10 analyses every 5 hours</li>
+        <li><span class="pricing-check">✓</span>Complete bike vs. parts-sum savings comparison</li>
+        <li><span class="pricing-check">✓</span>Personal analysis history</li>
+        <li><span class="pricing-check">✓</span>Submit price-fix suggestions</li>
       </ul>
       {% if current_plan == 'continental' %}
-        <button class="pricing-card__cta pricing-card__cta--current" disabled>현재 플랜</button>
+        <button class="pricing-card__cta pricing-card__cta--current" disabled>Current plan</button>
       {% else %}
-        <a href="/register" class="pricing-card__cta">시작하기</a>
+        <a href="/register" class="pricing-card__cta">Get started</a>
       {% endif %}
     </div>
 
     <!-- Pro -->
     <div class="pricing-card pricing-card--featured {% if current_plan == 'pro' %}pricing-card--current{% endif %}">
-      <span class="pricing-card__badge">추천</span>
+      <span class="pricing-card__badge">Recommended</span>
       <div class="pricing-card__head">
         <h2 class="pricing-card__name">Pro</h2>
-        <p class="pricing-card__tagline">진지하게 비교하는 라이더용</p>
+        <p class="pricing-card__tagline">For riders who compare seriously</p>
         <div class="pricing-card__price">
-          <span class="pricing-card__amount" data-price-monthly="₩4,900" data-price-yearly="₩49,000">₩4,900</span>
-          <span class="pricing-card__period" data-period-monthly="/ 월" data-period-yearly="/ 년">/ 월</span>
+          <span class="pricing-card__amount" data-price-monthly="$4.99" data-price-yearly="$49">$4.99</span>
+          <span class="pricing-card__period" data-period-monthly="/ month" data-period-yearly="/ year">/ month</span>
         </div>
       </div>
       <ul class="pricing-card__features">
-        <li><span class="pricing-check">✓</span>Continental의 모든 기능 포함</li>
-        <li><span class="pricing-check">✓</span><strong>무제한</strong> 분석 · 상세 부품 가격 전부 공개</li>
-        <li><span class="pricing-check">✓</span>부품별 개별 구매가 · 절약 금액 상세 뷰</li>
-        <li><span class="pricing-check">✓</span>우선순위 가격 데이터 업데이트</li>
+        <li><span class="pricing-check">✓</span>Everything in Continental</li>
+        <li><span class="pricing-check">✓</span><strong>Unlimited</strong> analyses · all component prices unlocked</li>
+        <li><span class="pricing-check">✓</span>Per-part individual prices and savings detail</li>
+        <li><span class="pricing-check">✓</span>Priority price-data updates</li>
       </ul>
       {% if current_plan == 'pro' %}
-        <button class="pricing-card__cta pricing-card__cta--current" disabled>현재 플랜</button>
+        <button class="pricing-card__cta pricing-card__cta--current" disabled>Current plan</button>
       {% elif logged_in %}
         <a href="{{ url_for('main.billing_checkout', plan='pro', cycle='monthly') }}"
            class="pricing-card__cta pricing-card__cta--primary"
            data-href-monthly="{{ url_for('main.billing_checkout', plan='pro', cycle='monthly') }}"
-           data-href-yearly="{{ url_for('main.billing_checkout', plan='pro', cycle='yearly') }}">Pro로 업그레이드</a>
+           data-href-yearly="{{ url_for('main.billing_checkout', plan='pro', cycle='yearly') }}">Upgrade to Pro</a>
       {% else %}
-        <a href="{{ url_for('main.login') }}" class="pricing-card__cta pricing-card__cta--primary">로그인 후 업그레이드</a>
+        <a href="{{ url_for('main.login') }}" class="pricing-card__cta pricing-card__cta--primary">Log in to upgrade</a>
       {% endif %}
     </div>
 
@@ -77,32 +77,32 @@
     <div class="pricing-card {% if current_plan == 'world_tour' %}pricing-card--current{% endif %}">
       <div class="pricing-card__head">
         <h2 class="pricing-card__name">World Tour</h2>
-        <p class="pricing-card__tagline">데이터까지 파고드는 고수용</p>
+        <p class="pricing-card__tagline">For data-hungry power users</p>
         <div class="pricing-card__price">
-          <span class="pricing-card__amount" data-price-monthly="₩9,900" data-price-yearly="₩99,000">₩9,900</span>
-          <span class="pricing-card__period" data-period-monthly="/ 월" data-period-yearly="/ 년">/ 월</span>
+          <span class="pricing-card__amount" data-price-monthly="$9.99" data-price-yearly="$99">$9.99</span>
+          <span class="pricing-card__period" data-period-monthly="/ month" data-period-yearly="/ year">/ month</span>
         </div>
       </div>
       <ul class="pricing-card__features">
-        <li><span class="pricing-check">✓</span>Pro의 모든 기능 포함</li>
-        <li><span class="pricing-check">✓</span>완성차 · 부품별 <strong>3년 가격 변동 그래프</strong></li>
-        <li><span class="pricing-check">✓</span>모델별 시세 추이 기반 구매 타이밍 분석</li>
-        <li><span class="pricing-check">✓</span>신규 기능 우선 제공</li>
+        <li><span class="pricing-check">✓</span>Everything in Pro</li>
+        <li><span class="pricing-check">✓</span>Complete bike & per-part <strong>3-year price history charts</strong></li>
+        <li><span class="pricing-check">✓</span>Buy-timing analysis based on model price trends</li>
+        <li><span class="pricing-check">✓</span>Early access to new features</li>
       </ul>
       {% if current_plan == 'world_tour' %}
-        <button class="pricing-card__cta pricing-card__cta--current" disabled>현재 플랜</button>
+        <button class="pricing-card__cta pricing-card__cta--current" disabled>Current plan</button>
       {% elif logged_in %}
         <a href="{{ url_for('main.billing_checkout', plan='world_tour', cycle='monthly') }}"
            class="pricing-card__cta"
            data-href-monthly="{{ url_for('main.billing_checkout', plan='world_tour', cycle='monthly') }}"
-           data-href-yearly="{{ url_for('main.billing_checkout', plan='world_tour', cycle='yearly') }}">World Tour로 업그레이드</a>
+           data-href-yearly="{{ url_for('main.billing_checkout', plan='world_tour', cycle='yearly') }}">Upgrade to World Tour</a>
       {% else %}
-        <a href="{{ url_for('main.login') }}" class="pricing-card__cta">로그인 후 업그레이드</a>
+        <a href="{{ url_for('main.login') }}" class="pricing-card__cta">Log in to upgrade</a>
       {% endif %}
     </div>
   </div>
 
-  <p class="pricing-footnote">모든 결제는 토스페이먼츠를 통해 안전하게 처리되며 언제든지 해지할 수 있습니다.</p>
+  <p class="pricing-footnote">Payments are processed securely. Cancel anytime.</p>
 </div>
 
 <script>
@@ -122,17 +122,17 @@
 
     buttons.forEach(b => b.addEventListener('click', () => setCycle(b.dataset.cycle)));
 
-    // 퍼널 — pricing 진입 (인입 경로 분석용 referrer 같이 기록)
+    // Funnel — pricing view (referrer logged for acquisition analysis).
     if (window.bpa) window.bpa.track(window.bpa.events.PRICING_VIEW, {
       current_plan: {{ (current_plan or 'guest')|tojson }}
     });
 
-    // 퍼널 — 플랜 선택 클릭. 결제 페이지 이탈률 측정용 (선택했지만 결제 안 한 비율)
+    // Funnel — plan selection click. Used to measure drop-off between selection and payment.
     document.querySelectorAll('a.pricing-card__cta[data-href-monthly]').forEach(function (el) {
       el.addEventListener('click', function () {
         var activeCycleBtn = document.querySelector('.pricing-cycle-toggle__btn--active');
         var cycle = activeCycleBtn ? activeCycleBtn.dataset.cycle : 'monthly';
-        // href에서 plan 추출 — /billing/checkout/<plan>/<cycle>
+        // Extract plan from href — /billing/checkout/<plan>/<cycle>.
         var m = (el.getAttribute('href') || '').match(/\/billing\/checkout\/([^\/]+)\//);
         if (window.bpa) window.bpa.track(window.bpa.events.PLAN_SELECT, {
           plan:  m ? m[1] : 'unknown',

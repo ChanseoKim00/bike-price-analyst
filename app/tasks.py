@@ -1,15 +1,15 @@
 """
-분석 작업 Celery task.
+Celery task for the analyze workflow.
 
-/analyze POST는 검증만 하고 이 task를 enqueue → 프론트는 /analyze/status/<task_id>로
-폴링. 로고 클릭 시 /analyze/cancel/<task_id>가 revoke(terminate=True)로 워커 프로세스를
-종료해 즉시 중단된다.
+POST /analyze just validates and enqueues this task → the frontend polls
+/analyze/status/<task_id>. Clicking the logo hits /analyze/cancel/<task_id>, which
+revokes the task with terminate=True, killing the worker process for an immediate stop.
 
-반환 형식 (Celery result backend에 저장, status 엔드포인트가 그대로 내려보냄):
-  성공:  {"status": "success", "analysis_id": "<uuid>"}
-  실패:  {"status": "error", "message": "...", "hint": "...", "url": "..."}
+Return format (stored in Celery result backend, returned verbatim by the status endpoint):
+  success: {"status": "success", "analysis_id": "<uuid>"}
+  error:   {"status": "error", "message": "...", "hint": "...", "url": "..."}
 
-취소(revoke)된 경우 task 자체가 REVOKED 상태가 되고, 본 함수는 정상 반환값을 남기지 않음.
+When revoked, the task itself enters the REVOKED state and this function never returns.
 """
 import logging
 import traceback
@@ -24,34 +24,34 @@ from .scraper import ScrapeError, fetch_html
 
 logger = logging.getLogger(__name__)
 
-# 부품 키 — routes.PART_KEYS와 동일 순서
+# Part keys — same order as routes.PART_KEYS
 PART_KEYS = ["groupset", "wheelset", "frameset", "saddle", "handlebar"]
 
-# 스크래핑 에러 코드별 (메시지, 힌트) — routes.SCRAPE_ERRORS와 동기화
+# (message, hint) per scrape error code — keep in sync with routes.SCRAPE_ERRORS
 SCRAPE_ERRORS = {
     "connection_error": (
-        "사이트에 접근할 수 없습니다.",
-        "링크가 올바른지 확인하거나, 잠시 후 다시 시도해주세요.",
+        "Could not reach the site.",
+        "Please check that the link is correct, or try again in a moment.",
     ),
     "timeout": (
-        "사이트 응답이 너무 느립니다.",
-        "잠시 후 다시 시도하거나, 다른 판매처 링크로 분석해보세요.",
+        "The site is responding too slowly.",
+        "Please try again in a moment, or try a link from a different retailer.",
     ),
     "blocked": (
-        "해당 사이트는 자동 접근을 허용하지 않습니다.",
-        "다른 판매처의 동일 제품 링크로 다시 시도해보세요.",
+        "This site does not allow automated access.",
+        "Please try the same product on a different retailer's page.",
     ),
     "not_found": (
-        "페이지를 찾을 수 없습니다.",
-        "링크가 만료되었거나 삭제된 것 같습니다. 판매처에서 링크를 다시 확인해주세요.",
+        "Page not found.",
+        "The link may have expired or been removed. Please verify the link with the retailer.",
     ),
     "http_error": (
-        "사이트 접근 중 오류가 발생했습니다.",
-        "잠시 후 다시 시도해주세요.",
+        "An error occurred while accessing the site.",
+        "Please try again in a moment.",
     ),
     "unknown": (
-        "사이트 접근 중 오류가 발생했습니다.",
-        "잠시 후 다시 시도해주세요.",
+        "An error occurred while accessing the site.",
+        "Please try again in a moment.",
     ),
 }
 
@@ -62,48 +62,48 @@ def _err(message, hint, url):
 
 @celery.task(bind=True, name="app.tasks.analyze_bike")
 def analyze_bike_task(self, url: str, user_id: str | None, ip: str, is_detailed: bool) -> dict:
-    # 순환 import 방지 — routes 안의 헬퍼를 여기서 재사용
+    # Avoid circular import — reuse the helper from routes
     from .routes import record_bike_price_history
 
-    print(f"[TASK {self.request.id}] 분석 시작 — url={url} user_id={user_id} ip={ip} detailed={is_detailed}")
+    print(f"[TASK {self.request.id}] analyze start — url={url} user_id={user_id} ip={ip} detailed={is_detailed}")
 
-    # STEP 1: 스크래핑
+    # STEP 1: scrape
     try:
         page_text = fetch_html(url)
-        print(f"[TASK {self.request.id}] STEP 1 완료 ({len(page_text)}자)")
+        print(f"[TASK {self.request.id}] STEP 1 done ({len(page_text)} chars)")
     except ScrapeError as e:
-        print(f"[TASK {self.request.id}] STEP 1 실패: {e}")
+        print(f"[TASK {self.request.id}] STEP 1 failed: {e}")
         msg, hint = SCRAPE_ERRORS.get(e.code, SCRAPE_ERRORS["unknown"])
         return _err(msg, hint, url)
 
     if not page_text:
         return _err(
-            "페이지 정보를 불러올 수 없습니다.",
-            "해당 사이트는 현재 지원하지 않습니다. 다른 판매처의 동일 제품 링크로 다시 시도해주세요.",
+            "Could not load the page contents.",
+            "This site is not supported right now. Please try the same product on a different retailer's link.",
             url,
         )
 
-    # STEP 2: AI 분석
+    # STEP 2: AI analysis
     exchange_rates = get_exchange_rates()
     try:
         info = extract_bike_info(page_text, exchange_rates=exchange_rates)
-        print(f"[TASK {self.request.id}] STEP 2 완료: {info['brand']} / {info['model_name']} / {info.get('model_year')}")
+        print(f"[TASK {self.request.id}] STEP 2 done: {info['brand']} / {info['model_name']} / {info.get('model_year')}")
     except AnalysisError as e:
-        print(f"[TASK {self.request.id}] STEP 2 실패: {e}")
+        print(f"[TASK {self.request.id}] STEP 2 failed: {e}")
         return _err(
-            "자전거 정보를 확인할 수 없습니다.",
-            "자전거 판매 페이지가 맞는지 확인하거나, 구동계·모델명이 명시된 다른 페이지로 시도해주세요.",
+            "Could not identify the bike information.",
+            "Please make sure this is a bike product page, or try a page that lists the groupset and model name.",
             url,
         )
     except ServiceBusyError:
-        print(f"[TASK {self.request.id}] STEP 2 Rate limit 재시도 실패")
+        print(f"[TASK {self.request.id}] STEP 2 rate-limit retries exhausted")
         return _err(
-            "현재 서비스가 혼잡합니다.",
-            "1~2분 후 다시 시도해주세요.",
+            "The service is currently busy.",
+            "Please try again in 1-2 minutes.",
             url,
         )
 
-    # STEP 3+: DB 반영
+    # STEP 3+: persist to DB
     try:
         bike = Bike.query.filter_by(
             brand=info["brand"],
@@ -154,8 +154,8 @@ def analyze_bike_task(self, url: str, user_id: str | None, ip: str, is_detailed:
         if parts["groupset"] is None:
             db.session.rollback()
             return _err(
-                "구동계 정보를 확인할 수 없습니다.",
-                "구동계(브랜드·모델명)가 명시된 판매 페이지 링크로 다시 시도해주세요.",
+                "Could not identify the groupset.",
+                "Please try a product page that explicitly lists the groupset (brand and model name).",
                 url,
             )
 
@@ -166,7 +166,7 @@ def analyze_bike_task(self, url: str, user_id: str | None, ip: str, is_detailed:
 
         if is_new_bike:
             db.session.add(bike)
-        db.session.flush()  # bike.id 확정
+        db.session.flush()  # finalize bike.id
 
         if is_new_bike and bike.price_krw:
             record_bike_price_history(bike, bike.price_krw)
@@ -199,7 +199,7 @@ def analyze_bike_task(self, url: str, user_id: str | None, ip: str, is_detailed:
             analyzed_at=datetime.utcnow(),
         )
         db.session.add(analysis)
-        db.session.flush()  # analysis.id 확정
+        db.session.flush()  # finalize analysis.id
 
         if user_id:
             db.session.add(UserAnalysis(user_id=user_id, analysis_id=analysis.id))
@@ -211,14 +211,14 @@ def analyze_bike_task(self, url: str, user_id: str | None, ip: str, is_detailed:
         ))
         db.session.commit()
 
-        print(f"[TASK {self.request.id}] 완료 — 부품합산 {parts_sum_krw:,}원 / 완성차 {bike_price:,}원 / 절약 {saving_krw:,}원")
+        print(f"[TASK {self.request.id}] done — parts sum {parts_sum_krw:,} KRW / complete bike {bike_price:,} KRW / savings {saving_krw:,} KRW")
         return {"status": "success", "analysis_id": str(analysis.id)}
 
     except Exception:
         db.session.rollback()
-        logger.error("분석 task 예외 | url=%s\n%s", url, traceback.format_exc())
+        logger.error("analyze task exception | url=%s\n%s", url, traceback.format_exc())
         return _err(
-            "일시적인 오류가 발생했습니다.",
-            "잠시 후 다시 시도해주세요. 문제가 반복되면 다른 링크로 시도해보세요.",
+            "A temporary error occurred.",
+            "Please try again in a moment. If it keeps happening, try a different link.",
             url,
         )

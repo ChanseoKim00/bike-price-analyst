@@ -2,13 +2,13 @@
 {% block content %}
 
 <div class="loading-overlay" id="loadingOverlay">
-  <p class="loading-text">AI가 가격을 분석중입니다.</p>
+  <p class="loading-text">AI is analyzing the price…</p>
 </div>
 
 <div class="main-wrap">
   <div class="main-inner">
     <h1 class="title">Bike Price Analyst</h1>
-    <p class="error-msg">{{ message or "자전거 정보 조회에 실패하였습니다." }}</p>
+    <p class="error-msg">{{ message or "Could not fetch the bike data." }}</p>
     {% if hint %}
     <p class="error-hint">{{ hint }}</p>
     {% endif %}
@@ -20,11 +20,11 @@
           name="url"
           class="url-input"
           value="{{ url or '' }}"
-          placeholder="자전거 판매처 링크를 입력하고 분석 버튼을 눌러주세요."
+          placeholder="Paste a bike retailer URL and press Analyze."
           required
           autofocus
         >
-        <button type="submit" class="analyze-btn">분석</button>
+        <button type="submit" class="analyze-btn">Analyze</button>
       </div>
     </form>
   </div>

@@ -3,14 +3,14 @@
 
 <div class="main-wrap">
   <div class="main-inner" style="gap: 1.25rem; text-align: center;">
-    <p class="suggest-complete-msg">소중한 의견 감사합니다.</p>
-    <p class="suggest-complete-sub">주신 피드백을 반영해 더 나은 서비스로 보답하겠습니다.</p>
-    <a href="/" class="another-btn" style="margin-top: 0.5rem;">메인으로</a>
+    <p class="suggest-complete-msg">Thanks for the feedback.</p>
+    <p class="suggest-complete-sub">We'll use it to make the service better.</p>
+    <a href="/" class="another-btn" style="margin-top: 0.5rem;">Back to home</a>
   </div>
 </div>
 
 <script>
-  // /feedback 풀 폼으로 제출한 유저도 결과 페이지 이탈 팝업 쿨타임(72h) 적용.
+  // Apply the same 72h exit-popup cooldown to users who submitted via the full /feedback form.
   try { localStorage.setItem('exitFeedbackSubmittedAt', String(Date.now())); } catch (_) {}
 </script>
 

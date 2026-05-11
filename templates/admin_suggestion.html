@@ -5,41 +5,41 @@
   <div class="admin-inner">
 
     <div class="admin-suggestion-header">
-      <a href="/admin" class="admin-back">← 대시보드로</a>
-      <h1 class="admin-title">가격 수정 제안 상세</h1>
+      <a href="/admin" class="admin-back">← Back to dashboard</a>
+      <h1 class="admin-title">Price suggestion detail</h1>
     </div>
 
-    <!-- 제안 메타 -->
+    <!-- Suggestion meta -->
     <div class="admin-suggestion-meta">
       <div class="admin-meta-row">
-        <span class="admin-meta-label">자전거</span>
+        <span class="admin-meta-label">Bike</span>
         <span class="admin-meta-value">{{ bike_name }}</span>
       </div>
       <div class="admin-meta-row">
-        <span class="admin-meta-label">제안 일시</span>
-        <span class="admin-meta-value">{{ ps.created_at.strftime('%Y.%m.%d %H:%M') }}</span>
+        <span class="admin-meta-label">Submitted</span>
+        <span class="admin-meta-value">{{ ps.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
       </div>
       <div class="admin-meta-row">
-        <span class="admin-meta-label">제안자</span>
+        <span class="admin-meta-label">Submitted by</span>
         <span class="admin-meta-value">{{ proposer }}</span>
       </div>
       <div class="admin-meta-row">
-        <span class="admin-meta-label">상태</span>
+        <span class="admin-meta-label">Status</span>
         <span class="admin-status-pending">{{ ps.status }}</span>
       </div>
     </div>
 
-    <!-- 부품별 제안 내용 -->
+    <!-- Per-part suggestions -->
     <section class="admin-section">
-      <h2 class="admin-section-title">부품별 제안 내용</h2>
+      <h2 class="admin-section-title">Per-part suggestions</h2>
       <table class="admin-table">
         <thead>
           <tr>
-            <th>부품 구분</th>
-            <th>모델명</th>
-            <th>기존 가격</th>
-            <th>제안 가격</th>
-            <th>판매처 링크</th>
+            <th>Part type</th>
+            <th>Model</th>
+            <th>Current price</th>
+            <th>Suggested price</th>
+            <th>Source</th>
           </tr>
         </thead>
         <tbody>
@@ -48,18 +48,18 @@
             <td class="admin-meta-label" style="white-space:nowrap;">{{ row.label }}</td>
             <td class="admin-bike">
               {% if row.part_name %}{{ row.part_name }}
-              {% else %}<span class="admin-muted">미확인</span>{% endif %}
+              {% else %}<span class="admin-muted">Unknown</span>{% endif %}
             </td>
             <td class="admin-date" style="white-space:nowrap;">
               {% if row.current_price %}
-                {{ "{:,}".format(row.current_price) }}원
+                ${{ row.current_price|usd }}
               {% else %}
                 <span class="admin-muted">-</span>
               {% endif %}
             </td>
             <td class="admin-saving" style="white-space:nowrap;">
               {% if row.suggested_price %}
-                {{ "{:,}".format(row.suggested_price) }}원
+                ${{ row.suggested_price|usd }}
               {% else %}
                 <span class="admin-muted">-</span>
               {% endif %}
@@ -67,7 +67,7 @@
             <td class="admin-suggestion-url">
               {% if row.source_url %}
                 <a href="{{ row.source_url }}" target="_blank" rel="noopener" class="admin-suggestion-link">
-                  링크 열기
+                  Open link
                 </a>
               {% else %}
                 <span class="admin-muted">-</span>
@@ -83,11 +83,11 @@
     <div class="admin-suggestion-actions">
       <form method="post" action="{{ url_for('main.admin_suggestion_reject', suggestion_id=ps.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="admin-btn admin-btn--reject">제안 거절</button>
+        <button type="submit" class="admin-btn admin-btn--reject">Reject</button>
       </form>
       <form method="post" action="{{ url_for('main.admin_suggestion_approve', suggestion_id=ps.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="admin-btn admin-btn--approve">제안 수락</button>
+        <button type="submit" class="admin-btn admin-btn--approve">Approve</button>
       </form>
     </div>
     {% endif %}

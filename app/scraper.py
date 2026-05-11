@@ -14,13 +14,13 @@ HEADERS = {
     ),
     "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
 }
-TIMEOUT = 15      # requests 타임아웃 (초)
-PW_TIMEOUT = 30   # Playwright 타임아웃 (초)
-JS_THRESHOLD = 500  # 이 글자 수 미만이면 Playwright 폴백
+TIMEOUT = 15      # requests timeout (seconds)
+PW_TIMEOUT = 30   # Playwright timeout (seconds)
+JS_THRESHOLD = 500  # Fall back to Playwright if text length is below this
 
 
 class ScrapeError(Exception):
-    """스크래핑 실패 시 발생 — routes.py에서 케이스 6 처리용"""
+    """Raised when scraping fails - used for case 6 handling in routes.py"""
     def __init__(self, message, code="unknown"):
         super().__init__(message)
         self.code = code
@@ -28,26 +28,27 @@ class ScrapeError(Exception):
 
 def assert_safe_url(url: str) -> None:
     """
-    SSRF 방지 — 사용자 입력 URL이 가리키는 호스트가 사설/loopback/링크로컬 등
-    내부 자원에 해당하면 ScrapeError를 발생시킨다.
+    SSRF guard - raise ScrapeError if a user-supplied URL points at private,
+    loopback, link-local, or other internal-resource hosts.
 
-    DNS rebinding을 완벽히 막진 못하지만, 입력단·요청단 모두에서 호출해
-    일반적인 내부망·메타데이터 엔드포인트(예: 169.254.169.254) 접근은 차단한다.
+    This does not fully prevent DNS rebinding, but invoking it at both the
+    input and request stages blocks typical internal-network and metadata
+    endpoints (e.g. 169.254.169.254).
     """
     from urllib.parse import urlparse
 
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
-        raise ScrapeError("지원하지 않는 URL 스킴", code="blocked")
+        raise ScrapeError("Unsupported URL scheme", code="blocked")
 
     host = parsed.hostname
     if not host:
-        raise ScrapeError("URL 호스트가 없습니다.", code="blocked")
+        raise ScrapeError("URL has no host.", code="blocked")
 
     try:
         addrs = socket.getaddrinfo(host, None)
     except socket.gaierror:
-        raise ScrapeError(f"호스트 조회 실패: {host}", code="connection_error")
+        raise ScrapeError(f"Host lookup failed: {host}", code="connection_error")
 
     for addr in addrs:
         try:
@@ -62,37 +63,37 @@ def assert_safe_url(url: str) -> None:
             or ip.is_reserved
             or ip.is_unspecified
         ):
-            raise ScrapeError("내부 네트워크 주소로의 요청은 허용되지 않습니다.", code="blocked")
+            raise ScrapeError("Requests to internal network addresses are not allowed.", code="blocked")
 
 
 def fetch_html(url: str) -> str:
     """
-    URL에서 HTML을 가져와 본문 텍스트만 정제해서 반환.
-    requests로 먼저 시도하고, 결과가 JS_THRESHOLD 미만이면 Playwright로 재시도.
+    Fetch HTML from the URL and return only the cleaned body text.
+    Try requests first; if the result is below JS_THRESHOLD, retry with Playwright.
 
     Returns:
-        str: 정제된 텍스트
+        str: cleaned text
 
     Raises:
-        ScrapeError: 네트워크 오류, 봇 차단(403/429), 링크 만료(404) 등
+        ScrapeError: network errors, bot blocking (403/429), broken link (404), etc.
     """
-    # SSRF 방지 — 호스트가 사설망/loopback이면 즉시 차단
+    # SSRF guard - block immediately if host is private/loopback
     assert_safe_url(url)
 
-    # 1차 시도: requests
+    # First attempt: requests
     try:
         resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
     except requests.exceptions.ConnectionError:
-        raise ScrapeError(f"연결 실패: {url}", code="connection_error")
+        raise ScrapeError(f"Connection failed: {url}", code="connection_error")
     except requests.exceptions.Timeout:
-        raise ScrapeError(f"응답 시간 초과 ({TIMEOUT}s): {url}", code="timeout")
+        raise ScrapeError(f"Response timed out ({TIMEOUT}s): {url}", code="timeout")
     except requests.exceptions.RequestException as e:
-        raise ScrapeError(f"요청 오류: {e}", code="http_error")
+        raise ScrapeError(f"Request error: {e}", code="http_error")
 
     if resp.status_code == 404:
-        raise ScrapeError(f"페이지를 찾을 수 없습니다 (404): {url}", code="not_found")
+        raise ScrapeError(f"Page not found (404): {url}", code="not_found")
     if resp.status_code in (403, 429):
-        raise ScrapeError(f"봇 차단 또는 접근 거부 ({resp.status_code}): {url}", code="blocked")
+        raise ScrapeError(f"Bot blocking or access denied ({resp.status_code}): {url}", code="blocked")
     if not resp.ok:
         raise ScrapeError(f"HTTP {resp.status_code}: {url}", code="http_error")
 
@@ -100,32 +101,32 @@ def fetch_html(url: str) -> str:
     text = _clean_html(decoded)
 
     if len(text) >= JS_THRESHOLD:
-        print(f"[SCRAPER] requests 성공 ({len(text)}자)")
+        print(f"[SCRAPER] requests success ({len(text)} chars)")
         return text
 
-    # 2차 시도: Playwright (JS 렌더링)
-    print(f"[SCRAPER] requests 결과 {len(text)}자 — Playwright 폴백 시도")
+    # Second attempt: Playwright (JS rendering)
+    print(f"[SCRAPER] requests yielded {len(text)} chars - trying Playwright fallback")
     pw_text = _fetch_with_playwright(url)
     if pw_text:
-        print(f"[SCRAPER] Playwright 성공 ({len(pw_text)}자)")
+        print(f"[SCRAPER] Playwright success ({len(pw_text)} chars)")
         return pw_text
 
-    # Playwright도 실패하면 requests 결과 그대로 반환
-    print(f"[SCRAPER] Playwright 실패 — requests 결과({len(text)}자) 사용")
+    # If Playwright also fails, return the requests result as-is
+    print(f"[SCRAPER] Playwright failed - using requests result ({len(text)} chars)")
     return text
 
 
 def _fetch_with_playwright(url: str) -> str:
     """
-    Playwright headless Chromium으로 JS 렌더링 후 텍스트 추출.
+    Render via Playwright headless Chromium (JS rendering) and extract text.
 
     Returns:
-        str: 정제된 텍스트. 실패 시 빈 문자열.
+        str: cleaned text. Empty string on failure.
     """
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
     except ImportError:
-        print("[SCRAPER] playwright 패키지 없음 — 폴백 스킵")
+        print("[SCRAPER] playwright package not installed - skipping fallback")
         return ""
 
     try:
@@ -143,14 +144,14 @@ def _fetch_with_playwright(url: str) -> str:
             browser.close()
         return _clean_html(html)
     except Exception as e:
-        print(f"[SCRAPER] Playwright 오류: {type(e).__name__}: {e}")
+        print(f"[SCRAPER] Playwright error: {type(e).__name__}: {e}")
         return ""
 
 
 def _decode_response(resp) -> str:
     """
-    응답 본문을 올바른 인코딩으로 디코딩.
-    apparent_encoding 우선, 실패 시 cp949 → utf-8 순으로 시도.
+    Decode the response body using the correct encoding.
+    Try apparent_encoding first, then fall back to cp949 -> utf-8.
     """
     for enc in [resp.apparent_encoding, "cp949", "utf-8"]:
         if not enc:
@@ -159,46 +160,46 @@ def _decode_response(resp) -> str:
             return resp.content.decode(enc, errors="strict")
         except (UnicodeDecodeError, LookupError):
             continue
-    # 모두 실패 시 utf-8 errors=ignore로 fallback
+    # Final fallback: utf-8 with errors=ignore
     return resp.content.decode("utf-8", errors="ignore")
 
 
 def _clean_html(raw_html: str) -> str:
     """
-    AI 토큰 최소화를 위해 불필요한 태그 제거 후 텍스트만 추출.
-    - 제거 태그: 레이아웃/UI 요소(nav, header, footer 등) + 비텍스트 요소(script, style 등)
-    - 연속 공백·줄바꿈 압축
+    Strip unnecessary tags and extract only text to minimize AI tokens.
+    - Tags removed: layout/UI elements (nav, header, footer, etc.) + non-text elements (script, style, etc.)
+    - Collapse runs of whitespace and line breaks
 
-    주의: 일부 사이트는 <head>/<link> 태그가 body 안에 중복 등장하고,
-    BeautifulSoup(html.parser)가 그 이후 내용을 해당 태그의 자식으로 파싱한다.
-    → 진짜 <head>(html 직계 자식)만 decompose, 나머지는 unwrap으로 내용 보존.
+    Note: some sites have <head>/<link> tags duplicated inside <body>, and
+    BeautifulSoup(html.parser) parses everything after that as children of those tags.
+    -> Decompose only the real <head> (a direct child of <html>); unwrap the rest to preserve content.
     """
     soup = BeautifulSoup(raw_html, "html.parser")
 
-    # <body> 기준으로 추출 — 일부 사이트는 html.parser가 전체 내용을 <head> 안으로
-    # 파싱하는 버그가 있어서 soup 전체 대신 body 태그를 기준으로 사용.
-    # body가 없으면 soup 전체 fallback.
+    # Extract relative to <body> - on some sites html.parser has a bug
+    # where it parses the entire document inside <head>, so use the body tag
+    # instead of the whole soup. Fall back to whole soup if body is missing.
     root = soup.find("body") or soup
 
     REMOVE_TAGS = [
-        "script", "style", "noscript", "iframe",  # 비텍스트
-        "nav", "header", "footer", "aside",        # 레이아웃
-        "form", "button", "input", "select",       # UI 컨트롤
-        "svg", "img", "figure", "picture",         # 미디어
-        "head",                                    # 잘못된 위치의 head 태그
+        "script", "style", "noscript", "iframe",  # non-text
+        "nav", "header", "footer", "aside",        # layout
+        "form", "button", "input", "select",       # UI controls
+        "svg", "img", "figure", "picture",         # media
+        "head",                                    # misplaced head tag
     ]
     for tag in root(REMOVE_TAGS):
         tag.decompose()
 
     text = root.get_text(separator="\n")
 
-    # 각 줄 앞뒤 공백 제거 + 빈 줄 제거
+    # Trim leading/trailing whitespace per line and remove blank lines
     lines = [line.strip() for line in text.splitlines()]
     cleaned = "\n".join(line for line in lines if line)
 
-    # 연속 줄바꿈 2개로 압축, 연속 공백 1개로 압축
+    # Collapse runs of newlines to 2 and runs of spaces to 1
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = re.sub(r" {2,}", " ", cleaned)
 
-    # AI 입력 토큰 절감: 최대 8000자로 제한
+    # Reduce AI input tokens: cap at 8000 chars
     return cleaned[:8000]

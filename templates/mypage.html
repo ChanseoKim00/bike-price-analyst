@@ -3,16 +3,16 @@
 
 <div class="mypage-wrap">
   <div class="mypage-inner">
-    <h1 class="mypage-title">마이페이지</h1>
+    <h1 class="mypage-title">My page</h1>
 
     <div class="mypage-layout">
       <nav class="mypage-sidebar">
         {% set tabs = [
-          ('general',  '일반'),
-          ('account',  '계정'),
-          ('billing',  '결제'),
-          ('usage',    '사용량'),
-          ('history',  '검색 히스토리'),
+          ('general',  'General'),
+          ('account',  'Account'),
+          ('billing',  'Billing'),
+          ('usage',    'Usage'),
+          ('history',  'Search history'),
         ] %}
         {% for key, label in tabs %}
           <a href="{{ url_for('main.mypage', tab=key) }}"
@@ -31,132 +31,132 @@
         {% endif %}
 
         {% if tab == 'general' %}
-          <h2 class="mypage-section-title">일반</h2>
+          <h2 class="mypage-section-title">General</h2>
 
           <div class="mypage-card">
-            <h3 class="mypage-card-title">프로필</h3>
+            <h3 class="mypage-card-title">Profile</h3>
             <dl class="mypage-info">
               <div class="mypage-info-row">
-                <dt>닉네임</dt>
+                <dt>Nickname</dt>
                 <dd>{{ user.nickname }}</dd>
               </div>
               <div class="mypage-info-row">
-                <dt>이메일</dt>
+                <dt>Email</dt>
                 <dd>{{ user.email }}</dd>
               </div>
               {% if user.name %}
               <div class="mypage-info-row">
-                <dt>이름</dt>
+                <dt>Name</dt>
                 <dd>{{ user.name }}</dd>
               </div>
               {% endif %}
               <div class="mypage-info-row">
-                <dt>현재 플랜</dt>
+                <dt>Current plan</dt>
                 <dd>
-                  {% if user.role == 'admin' %}관리자
+                  {% if user.role == 'admin' %}Admin
                   {% else %}{{ user.plan|replace('_', ' ') }}{% endif %}
                 </dd>
               </div>
               <div class="mypage-info-row">
-                <dt>가입 방식</dt>
+                <dt>Sign-in method</dt>
                 <dd>
-                  {% if user.provider == 'google' %}Google 연동
-                  {% else %}이메일{% endif %}
+                  {% if user.provider == 'google' %}Google
+                  {% else %}Email{% endif %}
                 </dd>
               </div>
               <div class="mypage-info-row">
-                <dt>가입일</dt>
-                <dd>{{ user.created_at.strftime('%Y.%m.%d') }}</dd>
+                <dt>Joined</dt>
+                <dd>{{ user.created_at.strftime('%Y-%m-%d') }}</dd>
               </div>
             </dl>
           </div>
 
           <div class="mypage-card">
-            <h3 class="mypage-card-title">알림</h3>
+            <h3 class="mypage-card-title">Notifications</h3>
             <form method="POST" action="{{ url_for('main.mypage_profile') }}" class="mypage-toggle-form">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <label class="mypage-toggle">
                 <input type="checkbox" name="notifications_enabled" {% if user.notifications_enabled %}checked{% endif %}>
                 <span class="mypage-toggle__track"><span class="mypage-toggle__thumb"></span></span>
-                <span class="mypage-toggle__label">알림 받기</span>
+                <span class="mypage-toggle__label">Enable email notifications</span>
               </label>
-              <p class="mypage-hint">새 기능, 가격 업데이트, 공지사항을 이메일로 받아보실 수 있습니다.</p>
-              <button type="submit" class="mypage-btn">저장</button>
+              <p class="mypage-hint">Receive updates about new features, price changes, and announcements by email.</p>
+              <button type="submit" class="mypage-btn">Save</button>
             </form>
           </div>
 
         {% elif tab == 'account' %}
-          <h2 class="mypage-section-title">계정</h2>
+          <h2 class="mypage-section-title">Account</h2>
 
           <div class="mypage-card">
-            <h3 class="mypage-card-title">아이디 (이메일)</h3>
+            <h3 class="mypage-card-title">Email (login)</h3>
             <form method="POST" action="{{ url_for('main.mypage_account_email') }}" class="mypage-form">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="email" name="email" value="{{ user.email }}"
                      class="mypage-input"
                      {% if user.provider == 'google' %}disabled{% endif %} required>
               {% if user.provider == 'google' %}
-                <p class="mypage-hint">Google 연동 계정은 이메일을 변경할 수 없습니다.</p>
+                <p class="mypage-hint">Google-linked accounts cannot change their email.</p>
               {% else %}
-                <button type="submit" class="mypage-btn">이메일 변경</button>
+                <button type="submit" class="mypage-btn">Update email</button>
               {% endif %}
             </form>
           </div>
 
           <div class="mypage-card">
-            <h3 class="mypage-card-title">닉네임</h3>
+            <h3 class="mypage-card-title">Nickname</h3>
             <form method="POST" action="{{ url_for('main.mypage_account_nickname') }}" class="mypage-form">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="text" name="nickname" value="{{ user.nickname }}"
                      class="mypage-input" maxlength="30" required>
-              <button type="submit" class="mypage-btn">닉네임 변경</button>
+              <button type="submit" class="mypage-btn">Update nickname</button>
             </form>
           </div>
 
           <div class="mypage-card">
-            <h3 class="mypage-card-title">비밀번호</h3>
+            <h3 class="mypage-card-title">Password</h3>
             {% if user.password_hash %}
               <form method="POST" action="{{ url_for('main.mypage_account_password') }}" class="mypage-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <label class="mypage-field-label">현재 비밀번호</label>
+                <label class="mypage-field-label">Current password</label>
                 <input type="password" name="current_password" class="mypage-input" required>
 
-                <label class="mypage-field-label">새 비밀번호 (최소 8자)</label>
+                <label class="mypage-field-label">New password (min. 8 chars)</label>
                 <input type="password" name="new_password" class="mypage-input" minlength="8" required>
 
-                <label class="mypage-field-label">새 비밀번호 확인</label>
+                <label class="mypage-field-label">Confirm new password</label>
                 <input type="password" name="new_password_confirm" class="mypage-input" minlength="8" required>
 
-                <button type="submit" class="mypage-btn">비밀번호 변경</button>
+                <button type="submit" class="mypage-btn">Update password</button>
               </form>
             {% else %}
-              <p class="mypage-hint">소셜 로그인 계정은 비밀번호를 설정할 수 없습니다.</p>
+              <p class="mypage-hint">Social-login accounts can't set a password.</p>
             {% endif %}
           </div>
 
         {% elif tab == 'billing' %}
-          <h2 class="mypage-section-title">결제</h2>
+          <h2 class="mypage-section-title">Billing</h2>
 
           <div class="mypage-card">
-            <h3 class="mypage-card-title">현재 구독</h3>
+            <h3 class="mypage-card-title">Current subscription</h3>
             {% if user.plan == 'continental' %}
-              <p class="mypage-hint">현재 무료 플랜(Continental)을 이용 중입니다.</p>
-              <a href="{{ url_for('main.pricing') }}" class="mypage-btn">플랜 업그레이드</a>
+              <p class="mypage-hint">You're on the free Continental plan.</p>
+              <a href="{{ url_for('main.pricing') }}" class="mypage-btn">Upgrade plan</a>
             {% else %}
               <dl class="mypage-info">
                 <div class="mypage-info-row">
-                  <dt>플랜</dt>
+                  <dt>Plan</dt>
                   <dd>{{ plan_label }}{% if cycle_label %} · {{ cycle_label }}{% endif %}</dd>
                 </div>
                 <div class="mypage-info-row">
-                  <dt>상태</dt>
+                  <dt>Status</dt>
                   <dd>
                     {% if user.subscription_status == 'active' %}
-                      <span class="billing-pill billing-pill--active">사용 중</span>
+                      <span class="billing-pill billing-pill--active">Active</span>
                     {% elif user.subscription_status == 'canceled' %}
-                      <span class="billing-pill billing-pill--canceled">취소됨</span>
+                      <span class="billing-pill billing-pill--canceled">Canceled</span>
                     {% elif user.subscription_status == 'past_due' %}
-                      <span class="billing-pill billing-pill--past_due">결제 실패</span>
+                      <span class="billing-pill billing-pill--past_due">Payment failed</span>
                     {% else %}
                       <span class="billing-pill">-</span>
                     {% endif %}
@@ -164,13 +164,13 @@
                 </div>
                 {% if user.subscription_status == 'active' and user.next_billing_at %}
                 <div class="mypage-info-row">
-                  <dt>다음 결제일</dt>
-                  <dd>{{ user.next_billing_at.strftime('%Y.%m.%d') }}</dd>
+                  <dt>Next billing date</dt>
+                  <dd>{{ user.next_billing_at.strftime('%Y-%m-%d') }}</dd>
                 </div>
                 {% elif user.subscription_status == 'canceled' and user.plan_expires_at %}
                 <div class="mypage-info-row">
-                  <dt>이용 가능 기한</dt>
-                  <dd>{{ user.plan_expires_at.strftime('%Y.%m.%d') }}까지</dd>
+                  <dt>Access ends</dt>
+                  <dd>{{ user.plan_expires_at.strftime('%Y-%m-%d') }}</dd>
                 </div>
                 {% endif %}
               </dl>
@@ -178,17 +178,17 @@
               <div class="billing-actions">
                 {% if user.subscription_status == 'active' %}
                   <form method="POST" action="{{ url_for('main.billing_cancel') }}"
-                        onsubmit="return confirm('구독을 취소하시겠습니까? 결제된 기간 만료까지는 계속 이용할 수 있습니다.');">
+                        onsubmit="return confirm('Cancel your subscription? You will keep access until the end of the current billing period.');">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="billing-btn billing-btn--danger">구독 취소</button>
+                    <button type="submit" class="billing-btn billing-btn--danger">Cancel subscription</button>
                   </form>
                 {% elif user.subscription_status == 'canceled' %}
                   <form method="POST" action="{{ url_for('main.billing_resume') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="billing-btn">구독 재개</button>
+                    <button type="submit" class="billing-btn">Resume subscription</button>
                   </form>
                 {% elif user.subscription_status == 'past_due' %}
-                  <a href="{{ url_for('main.pricing') }}" class="billing-btn">결제수단 다시 등록</a>
+                  <a href="{{ url_for('main.pricing') }}" class="billing-btn">Update payment method</a>
                 {% endif %}
               </div>
             {% endif %}
@@ -196,10 +196,10 @@
 
           {% if user.billing_card_number %}
           <div class="mypage-card">
-            <h3 class="mypage-card-title">등록된 결제수단</h3>
+            <h3 class="mypage-card-title">Saved payment method</h3>
             <dl class="mypage-info">
               <div class="mypage-info-row">
-                <dt>카드</dt>
+                <dt>Card</dt>
                 <dd>
                   {% if user.billing_card_company %}{{ user.billing_card_company }} {% endif %}
                   {{ user.billing_card_number }}
@@ -207,40 +207,40 @@
               </div>
             </dl>
             <div class="billing-actions">
-              <a href="{{ url_for('main.pricing') }}" class="billing-btn">카드 변경</a>
+              <a href="{{ url_for('main.pricing') }}" class="billing-btn">Change card</a>
             </div>
           </div>
           {% endif %}
 
           <div class="mypage-card">
-            <h3 class="mypage-card-title">결제 내역</h3>
+            <h3 class="mypage-card-title">Payment history</h3>
             {% if billing_payments %}
             <table class="billing-payments-table">
               <thead>
                 <tr>
-                  <th>일시</th>
-                  <th>플랜</th>
-                  <th>금액</th>
-                  <th>상태</th>
+                  <th>Date</th>
+                  <th>Plan</th>
+                  <th>Amount</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {% for p in billing_payments %}
                 <tr>
-                  <td>{{ (p.paid_at or p.created_at).strftime('%Y.%m.%d') }}</td>
+                  <td>{{ (p.paid_at or p.created_at).strftime('%Y-%m-%d') }}</td>
                   <td>
                     {% if p.plan == 'pro' %}Pro
                     {% elif p.plan == 'world_tour' %}World Tour
                     {% else %}{{ p.plan }}{% endif %}
-                    · {% if p.cycle == 'monthly' %}월간{% else %}연간{% endif %}
+                    · {% if p.cycle == 'monthly' %}Monthly{% else %}Yearly{% endif %}
                   </td>
-                  <td>₩{{ "{:,}".format(p.amount_krw) }}</td>
+                  <td>${{ p.amount_krw|usd }}</td>
                   <td>
                     <span class="billing-status-{{ p.status }}">
-                      {% if p.status == 'paid' %}결제완료
-                      {% elif p.status == 'failed' %}실패
-                      {% elif p.status == 'pending' %}대기
-                      {% elif p.status == 'canceled' %}취소
+                      {% if p.status == 'paid' %}Paid
+                      {% elif p.status == 'failed' %}Failed
+                      {% elif p.status == 'pending' %}Pending
+                      {% elif p.status == 'canceled' %}Canceled
                       {% else %}{{ p.status }}{% endif %}
                     </span>
                   </td>
@@ -249,26 +249,26 @@
               </tbody>
             </table>
             {% else %}
-              <p class="mypage-hint">아직 결제 내역이 없습니다.</p>
+              <p class="mypage-hint">No payments yet.</p>
             {% endif %}
           </div>
 
         {% elif tab == 'usage' %}
-          <h2 class="mypage-section-title">사용량</h2>
+          <h2 class="mypage-section-title">Usage</h2>
           <div class="mypage-card mypage-card--placeholder">
-            <p class="mypage-placeholder-text">사용량 조회는 준비 중입니다.</p>
-            <p class="mypage-hint">플랜별 분석 횟수, 상담 이용 기록 등을 확인하실 수 있게 됩니다.</p>
+            <p class="mypage-placeholder-text">Usage analytics coming soon.</p>
+            <p class="mypage-hint">You'll see analyses run, chatbot usage, and per-plan quotas here.</p>
           </div>
 
         {% elif tab == 'history' %}
-          <h2 class="mypage-section-title">검색 히스토리</h2>
+          <h2 class="mypage-section-title">Search history</h2>
           {% if history_items %}
           <table class="history-table">
             <thead>
               <tr>
-                <th>자전거</th>
-                <th>절약 금액</th>
-                <th>분석 일시</th>
+                <th>Bike</th>
+                <th>You saved</th>
+                <th>Analyzed at</th>
               </tr>
             </thead>
             <tbody>
@@ -283,14 +283,14 @@
                 </td>
                 <td class="history-saving">
                   {% if item.saving_krw > 0 %}
-                    {{ "{:,}".format(item.saving_krw) }}원
+                    ${{ item.saving_krw|usd }}
                     <span class="history-pct">{{ item.saving_pct }}%</span>
                   {% else %}
                     <span class="history-muted">-</span>
                   {% endif %}
                 </td>
                 <td class="history-date">
-                  {{ item.viewed_at.strftime('%Y.%m.%d %H:%M') }}
+                  {{ item.viewed_at.strftime('%Y-%m-%d %H:%M') }}
                 </td>
               </tr>
               {% endfor %}
@@ -298,8 +298,8 @@
           </table>
           {% else %}
           <div class="mypage-card mypage-card--placeholder">
-            <p class="mypage-placeholder-text">아직 분석한 자전거가 없습니다.</p>
-            <a href="/" class="mypage-btn">첫 번째 자전거 분석하기</a>
+            <p class="mypage-placeholder-text">You haven't analyzed any bikes yet.</p>
+            <a href="/" class="mypage-btn">Analyze your first bike</a>
           </div>
           {% endif %}
 
@@ -311,7 +311,7 @@
 
 {% if request.args.get('paid') == '1' %}
 <script>
-  // 퍼널 6단계 — 구독 결제 완료. /billing/success 가 ?paid=1 로 리다이렉트.
+  // Funnel step 6 — subscription complete. /billing/success redirects with ?paid=1.
   if (window.bpa) window.bpa.track(window.bpa.events.SUBSCRIBE_COMPLETE, {
     plan: {{ (user.plan or '')|tojson }},
     cycle: {{ (user.subscription_cycle or '')|tojson }}

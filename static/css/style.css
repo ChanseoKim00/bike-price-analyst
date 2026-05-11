@@ -10,7 +10,7 @@ body {
 
 a { color: inherit; text-decoration: none; }
 
-/* ===== BPA 로고 + 메인 네비 (전체 페이지 공통, 좌측 상단 고정) ===== */
+/* ===== BPA logo + primary nav (shared across pages, fixed top-left) ===== */
 .top-header-left {
   position: fixed;
   top: 1.25rem;
@@ -50,7 +50,7 @@ a { color: inherit; text-decoration: none; }
   opacity: 0.7;
 }
 
-/* ===== 메인 화면 ===== */
+/* ===== Landing screen ===== */
 .main-wrap {
   min-height: 100vh;
   display: flex;
@@ -171,7 +171,7 @@ a { color: inherit; text-decoration: none; }
   text-align: center;
 }
 
-/* ===== 에러 메시지 ===== */
+/* ===== Error message ===== */
 .error-msg {
   color: #ff8a80;
   font-size: 1rem;
@@ -187,7 +187,7 @@ a { color: inherit; text-decoration: none; }
   margin-top: -0.5rem;
 }
 
-/* ===== 결과 화면 ===== */
+/* ===== Result screen ===== */
 .result-wrap {
   min-height: 100vh;
   display: flex;
@@ -269,7 +269,7 @@ a { color: inherit; text-decoration: none; }
   text-align: center;
 }
 
-/* ===== 부품 테이블 래퍼 & 가격 블러 ===== */
+/* ===== Parts-table wrapper & price blur ===== */
 .parts-table-wrap {
   position: relative;
 }
@@ -278,7 +278,7 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   left: 0;
   right: 0;
-  /* top / height는 JS로 tbody에 맞게 설정 */
+  /* top / height set by JS to match tbody */
   top: 0;
   bottom: 0;
   z-index: 10;
@@ -330,7 +330,7 @@ a { color: inherit; text-decoration: none; }
   pointer-events: none;
 }
 
-/* 합산 영역 (별도 테이블, 항상 표시) */
+/* Summary area (separate table, always visible) */
 .parts-summary {
   margin-top: 0;
   border-top: 1px solid #4a4a58;
@@ -341,7 +341,7 @@ a { color: inherit; text-decoration: none; }
   border-top: none;
 }
 
-/* ===== 부품 테이블 ===== */
+/* ===== Parts table ===== */
 .parts-table {
   width: 100%;
   border-collapse: collapse;
@@ -449,7 +449,7 @@ a { color: inherit; text-decoration: none; }
   color: #B3CDFF;
 }
 
-/* 가격 수정 제안 버튼 */
+/* Suggest-a-price-fix button */
 .suggest-row td {
   border-top: 1px solid #3a3a46;
   padding-top: 0.6rem;
@@ -476,7 +476,7 @@ a { color: inherit; text-decoration: none; }
   color: #B3CDFF;
 }
 
-/* ===== 가격 변동 그래프 (world_tour 플랜) ===== */
+/* ===== Price-history charts (world_tour plan) ===== */
 .price-history-section {
   margin-top: 1.5rem;
   padding-top: 1.75rem;
@@ -553,13 +553,13 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
-/* 메인 히어로 이미지 */
+/* Landing hero image */
 .hero-img {
   width: 480px;
   opacity: 0.85;
 }
 
-/* ===== 로딩 오버레이 ===== */
+/* ===== Loading overlay ===== */
 .loading-overlay {
   display: none;
   position: fixed;
@@ -587,7 +587,7 @@ a { color: inherit; text-decoration: none; }
   50% { opacity: 0.35; }
 }
 
-/* ===== 가격 수정 제안 페이지 ===== */
+/* ===== Suggest-a-price-fix page ===== */
 .suggest-wrap {
   min-height: 100vh;
   display: flex;
@@ -746,7 +746,7 @@ a { color: inherit; text-decoration: none; }
   color: #6b6b7e;
 }
 
-/* 관리자: 미처리 제안 뱃지 */
+/* Admin: pending-suggestion badge */
 .admin-pending-count {
   display: inline-flex;
   align-items: center;
@@ -778,7 +778,7 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
-/* ===== 피드백 페이지 ===== */
+/* ===== Feedback page ===== */
 .rating-row {
   display: flex;
   flex-wrap: wrap;
@@ -851,7 +851,7 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
-/* ===== 관리자: 피드백 본문 ===== */
+/* ===== Admin: feedback body ===== */
 .admin-feedback-body {
   background: #3e3e4a;
   border: 1px solid #4a4a58;
@@ -864,7 +864,7 @@ a { color: inherit; text-decoration: none; }
   word-break: break-word;
 }
 
-/* ===== 관리자 페이지 ===== */
+/* ===== Admin pages ===== */
 .admin-wrap {
   min-height: 100vh;
   display: flex;
@@ -1116,7 +1116,7 @@ a { color: inherit; text-decoration: none; }
   color: #B3CDFF;
 }
 
-/* ===== 히스토리 페이지 ===== */
+/* ===== History page ===== */
 .history-wrap {
   min-height: 100vh;
   display: flex;
@@ -1220,7 +1220,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.95rem;
 }
 
-/* ===== 인증 네비게이션 (우측 상단 고정) ===== */
+/* ===== Auth nav (fixed top-right) ===== */
 .auth-nav {
   position: fixed;
   top: 1.3rem;
@@ -1260,7 +1260,7 @@ a { color: inherit; text-decoration: none; }
   color: #B3CDFF;
 }
 
-/* ===== 로그인 / 회원가입 페이지 ===== */
+/* ===== Login / Sign-up pages ===== */
 .auth-wrap {
   min-height: 100vh;
   display: flex;
@@ -1391,7 +1391,7 @@ a { color: inherit; text-decoration: none; }
   text-underline-offset: 3px;
 }
 
-/* ===== OAuth 버튼 ===== */
+/* ===== OAuth buttons ===== */
 .oauth-btn {
   display: flex;
   align-items: center;
@@ -1440,7 +1440,7 @@ a { color: inherit; text-decoration: none; }
 .oauth-divider::before { left: 0; }
 .oauth-divider::after  { right: 0; }
 
-/* ===== 모바일 ===== */
+/* ===== Mobile ===== */
 @media (max-width: 600px) {
   html, body {
     overflow-x: hidden;
@@ -1540,7 +1540,7 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
-/* ===== Pricing 페이지 ===== */
+/* ===== Pricing page ===== */
 .pricing-wrap {
   min-height: 100vh;
   display: flex;
@@ -1742,7 +1742,7 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
-/* ===== 마이페이지 ===== */
+/* ===== My Page ===== */
 .mypage-wrap {
   min-height: 100vh;
   padding: 7rem 2rem 4rem;
@@ -2035,7 +2035,7 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
-/* ===== 챗봇 플로팅 버튼 ===== */
+/* ===== Chatbot floating button ===== */
 .chatbot-fab {
   position: fixed;
   right: 1.5rem;
@@ -2081,7 +2081,7 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
-/* ===== 관리자: 상세 없는 피드백 행 ===== */
+/* ===== Admin: feedback rows without detail ===== */
 .admin-table--clickable tbody tr.admin-row-inactive {
   cursor: default;
   color: #6b6b7e;
@@ -2094,7 +2094,7 @@ a { color: inherit; text-decoration: none; }
   color: #6b6b7e;
 }
 
-/* ===== 이탈 피드백 팝업 ===== */
+/* ===== Exit-intent feedback popup ===== */
 .exit-popup-overlay {
   position: fixed;
   inset: 0;
@@ -2234,7 +2234,7 @@ a { color: inherit; text-decoration: none; }
   .exit-rating-label { font-size: 0.6rem; }
 }
 
-/* ===== 이탈 설문조사 팝업 (임시) ===== */
+/* ===== Exit-intent survey popup (temporary) ===== */
 .exit-popup-card--survey {
   max-width: 480px;
   gap: 1rem;
@@ -2309,7 +2309,7 @@ a { color: inherit; text-decoration: none; }
   .survey-text-input { font-size: 0.84rem; }
 }
 
-/* ===== Checkout 페이지 ===== */
+/* ===== Checkout page ===== */
 .checkout-wrap {
   min-height: 100vh;
   display: flex;
@@ -2443,7 +2443,7 @@ a { color: inherit; text-decoration: none; }
   .checkout-title  { font-size: 1.4rem; }
 }
 
-/* ===== Pricing — 월/연 토글 ===== */
+/* ===== Pricing — monthly / yearly toggle ===== */
 .pricing-cycle-toggle {
   display: inline-flex;
   background: #3a3a46;
@@ -2484,7 +2484,7 @@ a { color: inherit; text-decoration: none; }
   vertical-align: middle;
 }
 
-/* ===== 마이페이지 결제 탭 ===== */
+/* ===== My Page billing tab ===== */
 .billing-status-row {
   display: flex;
   flex-wrap: wrap;
@@ -2560,7 +2560,7 @@ a { color: inherit; text-decoration: none; }
 .billing-status-canceled { color: #8a8aa0; }
 
 
-/* ── 결과 페이지 공유 카드 ─────────────────────────────────── */
+/* ── Result-page share card ─────────────────────────────────── */
 
 .share-card {
   width: 100%;

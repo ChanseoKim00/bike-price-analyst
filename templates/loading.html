@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="loading-overlay active" id="loadingOverlay">
-  <p class="loading-text">AI가 가격을 분석중입니다.</p>
+  <p class="loading-text">AI is analyzing the price…</p>
 </div>
 
 <script>
@@ -25,10 +25,10 @@
         if (navigator.sendBeacon) {
           navigator.sendBeacon(cancelUrl, new Blob([], { type: 'text/plain' }));
         } else {
-          // sendBeacon 미지원 브라우저 폴백 (keepalive fetch)
+          // Fallback for browsers without sendBeacon (keepalive fetch).
           fetch(cancelUrl, { method: 'POST', keepalive: true });
         }
-      } catch (_) { /* 네트워크 오류는 무시 — 사용자 경험 저해 금지 */ }
+      } catch (_) { /* swallow network errors — don't degrade UX */ }
     }
 
     function goToError(message, hint, url) {
@@ -46,7 +46,7 @@
         .then(function(data) {
           if (canceled) return;
           if (data.state === 'success') {
-            // task 이미 끝났으므로 이후 pagehide/beforeunload가 취소 비콘을 쏘지 않도록 차단
+            // Task already finished — block pagehide/beforeunload from firing a cancel beacon.
             canceled = true;
             stopPolling();
             window.location.replace('/result/' + encodeURIComponent(data.analysis_id));
@@ -63,17 +63,17 @@
             window.location.replace('/');
             return;
           }
-          // pending → 1.5초 후 재조회
+          // pending → re-poll after 1.5s.
           timer = setTimeout(poll, 1500);
         })
         .catch(function() {
           if (canceled) return;
-          // 일시적 네트워크 오류는 계속 재시도
+          // Transient network errors: keep retrying.
           timer = setTimeout(poll, 2000);
         });
     }
 
-    // 로고 클릭 — beacon으로 취소 신호 보낸 뒤 메인으로 이동
+    // Logo click — fire a cancel beacon, then navigate home.
     var logo = document.querySelector('.bpa-logo');
     if (logo) {
       logo.addEventListener('click', function(e) {
@@ -83,7 +83,7 @@
       });
     }
 
-    // 탭 종료 / 뒤로가기 / 새로고침도 취소 — 좀비 task 방지
+    // Tab close / back / refresh also cancel — prevents zombie tasks.
     window.addEventListener('pagehide', sendCancel);
     window.addEventListener('beforeunload', sendCancel);
 

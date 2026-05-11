@@ -4,17 +4,17 @@
 <div class="admin-wrap">
   <div class="admin-inner">
     <p class="admin-back">
-      <a href="/admin">← 관리자 대시보드</a>
+      <a href="/admin">← Admin dashboard</a>
     </p>
-    <h1 class="admin-title">유저 대시보드</h1>
+    <h1 class="admin-title">Users</h1>
 
-    <!-- 일별 신규 가입자 그래프 -->
+    <!-- Daily new signups chart -->
     <section class="admin-section">
       <div class="price-chart-card">
-        <div class="price-chart-header">일별 신규 가입자 (최근 30일)</div>
+        <div class="price-chart-header">Daily new signups (last 30 days)</div>
         <div class="price-chart-body">
           <canvas id="adminSignupChart"></canvas>
-          <div id="adminSignupChartEmpty" class="price-chart-empty" style="display:none;">데이터가 없습니다</div>
+          <div id="adminSignupChartEmpty" class="price-chart-empty" style="display:none;">No data</div>
         </div>
       </div>
     </section>
@@ -59,7 +59,7 @@
               tooltip: {
                 backgroundColor: '#2a2a34', borderColor: '#4a4a58', borderWidth: 1,
                 titleColor: '#B3CDFF', bodyColor: '#e0e0e8', displayColors: false,
-                callbacks: { label: function (item) { return item.parsed.y + '명'; } }
+                callbacks: { label: function (item) { return item.parsed.y + ' users'; } }
               }
             },
             scales: {
@@ -80,10 +80,10 @@
       })();
     </script>
 
-    <!-- 가입자 목록 -->
+    <!-- Signup list -->
     <section class="admin-section">
       <h2 class="admin-section-title">
-        가입자 목록
+        All users
         {% if users %}
           <span class="admin-pending-count">{{ users|length }}</span>
         {% endif %}
@@ -92,10 +92,10 @@
       <table class="admin-table">
         <thead>
           <tr>
-            <th>닉네임</th>
-            <th>이메일</th>
-            <th>가입일</th>
-            <th>마지막 로그인</th>
+            <th>Nickname</th>
+            <th>Email</th>
+            <th>Joined</th>
+            <th>Last login</th>
           </tr>
         </thead>
         <tbody>
@@ -108,10 +108,10 @@
               {% endif %}
             </td>
             <td class="admin-email">{{ u.email }}</td>
-            <td class="admin-date">{{ u.created_at.strftime('%Y.%m.%d') }}</td>
+            <td class="admin-date">{{ u.created_at.strftime('%Y-%m-%d') }}</td>
             <td class="admin-date">
               {% if u.last_login_at %}
-                {{ u.last_login_at.strftime('%Y.%m.%d %H:%M') }}
+                {{ u.last_login_at.strftime('%Y-%m-%d %H:%M') }}
               {% else %}
                 <span class="admin-muted">-</span>
               {% endif %}
@@ -121,7 +121,7 @@
         </tbody>
       </table>
       {% else %}
-      <p class="admin-empty">가입자가 없습니다.</p>
+      <p class="admin-empty">No users yet.</p>
       {% endif %}
     </section>
 

@@ -3,39 +3,39 @@
 
 <div class="checkout-wrap">
   <div class="checkout-card">
-    <h1 class="checkout-title">결제하기</h1>
+    <h1 class="checkout-title">Checkout</h1>
 
     <div class="checkout-summary">
       <div class="checkout-row">
-        <span class="checkout-label">플랜</span>
+        <span class="checkout-label">Plan</span>
         <span class="checkout-value">{{ plan_label }} · {{ cycle_label }}</span>
       </div>
       <div class="checkout-row">
-        <span class="checkout-label">결제 금액</span>
+        <span class="checkout-label">Total</span>
         <span class="checkout-value checkout-value--strong">
-          ₩{{ "{:,}".format(amount) }}
-          <span class="checkout-vat">(VAT 포함)</span>
+          ${{ amount|usd }}
+          <span class="checkout-vat">(VAT included)</span>
         </span>
       </div>
       {% if cycle == 'yearly' %}
       <div class="checkout-row checkout-row--note">
         <span class="checkout-label"></span>
-        <span class="checkout-value checkout-saving">월간 대비 2개월 무료</span>
+        <span class="checkout-value checkout-saving">2 months free vs. monthly</span>
       </div>
       {% endif %}
     </div>
 
     <div class="checkout-policy">
       <ul class="checkout-policy-list">
-        <li>등록한 카드로 매 {{ '12개월' if cycle == 'yearly' else '1개월' }}마다 자동 결제됩니다.</li>
-        <li>언제든지 마이페이지 → 결제 탭에서 취소할 수 있으며, 결제된 기간이 끝날 때까지 이용할 수 있습니다.</li>
-        <li>결제는 토스페이먼츠를 통해 안전하게 처리됩니다.</li>
+        <li>Your card is charged automatically every {{ '12 months' if cycle == 'yearly' else 'month' }}.</li>
+        <li>Cancel anytime from My Page → Billing. You keep access until the current period ends.</li>
+        <li>Payments are processed securely by Toss Payments.</li>
       </ul>
     </div>
 
-    <button id="btn-pay" type="button" class="checkout-btn">카드 등록하고 결제하기</button>
+    <button id="btn-pay" type="button" class="checkout-btn">Add card and subscribe</button>
 
-    <a href="{{ url_for('main.pricing') }}" class="checkout-back">← 플랜 선택으로 돌아가기</a>
+    <a href="{{ url_for('main.pricing') }}" class="checkout-back">← Back to plan selection</a>
   </div>
 </div>
 
@@ -56,15 +56,16 @@
       + '&cycle=' + encodeURIComponent(cycle);
     const failUrl = origin + '/billing/fail';
 
-    // 퍼널 — checkout 진입
+    // Funnel — checkout view.
     if (window.bpa) window.bpa.track(window.bpa.events.CHECKOUT_VIEW, { plan: plan, cycle: cycle });
 
     const btn = document.getElementById('btn-pay');
     btn.addEventListener('click', function () {
-      // 퍼널 — 결제 시도 (토스 창 열기). 실제 성공은 /billing/success 리다이렉트로 SUBSCRIBE_COMPLETE에서 측정.
+      // Funnel — payment attempt (Toss popup opened). Actual success is tracked
+      // via SUBSCRIBE_COMPLETE on the /billing/success redirect.
       if (window.bpa) window.bpa.track(window.bpa.events.PAYMENT_ATTEMPT, { plan: plan, cycle: cycle });
       btn.disabled = true;
-      btn.textContent = '결제창을 여는 중...';
+      btn.textContent = 'Opening payment window…';
       try {
         const tossPayments = TossPayments(clientKey);
         tossPayments.requestBillingAuth('카드', {
@@ -74,17 +75,17 @@
           customerEmail: customerEmail,
           customerName: customerName,
         }).catch(function (err) {
-          // 사용자가 결제창을 닫은 경우 등 — 버튼 복구
+          // User dismissed the popup, etc. — restore the button.
           btn.disabled = false;
-          btn.textContent = '카드 등록하고 결제하기';
+          btn.textContent = 'Add card and subscribe';
           if (err && err.code !== 'USER_CANCEL') {
-            alert('결제창을 여는 중 오류가 발생했습니다: ' + (err.message || err.code || ''));
+            alert('Failed to open the payment window: ' + (err.message || err.code || ''));
           }
         });
       } catch (e) {
         btn.disabled = false;
-        btn.textContent = '카드 등록하고 결제하기';
-        alert('토스페이먼츠 SDK 로드에 실패했습니다.');
+        btn.textContent = 'Add card and subscribe';
+        alert('Failed to load the Toss Payments SDK.');
       }
     });
   })();

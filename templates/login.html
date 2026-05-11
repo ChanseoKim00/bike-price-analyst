@@ -3,18 +3,18 @@
 
 <div class="auth-wrap">
   <div class="auth-card">
-    <h1 class="auth-title">로그인</h1>
+    <h1 class="auth-title">Log in</h1>
 
     {% if registered %}
-    <p class="auth-notice">회원가입이 완료됐습니다. 로그인해주세요.</p>
+    <p class="auth-notice">Account created. Please log in.</p>
     {% endif %}
 
     {% if reset %}
-    <p class="auth-notice">비밀번호가 변경됐습니다. 새 비밀번호로 로그인해주세요.</p>
+    <p class="auth-notice">Your password has been updated. Log in with your new password.</p>
     {% endif %}
 
     {% if oauth_error %}
-    <p class="auth-error">Google 로그인이 취소되었거나 실패했습니다. 다시 시도해주세요.</p>
+    <p class="auth-error">Google sign-in was cancelled or failed. Please try again.</p>
     {% endif %}
 
     {% if error %}
@@ -28,15 +28,15 @@
         <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
         <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
       </svg>
-      <span>Google로 계속하기</span>
+      <span>Continue with Google</span>
     </a>
 
-    <div class="oauth-divider"><span>또는</span></div>
+    <div class="oauth-divider"><span>or</span></div>
 
     <form class="auth-form" method="POST" action="/login">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="auth-field">
-        <label class="auth-label" for="email">이메일</label>
+        <label class="auth-label" for="email">Email</label>
         <input
           class="auth-input"
           type="email"
@@ -49,33 +49,33 @@
         >
       </div>
       <div class="auth-field">
-        <label class="auth-label" for="password">비밀번호</label>
+        <label class="auth-label" for="password">Password</label>
         <input
           class="auth-input"
           type="password"
           id="password"
           name="password"
-          placeholder="8자 이상"
+          placeholder="At least 8 characters"
           required
         >
       </div>
-      <button type="submit" class="auth-submit">로그인</button>
+      <button type="submit" class="auth-submit">Log in</button>
     </form>
 
     <p class="auth-footer">
-      <a href="/forgot-password" class="auth-link">비밀번호를 잊으셨나요?</a>
+      <a href="/forgot-password" class="auth-link">Forgot your password?</a>
     </p>
 
     <p class="auth-footer">
-      아직 계정이 없으신가요?
-      <a href="/register" class="auth-link">회원가입</a>
+      Don't have an account yet?
+      <a href="/register" class="auth-link">Sign up</a>
     </p>
   </div>
 </div>
 
 {% if registered %}
 <script>
-  // 퍼널 5단계 — 회원가입 완료. /register 성공 시 /login?registered=1 로 리다이렉트되므로 여기서 캡처.
+  // Funnel step 5 — signup complete. /register success redirects to /login?registered=1, so we capture here.
   if (window.bpa) window.bpa.track(window.bpa.events.SIGNUP_COMPLETE, { method: 'email' });
 </script>
 {% endif %}

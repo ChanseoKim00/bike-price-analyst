@@ -5,18 +5,18 @@
   <div class="suggest-inner">
 
     <div class="suggest-header">
-      <h1 class="suggest-title">앱 개선 피드백</h1>
-      <p class="suggest-sub">여러분의 의견이 더 나은 서비스를 만듭니다.</p>
+      <h1 class="suggest-title">App feedback</h1>
+      <p class="suggest-sub">Your feedback helps make this better.</p>
     </div>
 
     <form class="suggest-form" method="POST" action="{{ url_for('main.feedback') }}" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-      <!-- 만족도 1~10 -->
+      <!-- Satisfaction 1~10 -->
       <div class="suggest-card">
         <div class="suggest-card-meta">
-          <span class="suggest-part-label">만족도</span>
-          <span class="suggest-part-name">서비스에 얼마나 만족하시나요? (1~10)</span>
+          <span class="suggest-part-label">Satisfaction</span>
+          <span class="suggest-part-name">How satisfied are you with the service? (1–10)</span>
         </div>
         <div class="rating-row">
           {% set selected = form.get('rating') %}
@@ -34,25 +34,25 @@
           {% endfor %}
         </div>
         <div class="rating-scale">
-          <span>매우 불만족</span>
-          <span>매우 만족</span>
+          <span>Very unsatisfied</span>
+          <span>Very satisfied</span>
         </div>
         {% if errors.get('rating') %}
         <p class="suggest-field-error">{{ errors['rating'] }}</p>
         {% endif %}
       </div>
 
-      <!-- 불편한 점 -->
+      <!-- Pain points -->
       <div class="suggest-card">
         <div class="suggest-card-meta">
-          <span class="suggest-part-label">불편한 점</span>
-          <span class="suggest-part-name">사용 중 불편하셨던 부분을 알려주세요.</span>
+          <span class="suggest-part-label">Pain points</span>
+          <span class="suggest-part-name">Tell us what felt awkward or broken.</span>
         </div>
         <textarea
           name="pain_point"
           class="suggest-input feedback-textarea{% if errors.get('pain_point') %} suggest-input--error{% endif %}"
           rows="4"
-          placeholder="예: 분석 결과 화면에서 부품 가격이 잘 안 보여요."
+          placeholder="e.g. The component prices are hard to read on the result page."
           maxlength="2000"
         >{{ form.get('pain_point', '') }}</textarea>
         {% if errors.get('pain_point') %}
@@ -60,17 +60,17 @@
         {% endif %}
       </div>
 
-      <!-- 좋은 점 -->
+      <!-- What you liked -->
       <div class="suggest-card">
         <div class="suggest-card-meta">
-          <span class="suggest-part-label">좋은 점</span>
-          <span class="suggest-part-name">마음에 드셨던 점을 알려주세요.</span>
+          <span class="suggest-part-label">What you liked</span>
+          <span class="suggest-part-name">Anything that worked well for you.</span>
         </div>
         <textarea
           name="good_point"
           class="suggest-input feedback-textarea{% if errors.get('good_point') %} suggest-input--error{% endif %}"
           rows="4"
-          placeholder="예: 절약 금액이 한눈에 보여서 좋았어요."
+          placeholder="e.g. The savings number is right at the top — easy to grok."
           maxlength="2000"
         >{{ form.get('good_point', '') }}</textarea>
         {% if errors.get('good_point') %}
@@ -78,17 +78,17 @@
         {% endif %}
       </div>
 
-      <!-- 개발자에게 -->
+      <!-- Message to developer -->
       <div class="suggest-card">
         <div class="suggest-card-meta">
-          <span class="suggest-part-label">개발자에게</span>
-          <span class="suggest-part-name">개발자에게 하고 싶은 말이 있다면 자유롭게 적어주세요.</span>
+          <span class="suggest-part-label">Message to the developer</span>
+          <span class="suggest-part-name">Anything you'd like to tell the developer — free-form.</span>
         </div>
         <textarea
           name="message_to_dev"
           class="suggest-input feedback-textarea{% if errors.get('message_to_dev') %} suggest-input--error{% endif %}"
           rows="4"
-          placeholder="기능 제안, 응원, 무엇이든 환영합니다."
+          placeholder="Feature requests, encouragement, anything."
           maxlength="2000"
         >{{ form.get('message_to_dev', '') }}</textarea>
         {% if errors.get('message_to_dev') %}
@@ -97,7 +97,7 @@
       </div>
 
       <div class="suggest-actions">
-        <button type="submit" class="suggest-submit">전송하기</button>
+        <button type="submit" class="suggest-submit">Send</button>
       </div>
     </form>
 

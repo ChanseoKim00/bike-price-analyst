@@ -1,11 +1,11 @@
 """
-Celery 워커 엔트리포인트.
+Celery worker entry point.
 
-실행:
+Run:
   celery -A celery_worker:celery worker --loglevel=info --concurrency=1
 
-Flask 앱을 한 번 생성해 celery 인스턴스를 꺼내온다.
-task 실행 시 FlaskTask가 자동으로 app_context()를 열어준다.
+Build the Flask app once and pull the celery instance off it.
+At task execution time, FlaskTask opens an app_context() automatically.
 """
 from dotenv import load_dotenv
 load_dotenv()

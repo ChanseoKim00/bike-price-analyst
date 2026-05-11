@@ -15,93 +15,93 @@ def _get_client():
 
 
 class AnalysisError(Exception):
-    """필수 항목(brand / model_name / groupset) 추출 실패 시 → 케이스 6 처리용"""
+    """Raised when required fields (brand / model_name / groupset) cannot be extracted -> case 6 handling"""
     pass
 
 
 class ServiceBusyError(Exception):
-    """RateLimitError 재시도 후에도 실패 시 → 에러 페이지 처리용"""
+    """Raised when RateLimitError still fails after retry -> error page handling"""
     pass
 
 
 SYSTEM_PROMPT = """
-당신은 자전거 판매 페이지 텍스트에서 정보를 추출하는 전문가입니다.
-아래 JSON 형식으로만 응답하세요. 설명이나 마크다운 없이 JSON만 출력하세요.
+You are an expert at extracting information from bicycle product pages.
+Respond using only the JSON format below. Output JSON only, with no explanation or markdown.
 
-추출 규칙:
-- brand: 영문 소문자, 공백은 언더스코어 (예: "specialized", "fantasia", "elfama")
-- model_name: 원본 표기 그대로 (예: "Radar 9 ARC Gen.3")
-- model_year: 정수. 아래 순서로 찾아라:
-  1) 페이지에 연식이 명시된 경우 (예: "2025년형", "2026 model")
-  2) 출시 연월 정보 (예: "2025-04 출시")
-  3) 리뷰/댓글/문의 날짜 중 가장 이른 연도로 유추 (예: 2025년 댓글 → 2025)
-  4) 위 모두 없으면 null
-- price_krw: 정수, 할인가 기준 (없으면 null). 가격이 외화(USD, EUR 등)로 표시된 경우 아래 제공된 환율을 적용해 원화(KRW)로 변환한 정수를 반환하라.
+Extraction rules:
+- brand: lowercase English, underscores instead of spaces (e.g. "specialized", "fantasia", "elfama")
+- model_name: keep the original notation (e.g. "Radar 9 ARC Gen.3")
+- model_year: integer. Search in the following order:
+  1) Year explicitly stated on the page (e.g. "2025 model year", "2026 model")
+  2) Release year/month info (e.g. "released 2025-04")
+  3) Earliest year inferred from review/comment/inquiry dates (e.g. comment from 2025 -> 2025)
+  4) null if none of the above
+- price_krw: integer, based on the discounted price (null if absent). If the price is shown in foreign currency (USD, EUR, etc.), apply the exchange rate provided below to convert into KRW and return as an integer.
 - frame_material: "carbon" | "alloy" | "steel" | "titanium" | "other" | "unknown"
-- frame_material_confidence: 0.0~1.0 (명시적 언급이면 1.0, 모델명 추론이면 0.7, 추측이면 0.4)
+- frame_material_confidence: 0.0~1.0 (1.0 if explicitly stated, 0.7 if inferred from model name, 0.4 if guessed)
 - frame_material_source: "page_text" | "model_knowledge" | "unknown"
 - brake_type: "hydraulic_disc" | "mechanical_disc" | "rim" | "unknown"
 
-부품 필드 (각각 part_name + part_name_normalized):
-- part_name: 페이지에 적힌 원본 표기
-- part_name_normalized: 반드시 영문 소문자 + 언더스코어(_)만 사용. 띄어쓰기·하이픈(-·대문자 절대 포함 금지. 출력 전 공백이 없는지 자체 검증 후 출력할 것.
+Component fields (each with part_name + part_name_normalized):
+- part_name: the original notation as written on the page
+- part_name_normalized: must use only lowercase English letters and underscores (_). Spaces, hyphens (-), and uppercase are strictly forbidden. Self-verify there are no spaces before output.
 
-  [포함할 것]
-  - 브랜드명
-  - 등급 (s-works / pro / expert / comp 등 브랜드 내 등급)
-  - 제품 라인명
-  - 전동/기계식 구분 (di2 등)
-  - 소재 (manganese / carbon 등 스펙을 결정하는 소재)
-  - 림높이 (45 / 55 / 62 등 숫자로 된 사이즈)
+  [Include]
+  - Brand name
+  - Tier (s-works / pro / expert / comp etc. — within-brand tier)
+  - Product line name
+  - Electronic/mechanical distinction (di2, etc.)
+  - Material (manganese / carbon, etc. — material that determines spec)
+  - Rim depth (45 / 55 / 62, etc. — numeric size)
 
-  [제외할 것]
-  - 'rail', 'system', 'integrated' 같은 범용 접미어
-  - 'DICUT', 'DB' 같은 풀네임 전용 수식어
-  - 모델 번호 (R9200, R9250, R8150, R7100 등)
-  - 파생 옵션 (파워미터, 크랭크 세트 등)
-  - 튜블리스 관련 표기: 'Tubeless', 'Tubeless Ready', 'TL', 'TLR' 등 (타이어 호환 표기일 뿐, 부품 모델 식별에 불필요)
+  [Exclude]
+  - Generic suffixes such as 'rail', 'system', 'integrated'
+  - Full-name-only modifiers such as 'DICUT', 'DB'
+  - Model numbers (R9200, R9250, R8150, R7100, etc.)
+  - Derived options (power meter, crank set, etc.)
+  - Tubeless-related notations: 'Tubeless', 'Tubeless Ready', 'TL', 'TLR', etc. (these are tire compatibility markers, unnecessary for component model identification)
 
-  구동계 예시:
-    "Shimano Dura-Ace Di2 R9250" → "shimano_dura_ace_di2"
-    "SRAM Red eTap AXS" → "sram_red_etap_axs"
-    주의: R9200과 R9250은 모두 "shimano_dura_ace_di2"로 정규화.
-    주의: 자전거 브랜드명·모델명·에디션명이 섞여 있으면 구동계 브랜드와 라인업만 추출.
-    "RCR Pro Dura-Ace Di2 Team Edition" → "shimano_dura_ace_di2"
-    "Canyon Ultimate CFR Dura-Ace Di2" → "shimano_dura_ace_di2"
-    "Specialized Tarmac SL8 Red AXS"   → "sram_red_etap_axs"
+  Drivetrain examples:
+    "Shimano Dura-Ace Di2 R9250" -> "shimano_dura_ace_di2"
+    "SRAM Red eTap AXS" -> "sram_red_etap_axs"
+    Note: Both R9200 and R9250 normalize to "shimano_dura_ace_di2".
+    Note: If bike brand/model/edition names are mixed in, extract only the drivetrain brand and lineup.
+    "RCR Pro Dura-Ace Di2 Team Edition" -> "shimano_dura_ace_di2"
+    "Canyon Ultimate CFR Dura-Ace Di2" -> "shimano_dura_ace_di2"
+    "Specialized Tarmac SL8 Red AXS"   -> "sram_red_etap_axs"
 
-  휠셋 예시:
-    "CADEX Max 50 WheelSystem" → "cadex_max_50"
-    "DT Swiss ARC 1100 DICUT DB 55" → "dt_swiss_arc_1100_55"
-    "DT Swiss ARC 1400 DICUT DB 62" → "dt_swiss_arc_1400_62"
-    "Roval Rapide CLX II Tubeless" → "roval_rapide_clx_ii"
+  Wheelset examples:
+    "CADEX Max 50 WheelSystem" -> "cadex_max_50"
+    "DT Swiss ARC 1100 DICUT DB 55" -> "dt_swiss_arc_1100_55"
+    "DT Swiss ARC 1400 DICUT DB 62" -> "dt_swiss_arc_1400_62"
+    "Roval Rapide CLX II Tubeless" -> "roval_rapide_clx_ii"
 
-  안장 예시:
-    "Selle Italia Novus Boost EVO Superflow Manganese rail" → "selle_italia_novus_boost_evo_superflow_manganese"
-    "Selle Italia Novus Boost EVO Superflow Carbon rail" → "selle_italia_novus_boost_evo_superflow_carbon"
-    "Specialized S-Works Power Mirror" → "specialized_s_works_power_mirror"
-    "Specialized Pro Power Mirror" → "specialized_pro_power_mirror"
-    "Specialized Expert Power Mirror" → "specialized_expert_power_mirror"
-    "Specialized Comp Power Mirror" → "specialized_comp_power_mirror"
+  Saddle examples:
+    "Selle Italia Novus Boost EVO Superflow Manganese rail" -> "selle_italia_novus_boost_evo_superflow_manganese"
+    "Selle Italia Novus Boost EVO Superflow Carbon rail" -> "selle_italia_novus_boost_evo_superflow_carbon"
+    "Specialized S-Works Power Mirror" -> "specialized_s_works_power_mirror"
+    "Specialized Pro Power Mirror" -> "specialized_pro_power_mirror"
+    "Specialized Expert Power Mirror" -> "specialized_expert_power_mirror"
+    "Specialized Comp Power Mirror" -> "specialized_comp_power_mirror"
 
-  Fizik 안장 normalized 규칙: fizik_(카테고리)_(라인업)_(레일등급)_(adaptive 여부)
-    카테고리: vento / tempo / transiro — 명시 없으면 vento 기본값
-    라인업: argo / aeris / antares 등 — 명시 없으면 argo 기본값
-    레일등급: 00 / r1 / r3 / r5 등 — 명시 없으면 r5 기본값
-    adaptive: 명시된 경우에만 추가, 없으면 생략
-    "Fizik Vento Argo R1 Adaptive" → "fizik_vento_argo_r1_adaptive"
-    "Fizik Vento Argo R1"          → "fizik_vento_argo_r1"
-    "Fizik Vento Argo 00"          → "fizik_vento_argo_00"
-    "Fizik Tempo Argo R1"          → "fizik_tempo_argo_r1"
-    "Fizik Transiro Antares R3"    → "fizik_transiro_antares_r3"
-    "Fizik Vento Aeris R3 Adaptive" → "fizik_vento_aeris_r3_adaptive"
-    "Fizik" (정보 부족)             → "fizik_vento_argo_r5"
+  Fizik saddle normalized rule: fizik_(category)_(lineup)_(rail_grade)_(adaptive flag)
+    category: vento / tempo / transiro - default to vento if unspecified
+    lineup: argo / aeris / antares etc. - default to argo if unspecified
+    rail grade: 00 / r1 / r3 / r5 etc. - default to r5 if unspecified
+    adaptive: include only if explicitly stated, otherwise omit
+    "Fizik Vento Argo R1 Adaptive" -> "fizik_vento_argo_r1_adaptive"
+    "Fizik Vento Argo R1"          -> "fizik_vento_argo_r1"
+    "Fizik Vento Argo 00"          -> "fizik_vento_argo_00"
+    "Fizik Tempo Argo R1"          -> "fizik_tempo_argo_r1"
+    "Fizik Transiro Antares R3"    -> "fizik_transiro_antares_r3"
+    "Fizik Vento Aeris R3 Adaptive" -> "fizik_vento_aeris_r3_adaptive"
+    "Fizik" (insufficient info)     -> "fizik_vento_argo_r5"
 
-  핸들바 예시:
-    "Controltech Sirocco FL4" → "controltech_sirocco_fl4"
-    "Giant Contact SLR 0 Aero Integrated" → "giant_contact_slr_0_aero"
+  Handlebar examples:
+    "Controltech Sirocco FL4" -> "controltech_sirocco_fl4"
+    "Giant Contact SLR 0 Aero Integrated" -> "giant_contact_slr_0_aero"
 
-- 페이지에 명시되지 않은 부품은 null
+- Use null for any component not stated on the page
 
 {
   "brand": "string",
@@ -137,22 +137,22 @@ SYSTEM_PROMPT = """
 
 
 YEAR_RETRY_PROMPT = """
-이전 분석에서 model_year를 찾지 못했습니다.
-아래 페이지 텍스트에서 연식을 다시 찾아주세요.
+The previous analysis could not find model_year.
+Please find the model year again from the page text below.
 
-찾는 순서:
-1. "2025년형", "2026 model" 등 명시적 연식 표기
-2. 출시 연월 (예: "2025-04 출시" → 2025)
-3. 리뷰/댓글/문의 날짜 중 가장 이른 연도로 유추
+Search order:
+1. Explicit year notation such as "2025 model year", "2026 model"
+2. Release year/month (e.g. "released 2025-04" -> 2025)
+3. Earliest year inferred from review/comment/inquiry dates
 
-찾은 연식을 정수 하나만 출력하세요. 못 찾으면 null을 출력하세요.
-숫자 또는 null 외에 다른 텍스트는 출력하지 마세요.
+Output only one integer for the year you found. Output null if not found.
+Do not output any text other than the number or null.
 """.strip()
 
 
 def _call_api(client, system: str, user: str) -> str:
-    # 시스템 프롬프트가 4천자 넘는 거대 프롬프트라 매 호출 풀 비용 청구되지 않도록
-    # ephemeral 프롬프트 캐싱 적용 — year-retry 호출 + 동시간대 분석 간 적중.
+    # The system prompt is over 4,000 characters, so to avoid being charged the full cost on every call,
+    # we apply ephemeral prompt caching - hits across the year-retry call and concurrent analyses.
     system_blocks = [
         {
             "type": "text",
@@ -179,46 +179,46 @@ def _call_api(client, system: str, user: str) -> str:
             if e.status_code not in (429, 529):
                 raise
             if attempt == 0:
-                print(f"[RATE LIMIT] AI 분석 {e.status_code} — 60초 대기 후 재시도")
+                print(f"[RATE LIMIT] AI analysis {e.status_code} - waiting 60s before retry")
                 time.sleep(60)
             else:
-                raise ServiceBusyError("일시적으로 서비스가 혼잡합니다. 잠시 후 다시 시도해주세요.")
+                raise ServiceBusyError("The service is temporarily busy. Please try again in a moment.")
 
 
 def extract_bike_info(page_text: str, exchange_rates: dict = None) -> dict:
     """
-    스크래핑된 페이지 텍스트에서 자전거 정보를 추출한다.
-    model_year가 null이면 한 번 더 시도하고, 그래도 없으면 현재 연도를 기본값으로 사용.
+    Extract bicycle information from scraped page text.
+    If model_year is null, retry once; if still missing, default to the current year.
 
     Args:
-        page_text: 스크래핑된 페이지 텍스트
-        exchange_rates: {"USD": int, "EUR": int} 형태의 환율 정보 (없으면 생략)
+        page_text: scraped page text
+        exchange_rates: exchange rate info shaped like {"USD": int, "EUR": int} (omit if absent)
 
     Returns:
-        dict: 추출된 자전거 정보 (model_year는 항상 정수)
+        dict: extracted bicycle info (model_year is always an integer)
 
     Raises:
-        AnalysisError: brand / model_name / groupset 중 하나라도 추출 불가 시
+        AnalysisError: if any of brand / model_name / groupset cannot be extracted
     """
     client = _get_client()
 
     rate_note = ""
     if exchange_rates:
-        lines = ", ".join(f"1 {k} = {v:,}원" for k, v in exchange_rates.items())
-        rate_note = f"\n\n[현재 환율] {lines}"
+        lines = ", ".join(f"1 {k} = {v:,} KRW" for k, v in exchange_rates.items())
+        rate_note = f"\n\n[Current exchange rates] {lines}"
 
     raw = _call_api(
         client,
         system=SYSTEM_PROMPT,
-        user=f"아래 자전거 판매 페이지 텍스트에서 정보를 추출해주세요.{rate_note}\n\n{page_text}",
+        user=f"Please extract information from the bicycle product page text below.{rate_note}\n\n{page_text}",
     )
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        raise AnalysisError(f"AI 응답을 JSON으로 파싱할 수 없습니다: {raw[:200]}")
+        raise AnalysisError(f"Could not parse AI response as JSON: {raw[:200]}")
 
-    # 필수 항목 검증
+    # Validate required fields
     missing = []
     if not data.get("brand"):
         missing.append("brand")
@@ -228,9 +228,9 @@ def extract_bike_info(page_text: str, exchange_rates: dict = None) -> dict:
         missing.append("groupset")
 
     if missing:
-        raise AnalysisError(f"필수 항목 추출 실패: {', '.join(missing)}")
+        raise AnalysisError(f"Required field extraction failed: {', '.join(missing)}")
 
-    # model_year 처리: null이면 재시도 → 그래도 없으면 현재 연도
+    # Handle model_year: retry if null -> default to current year if still missing
     if not data.get("model_year"):
         retry_raw = _call_api(
             client,

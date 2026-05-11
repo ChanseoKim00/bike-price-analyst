@@ -1,11 +1,11 @@
 """
-이미지 전용 상세페이지(fifty2nd 류)에서 부품 사양을 Claude vision으로 추출하는 프로토타입.
+Prototype that uses Claude vision to extract part specs from image-only product pages (e.g. fifty2nd).
 
-사용:
+Usage:
     export ANTHROPIC_API_KEY=...
-    python prototype_image_specs.py <product_url> [이미지개수제한]
+    python prototype_image_specs.py <product_url> [image_count_limit]
 
-예:
+Example:
     python prototype_image_specs.py https://www.fifty2nd.co.kr/shop/item.php?it_id=1772621065 5
 """
 import base64
@@ -33,63 +33,63 @@ HEADERS = {
 VISION_MODEL = "claude-sonnet-4-6"
 
 EXTRACT_PROMPT = """
-당신은 자전거 상세페이지 이미지에서 부품 사양을 추출하는 전문가입니다.
-첨부된 이미지들은 한 자전거 모델의 상세페이지 이미지(사양표 포함)입니다.
+You are an expert at extracting part specifications from bicycle product detail page images.
+The attached images are detail-page images (including a spec table) for a single bicycle model.
 
-[추출 철학 — 매우 중요]
-세부 부품(변속레버, 앞/뒷변속기, 크랭크, 카세트, 체인, 브레이크 등)을 슬롯별로 채우려 하지 마세요.
-대신 사양표에 보이는 모든 부품 단서를 모아서, 다음 5개 슬롯으로 합쳐 추론하세요:
+[Extraction philosophy — very important]
+Do not try to fill per-component slots (shifters, front/rear derailleurs, crankset, cassette, chain, brakes, etc.) individually.
+Instead, gather every part-related clue visible in the spec table and consolidate the inference into the following 5 slots:
   frameset / groupset / wheelset / saddle / handlebar
 
-특히 groupset은 구동계 라인업 하나로 추론합니다:
-  - "FC-R8100" + "RD-R8150" + "BR-R8170" 단서 → "Shimano Ultegra Di2" (전동) 하나로 통합
-  - "ST-R7170" 단서만 봐도 → "Shimano 105 Di2"
-  - 모델 번호(R9200, R9250, R8150 등)는 라인업명으로 환원하라
+In particular, infer the groupset as a single drivetrain lineup:
+  - Clues "FC-R8100" + "RD-R8150" + "BR-R8170" -> consolidate into "Shimano Ultegra Di2" (electronic)
+  - Even a single "ST-R7170" clue -> "Shimano 105 Di2"
+  - Reduce model numbers (R9200, R9250, R8150, etc.) to the lineup name
 
-[Shimano 라인업 추론 표]
+[Shimano lineup inference table]
   R9200/R9250 = Dura-Ace Di2
-  R9100/R9150 = Dura-Ace (R9100=기계식, R9150=Di2)
-  R8100/R8150/R8170 = Ultegra Di2 (R8100=기계식, R8150/R8170=Di2)
-  R7100/R7150/R7170 = 105 Di2 (R7100=기계식, R7150/R7170=Di2)
-  R7000 = 105 (구세대 11단)
-  Tiagra = 4700 시리즈
+  R9100/R9150 = Dura-Ace (R9100=mechanical, R9150=Di2)
+  R8100/R8150/R8170 = Ultegra Di2 (R8100=mechanical, R8150/R8170=Di2)
+  R7100/R7150/R7170 = 105 Di2 (R7100=mechanical, R7150/R7170=Di2)
+  R7000 = 105 (previous-generation 11-speed)
+  Tiagra = 4700 series
 
-[SRAM 라인업 추론 표]
+[SRAM lineup inference table]
   Red eTap AXS, Force eTap AXS, Rival eTap AXS, Apex eTap AXS
 
-[part_name_normalized 규칙 — ai_analyzer.py와 일치시킬 것]
-영문 소문자 + 언더스코어(_)만. 띄어쓰기/하이픈/대문자 절대 금지.
+[part_name_normalized rules — must match ai_analyzer.py]
+Lowercase letters and underscores (_) only. No spaces, hyphens, or uppercase letters allowed.
   groupset: "shimano_dura_ace_di2", "shimano_ultegra_di2", "shimano_105_di2",
             "sram_red_etap_axs", "sram_force_etap_axs"
-  포함: 브랜드 + 라인업 + 전동/기계식 구분(di2)
-  제외: 모델 번호(R9200 등), 'rail', 'system', 'integrated' 같은 접미어
+  Include: brand + lineup + electronic/mechanical distinction (di2)
+  Exclude: model numbers (R9200, etc.), suffixes like 'rail', 'system', 'integrated'
 
-아래 JSON 스키마로만 응답하세요. 마크다운/설명 금지, JSON만 출력.
+Respond using only the JSON schema below. No markdown or explanation, JSON only.
 
 {
   "frameset": {
-    "part_name": null 또는 "원본 표기",
-    "part_name_normalized": null 또는 "정규화된 영문",
-    "evidence": "이미지 어디에서 어떤 단서로 추출했는지 짧게"
+    "part_name": null or "original wording",
+    "part_name_normalized": null or "normalized English",
+    "evidence": "brief note on where in the image and what clue was used"
   },
   "groupset": {
-    "part_name": null 또는 "원본 표기 또는 라인업명",
-    "part_name_normalized": null 또는 "예: shimano_ultegra_di2",
-    "evidence": "수집한 단서 나열 (예: 'FC-R8100, RD-R8150, BR-R8170 → Ultegra Di2 추론')"
+    "part_name": null or "original wording or lineup name",
+    "part_name_normalized": null or "e.g. shimano_ultegra_di2",
+    "evidence": "list the gathered clues (e.g. 'FC-R8100, RD-R8150, BR-R8170 -> inferred Ultegra Di2')"
   },
   "wheelset": {
-    "part_name": null 또는 "원본 표기",
-    "part_name_normalized": null 또는 "정규화된 영문",
+    "part_name": null or "original wording",
+    "part_name_normalized": null or "normalized English",
     "evidence": "..."
   },
   "saddle": {
-    "part_name": null 또는 "원본 표기",
-    "part_name_normalized": null 또는 "정규화된 영문",
+    "part_name": null or "original wording",
+    "part_name_normalized": null or "normalized English",
     "evidence": "..."
   },
   "handlebar": {
-    "part_name": null 또는 "원본 표기",
-    "part_name_normalized": null 또는 "정규화된 영문",
+    "part_name": null or "original wording",
+    "part_name_normalized": null or "normalized English",
     "evidence": "..."
   },
   "frame_material": "carbon" | "alloy" | "steel" | "titanium" | "other" | "unknown",
@@ -99,33 +99,34 @@ EXTRACT_PROMPT = """
     "saddle": 0.0~1.0, "handlebar": 0.0~1.0,
     "frame_material": 0.0~1.0, "brake_type": 0.0~1.0
   },
-  "_evidence_image_indices": [근거가 된 이미지 인덱스],
-  "_notes": "특이사항(없으면 빈 문자열)"
+  "_evidence_image_indices": [indices of supporting images],
+  "_notes": "anything noteworthy (empty string if nothing)"
 }
 
-[환각 방지 규칙]
-1. 모르면 null. 그럴듯하게 추측 금지.
-   - 텍스트가 흐리면 null
-   - 일부 글자만 보이면 null
-   - 한글 OCR이 어색하면 null
-2. 단서 cross-reference 적극 활용:
-   - 어느 한 부품 코드만 또렷이 읽혀도 라인업 추론 가능
-   - 흐린 글자는 다른 또렷한 단서로 cross-check
-   - 단서들이 서로 모순되면(예: Ultegra와 105 둘 다 단서 발견) → null + _notes에 명시
-3. _confidence 기준:
-   - 0.9+: 또렷한 라인업명 또는 모델 번호 직접 읽음
-   - 0.7~0.9: 부품 코드 단서로 라인업 추론, 추론은 명확
-   - 0.5~0.7: 추론이지만 단서 일부 흐림
-   - 0.5 미만: value를 null로 두고 confidence는 0.0
-4. 디자인/색상/감성 사진은 무시.
+[Hallucination prevention rules]
+1. If unsure, return null. Do not make plausible guesses.
+   - If text is blurry, null
+   - If only some characters are visible, null
+   - If the Korean OCR reading looks awkward, null
+2. Actively cross-reference clues:
+   - Even a single clearly read part code is enough to infer the lineup
+   - Cross-check blurry text against other clearly visible clues
+   - If clues contradict each other (e.g. clues for both Ultegra and 105) -> null + note it in _notes
+3. _confidence guidelines:
+   - 0.9+: clearly read lineup name or model number directly
+   - 0.7~0.9: lineup inferred from part-code clues, inference is clear
+   - 0.5~0.7: inference, but some clues are blurry
+   - below 0.5: leave value as null and set confidence to 0.0
+4. Ignore design/color/lifestyle photos.
 """.strip()
 
 
 def extract_detail_images(html: str, base_url: str) -> list[str]:
-    """한국 쇼핑몰 상세 이미지 URL 추출.
+    """Extract detail-image URLs from a Korean shopping mall page.
 
-    영카트/그누보드 계열은 data/editor, upload/editor 등 'editor/' 경로에
-    상세설명 본문 이미지를 둔다. 이걸 키워드로 필터링한다.
+    Youngcart/Gnuboard-based stores place the body images for the detail
+    description under paths like data/editor or upload/editor. Filter by
+    that keyword.
     """
     soup = BeautifulSoup(html, "html.parser")
     urls: list[str] = []
@@ -134,7 +135,7 @@ def extract_detail_images(html: str, base_url: str) -> list[str]:
         src = img.get("src") or img.get("data-src") or img.get("data-original")
         if not src:
             continue
-        # 본문 상세 이미지는 보통 /editor/ 경로에 위치
+        # Body detail images are typically located under /editor/
         if "/editor/" not in src:
             continue
         full = urljoin(base_url, src)
@@ -146,7 +147,7 @@ def extract_detail_images(html: str, base_url: str) -> list[str]:
 
 
 def fetch_with_playwright(url: str) -> str:
-    """JS 렌더링이 필요한 페이지용. requests 결과가 부족할 때 호출."""
+    """For pages that require JS rendering. Call this when the requests result is insufficient."""
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
@@ -156,7 +157,7 @@ def fetch_with_playwright(url: str) -> str:
             extra_http_headers={"Accept-Language": HEADERS["Accept-Language"]},
         )
         page.goto(url, wait_until="networkidle", timeout=30000)
-        # 상세정보/스펙 탭이 있으면 클릭해서 본문 펼치기 (있으면 클릭, 없으면 무시)
+        # If a detail/spec tab exists, click it to expand the body (click if present, ignore otherwise)
         for tab_text in ("상세정보", "상세 정보", "스펙", "Specification"):
             try:
                 page.click(f"text={tab_text}", timeout=2000)
@@ -169,8 +170,8 @@ def fetch_with_playwright(url: str) -> str:
     return html
 
 
-CLAUDE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB API 제한
-TARGET_LONG_EDGE = 1568  # Claude vision 권장 — 짧은 변 1568px 안쪽이면 추가 다운스케일 없음
+CLAUDE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB API limit
+TARGET_LONG_EDGE = 1568  # Claude vision recommendation — no further downscale needed if short edge is within 1568px
 
 
 def download_as_b64(url: str) -> tuple[str, str]:
@@ -178,12 +179,12 @@ def download_as_b64(url: str) -> tuple[str, str]:
     resp.raise_for_status()
     raw = resp.content
 
-    # 5MB 미만이고 지원 포맷이면 그대로 보냄
+    # If under 5MB and a supported format, send as-is
     media_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
     if media_type in ("image/jpeg", "image/png", "image/gif", "image/webp") and len(raw) <= CLAUDE_MAX_BYTES:
         return base64.standard_b64encode(raw).decode("ascii"), media_type
 
-    # 초과 또는 미지원 포맷 → JPEG로 재인코딩 + 필요시 다운스케일
+    # Over the limit or unsupported format -> re-encode as JPEG + downscale if needed
     img = Image.open(io.BytesIO(raw))
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
@@ -210,7 +211,7 @@ def extract_specs(image_urls: list[str]) -> dict:
     for i, url in enumerate(image_urls):
         print(f"  [{i}] downloading {url}", file=sys.stderr)
         b64, media = download_as_b64(url)
-        content.append({"type": "text", "text": f"=== 이미지 {i} ==="})
+        content.append({"type": "text", "text": f"=== image {i} ==="})
         content.append({
             "type": "image",
             "source": {"type": "base64", "media_type": media, "data": b64},
@@ -241,43 +242,43 @@ def extract_specs(image_urls: list[str]) -> dict:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("사용: python prototype_image_specs.py <product_url> [이미지개수제한]", file=sys.stderr)
+        print("usage: python prototype_image_specs.py <product_url> [image_count_limit]", file=sys.stderr)
         sys.exit(1)
     url = sys.argv[1]
     limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("ANTHROPIC_API_KEY 환경변수가 필요합니다.", file=sys.stderr)
+        print("The ANTHROPIC_API_KEY environment variable is required.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"[1/3] 페이지 가져오는 중: {url}", file=sys.stderr)
+    print(f"[1/3] fetching page: {url}", file=sys.stderr)
     resp = requests.get(url, headers=HEADERS, timeout=30)
     resp.encoding = resp.apparent_encoding
     html = resp.text
 
-    print("[2/3] 상세 이미지 URL 추출", file=sys.stderr)
+    print("[2/3] extracting detail image URLs", file=sys.stderr)
     images = extract_detail_images(html, url)
-    print(f"  → requests 단계: {len(images)}장 발견", file=sys.stderr)
+    print(f"  -> requests stage: found {len(images)} images", file=sys.stderr)
 
-    # 상세 이미지가 1장 미만이면 JS 렌더링 페이지로 보고 Playwright 재시도
+    # If fewer than one detail image, treat it as a JS-rendered page and retry with Playwright
     if len(images) < 1:
-        print("  → Playwright 폴백 시도", file=sys.stderr)
+        print("  -> trying Playwright fallback", file=sys.stderr)
         try:
             html = fetch_with_playwright(url)
             images = extract_detail_images(html, url)
-            print(f"  → Playwright 단계: {len(images)}장 발견", file=sys.stderr)
+            print(f"  -> Playwright stage: found {len(images)} images", file=sys.stderr)
         except Exception as e:
-            print(f"  → Playwright 실패: {type(e).__name__}: {e}", file=sys.stderr)
+            print(f"  -> Playwright failed: {type(e).__name__}: {e}", file=sys.stderr)
 
     if limit and limit < len(images):
         images = images[:limit]
-        print(f"  → 앞 {len(images)}장만 사용", file=sys.stderr)
+        print(f"  -> using only the first {len(images)} images", file=sys.stderr)
 
     if not images:
-        print("상세 이미지를 찾지 못했습니다.", file=sys.stderr)
+        print("Could not find any detail images.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"[3/3] Claude {VISION_MODEL}에 추출 요청", file=sys.stderr)
+    print(f"[3/3] requesting extraction from Claude {VISION_MODEL}", file=sys.stderr)
     result = extract_specs(images)
 
     print(json.dumps(result, ensure_ascii=False, indent=2))

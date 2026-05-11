@@ -4,52 +4,52 @@
 <div class="admin-wrap">
   <div class="admin-inner">
     <p class="admin-back">
-      <a href="/admin">← 관리자 대시보드</a>
+      <a href="/admin">← Admin dashboard</a>
     </p>
-    <h1 class="admin-title">이탈 설문조사</h1>
+    <h1 class="admin-title">Exit survey</h1>
 
-    <!-- 응답률 KPI -->
+    <!-- Response-rate KPIs -->
     <section class="admin-section">
       <div class="admin-stats">
         <div class="stat-card">
-          <p class="stat-label">팝업 노출</p>
-          <p class="stat-value">{{ imp_count }}회</p>
+          <p class="stat-label">Impressions</p>
+          <p class="stat-value">{{ imp_count }}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">응답</p>
-          <p class="stat-value">{{ resp_count }}건</p>
+          <p class="stat-label">Responses</p>
+          <p class="stat-value">{{ resp_count }}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">응답률</p>
+          <p class="stat-label">Response rate</p>
           <p class="stat-value">{% if response_rate is none %}-{% else %}{{ response_rate }}%{% endif %}</p>
         </div>
       </div>
     </section>
 
-    <!-- 문항별 예/아니요 집계 -->
+    <!-- Per-question Y/N breakdown -->
     <section class="admin-section">
-      <h2 class="admin-section-title">문항별 응답 분포</h2>
+      <h2 class="admin-section-title">Per-question response distribution</h2>
       <table class="admin-table">
         <thead>
           <tr>
-            <th>문항</th>
-            <th>네</th>
-            <th>아니요</th>
+            <th>Question</th>
+            <th>Yes</th>
+            <th>No</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>1. 가격 분석 기능이 유용했나요?</td>
+            <td>1. Was the price analysis useful?</td>
             <td>{{ yn_summary.q1.yes }}</td>
             <td>{{ yn_summary.q1.no }}</td>
           </tr>
           <tr>
-            <td>2. 가격이 실제랑 많이 다른 부분이 있었나요?</td>
+            <td>2. Did any prices look noticeably off?</td>
             <td>{{ yn_summary.q2.yes }}</td>
             <td>{{ yn_summary.q2.no }}</td>
           </tr>
           <tr>
-            <td>3. 데이터 정확도가 훨씬 올라간다면 유료로 사용할 의향이 있나요?</td>
+            <td>3. If accuracy improved significantly, would you pay for it?</td>
             <td>{{ yn_summary.q3.yes }}</td>
             <td>{{ yn_summary.q3.no }}</td>
           </tr>
@@ -57,10 +57,10 @@
       </table>
     </section>
 
-    <!-- 응답 목록 -->
+    <!-- Response list -->
     <section class="admin-section">
       <h2 class="admin-section-title">
-        응답 목록
+        Responses
         {% if responses %}
           <span class="admin-pending-count">{{ responses|length }}</span>
         {% endif %}
@@ -69,13 +69,13 @@
       <table class="admin-table">
         <thead>
           <tr>
-            <th>닉네임</th>
-            <th>플랜</th>
-            <th>일시</th>
-            <th>Q1 유용</th>
-            <th>Q2 가격오차</th>
-            <th>Q3 유료의향</th>
-            <th>Q4 추가 기능 요청</th>
+            <th>Nickname</th>
+            <th>Plan</th>
+            <th>Submitted</th>
+            <th>Q1 Useful</th>
+            <th>Q2 Pricing off</th>
+            <th>Q3 Would pay</th>
+            <th>Q4 Feature request</th>
           </tr>
         </thead>
         <tbody>
@@ -83,17 +83,17 @@
           <tr>
             <td class="admin-nickname">{{ r.nickname }}</td>
             <td class="admin-email">{{ r.plan }}</td>
-            <td class="admin-date">{{ r.created_at.strftime('%Y.%m.%d %H:%M') }}</td>
-            <td>{% if r.q1 %}네{% else %}아니요{% endif %}</td>
-            <td>{% if r.q2 %}네{% else %}아니요{% endif %}</td>
-            <td>{% if r.q3 %}네{% else %}아니요{% endif %}</td>
+            <td class="admin-date">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{% if r.q1 %}Yes{% else %}No{% endif %}</td>
+            <td>{% if r.q2 %}Yes{% else %}No{% endif %}</td>
+            <td>{% if r.q3 %}Yes{% else %}No{% endif %}</td>
             <td>{% if r.q4 %}{{ r.q4 }}{% else %}-{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p class="admin-empty">응답이 없습니다.</p>
+      <p class="admin-empty">No responses yet.</p>
       {% endif %}
     </section>
 

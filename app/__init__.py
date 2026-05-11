@@ -11,33 +11,55 @@ oauth = OAuth()
 csrf = CSRFProtect()
 
 
+def _krw_to_usd(value, decimals: int = 0) -> str:
+    """Convert a KRW integer/float into a comma-formatted USD string.
+
+    Uses the cached BOK exchange rate (with a hardcoded fallback). Returns "0" for
+    None / non-numeric input so Jinja never blows up while rendering."""
+    try:
+        krw = float(value)
+    except (TypeError, ValueError):
+        return "0"
+    if krw == 0:
+        return "0"
+    try:
+        from .exchange_rate import get_exchange_rates
+        rate = get_exchange_rates().get("USD", 1470)
+    except Exception:
+        rate = 1470
+    usd = krw / rate
+    if decimals == 0:
+        return f"{int(round(usd)):,}"
+    return f"{usd:,.{decimals}f}"
+
+
 def create_app():
     app = Flask(__name__, template_folder="../templates", static_folder="../static")
 
-    # Railway 등 리버스 프록시 뒤에서 url_for(_external=True)가 https 스킴을 생성하도록 교정
+    # Behind a reverse proxy (Railway, etc.) so url_for(_external=True) emits https.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    # SECRET_KEY는 반드시 환경변수로 설정해야 함.
-    # 폴백을 두면 multi-worker gunicorn 환경에서 워커마다 키가 달라져 세션·CSRF·재설정 토큰이 깨진다.
+    # SECRET_KEY must come from the environment. A hardcoded fallback would diverge
+    # across gunicorn workers and break sessions / CSRF / reset tokens.
     secret = os.environ.get("FLASK_SECRET_KEY")
     if not secret:
-        raise RuntimeError("FLASK_SECRET_KEY 환경변수가 설정되어 있지 않습니다.")
+        raise RuntimeError("FLASK_SECRET_KEY environment variable is not set.")
     app.config["SECRET_KEY"] = secret
 
-    # 세션 쿠키 보안 옵션. 로컬 개발(HTTP)에서만 SESSION_COOKIE_SECURE=false 환경변수로 끌 수 있게 함.
+    # Session cookie hardening. Only flip SESSION_COOKIE_SECURE off for local HTTP dev.
     app.config["SESSION_COOKIE_SECURE"]   = os.environ.get("SESSION_COOKIE_SECURE", "true").lower() == "true"
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
-    # CSRF 토큰 만료를 세션 쿠키 수명(30일)에 위임. 기본 1시간이면 메인 페이지를
-    # 오래 열어둔 유저가 "분석" 클릭 시 400 에러로 이탈하는 문제가 생긴다.
+    # Tie CSRF token lifetime to the 30-day session cookie. The default 1 hour caused
+    # users with an old landing page open to hit a 400 when clicking "Analyze".
     app.config["WTF_CSRF_TIME_LIMIT"] = None
 
-    # OAuth 클라이언트 설정 — authlib이 Flask config에서 자동 로드
+    # OAuth client config — authlib auto-loads from Flask config.
     app.config["GOOGLE_CLIENT_ID"]     = os.environ.get("GOOGLE_CLIENT_ID")
     app.config["GOOGLE_CLIENT_SECRET"] = os.environ.get("GOOGLE_CLIENT_SECRET")
 
@@ -50,8 +72,11 @@ def create_app():
         client_kwargs={"scope": "openid email profile"},
     )
 
-    # PostHog (퍼널 분석) — 키가 비어 있으면 base.html이 스니펫을 렌더하지 않아 자동 비활성.
-    # 로컬/스테이징에서 분석 데이터 섞이지 않게 운영 환경에만 키를 넣는 운영 가정.
+    # USD display filter — converts KRW values to USD using the BOK rate.
+    app.jinja_env.filters["usd"] = _krw_to_usd
+
+    # PostHog (funnel analytics). If the key is empty base.html skips the snippet,
+    # which is how local/staging stays out of the production project.
     posthog_key  = os.environ.get("POSTHOG_PROJECT_KEY", "")
     posthog_host = os.environ.get("POSTHOG_HOST", "https://us.i.posthog.com")
 
@@ -64,11 +89,11 @@ def create_app():
 
     from .chatbot import bp as chatbot_bp
     app.register_blueprint(chatbot_bp)
-    # 챗봇 fetch는 same-origin이지만 JSON body라 hidden input으로 토큰을 못 싣는다.
-    # 우선 챗봇 블루프린트는 CSRF에서 제외 (visitor_id + 일일 한도로 abuse 보호).
+    # Chatbot fetch is same-origin but uses a JSON body, so the hidden CSRF input
+    # can't ride along. The blueprint relies on visitor_id + daily quota for abuse control.
     csrf.exempt(chatbot_bp)
 
-    # Celery 인스턴스에 Flask app_context 주입 — task 등록은 celery_app의 include로 처리
+    # Inject Flask app_context into Celery — task registration is handled via celery_app's include.
     from .celery_app import init_celery_for_flask
     init_celery_for_flask(app)
 

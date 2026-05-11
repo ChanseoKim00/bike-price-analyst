@@ -4,17 +4,17 @@
 <div class="admin-wrap">
   <div class="admin-inner">
     <p class="admin-back">
-      <a href="/admin">← 관리자 대시보드</a>
+      <a href="/admin">← Admin dashboard</a>
     </p>
-    <h1 class="admin-title">분석 대시보드</h1>
+    <h1 class="admin-title">Analyses</h1>
 
-    <!-- 일별 분석 요청 수 그래프 -->
+    <!-- Daily analysis volume chart -->
     <section class="admin-section">
       <div class="price-chart-card">
-        <div class="price-chart-header">일별 분석 요청 수 (최근 30일)</div>
+        <div class="price-chart-header">Daily analysis requests (last 30 days)</div>
         <div class="price-chart-body">
           <canvas id="adminAnalysesChart"></canvas>
-          <div id="adminAnalysesChartEmpty" class="price-chart-empty" style="display:none;">데이터가 없습니다</div>
+          <div id="adminAnalysesChartEmpty" class="price-chart-empty" style="display:none;">No data</div>
         </div>
       </div>
     </section>
@@ -59,7 +59,7 @@
               tooltip: {
                 backgroundColor: '#2a2a34', borderColor: '#4a4a58', borderWidth: 1,
                 titleColor: '#B3CDFF', bodyColor: '#e0e0e8', displayColors: false,
-                callbacks: { label: function (item) { return item.parsed.y + '건'; } }
+                callbacks: { label: function (item) { return item.parsed.y + ' analyses'; } }
               }
             },
             scales: {
@@ -80,10 +80,10 @@
       })();
     </script>
 
-    <!-- 최근 분석 -->
+    <!-- Recent analyses -->
     <section class="admin-section">
       <h2 class="admin-section-title">
-        최근 분석
+        Recent analyses
         {% if recent %}
           <span class="admin-pending-count">{{ recent|length }}</span>
         {% endif %}
@@ -92,9 +92,9 @@
       <table class="admin-table">
         <thead>
           <tr>
-            <th>자전거</th>
-            <th>절약 금액</th>
-            <th>분석 일시</th>
+            <th>Bike</th>
+            <th>You saved</th>
+            <th>Analyzed at</th>
           </tr>
         </thead>
         <tbody>
@@ -103,18 +103,18 @@
             <td class="admin-bike">{{ item.bike_name }}</td>
             <td class="admin-saving">
               {% if item.saving_krw > 0 %}
-                {{ "{:,}".format(item.saving_krw) }}원
+                ${{ item.saving_krw|usd }}
               {% else %}
                 <span class="admin-muted">-</span>
               {% endif %}
             </td>
-            <td class="admin-date">{{ item.analyzed_at.strftime('%Y.%m.%d %H:%M') }}</td>
+            <td class="admin-date">{{ item.analyzed_at.strftime('%Y-%m-%d %H:%M') }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p class="admin-empty">분석 기록이 없습니다.</p>
+      <p class="admin-empty">No analyses yet.</p>
       {% endif %}
     </section>
 

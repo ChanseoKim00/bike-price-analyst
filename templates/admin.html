@@ -3,24 +3,24 @@
 
 <div class="admin-wrap">
   <div class="admin-inner">
-    <h1 class="admin-title">관리자 대시보드</h1>
+    <h1 class="admin-title">Admin dashboard</h1>
 
-    <!-- KPI: 유저 -->
+    <!-- KPI: Users -->
     <section class="admin-section admin-kpi-clickable"
              onclick="location.href='/admin/users'"
              style="cursor:pointer;">
-      <h2 class="admin-section-title">유저</h2>
+      <h2 class="admin-section-title">Users</h2>
       <div class="admin-stats">
         <div class="stat-card">
-          <p class="stat-label">전체 가입자</p>
-          <p class="stat-value">{{ total_users }}명</p>
+          <p class="stat-label">Total signups</p>
+          <p class="stat-value">{{ total_users }}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">오늘 신규</p>
-          <p class="stat-value">{% if stats.new_users_today is none %}-{% else %}{{ stats.new_users_today }}명{% endif %}</p>
+          <p class="stat-label">New today</p>
+          <p class="stat-value">{% if stats.new_users_today is none %}-{% else %}{{ stats.new_users_today }}{% endif %}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">플랜 분포</p>
+          <p class="stat-label">Plan distribution</p>
           <p class="stat-value" style="font-size:1rem; line-height:1.5;">
             {% if stats.plan_dist is none %}
               -
@@ -34,101 +34,101 @@
       </div>
     </section>
 
-    <!-- KPI: 분석 -->
+    <!-- KPI: Analyses -->
     <section class="admin-section admin-kpi-clickable"
              onclick="location.href='/admin/analyses'"
              style="cursor:pointer;">
-      <h2 class="admin-section-title">분석</h2>
+      <h2 class="admin-section-title">Analyses</h2>
       <div class="admin-stats">
         <div class="stat-card">
-          <p class="stat-label">전체 분석</p>
-          <p class="stat-value">{{ total_analyses }}건</p>
+          <p class="stat-label">Total analyses</p>
+          <p class="stat-value">{{ total_analyses }}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">오늘 분석</p>
-          <p class="stat-value">{% if stats.analyses_today is none %}-{% else %}{{ stats.analyses_today }}건{% endif %}</p>
+          <p class="stat-label">Today</p>
+          <p class="stat-value">{% if stats.analyses_today is none %}-{% else %}{{ stats.analyses_today }}{% endif %}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">로그인 vs 게스트</p>
+          <p class="stat-label">Logged in vs. guest</p>
           <p class="stat-value" style="font-size:1rem; line-height:1.5;">
             {% if stats.analyses_member is none or stats.analyses_guest is none %}
               -
             {% else %}
-              로그인 {{ stats.analyses_member }}<br>
-              게스트 {{ stats.analyses_guest }}
+              Members {{ stats.analyses_member }}<br>
+              Guests {{ stats.analyses_guest }}
             {% endif %}
           </p>
         </div>
       </div>
     </section>
 
-    <!-- KPI: 결제 -->
+    <!-- KPI: Payments -->
     <section class="admin-section admin-kpi-clickable"
              onclick="location.href='/admin/payments'"
              style="cursor:pointer;">
-      <h2 class="admin-section-title">결제</h2>
+      <h2 class="admin-section-title">Payments</h2>
       <div class="admin-stats">
         <div class="stat-card">
-          <p class="stat-label">활성 구독자</p>
-          <p class="stat-value">{% if stats.active_subscribers is none %}-{% else %}{{ stats.active_subscribers }}명{% endif %}</p>
+          <p class="stat-label">Active subscribers</p>
+          <p class="stat-value">{% if stats.active_subscribers is none %}-{% else %}{{ stats.active_subscribers }}{% endif %}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">오늘 결제 건수</p>
-          <p class="stat-value">{% if stats.paid_today is none %}-{% else %}{{ stats.paid_today }}건{% endif %}</p>
+          <p class="stat-label">Payments today</p>
+          <p class="stat-value">{% if stats.paid_today is none %}-{% else %}{{ stats.paid_today }}{% endif %}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">오늘 매출</p>
-          <p class="stat-value">{% if stats.revenue_today is none %}-{% else %}₩{{ "{:,}".format(stats.revenue_today) }}{% endif %}</p>
+          <p class="stat-label">Revenue today</p>
+          <p class="stat-value">{% if stats.revenue_today is none %}-{% else %}${{ stats.revenue_today|usd }}{% endif %}</p>
         </div>
       </div>
     </section>
 
-    <!-- KPI: 피드백 -->
+    <!-- KPI: Feedback -->
     <section class="admin-section admin-kpi-clickable"
              onclick="location.href='/admin/feedbacks'"
              style="cursor:pointer;">
-      <h2 class="admin-section-title">피드백</h2>
+      <h2 class="admin-section-title">Feedback</h2>
       <div class="admin-stats">
         <div class="stat-card">
-          <p class="stat-label">평균 만족도</p>
-          <p class="stat-value">{% if stats.avg_rating is none %}-{% else %}{{ stats.avg_rating }}점{% endif %}</p>
+          <p class="stat-label">Avg. satisfaction</p>
+          <p class="stat-value">{% if stats.avg_rating is none %}-{% else %}{{ stats.avg_rating }}{% endif %}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">full 피드백</p>
-          <p class="stat-value">{% if stats.feedback_full is none %}-{% else %}{{ stats.feedback_full }}건{% endif %}</p>
+          <p class="stat-label">Full feedback</p>
+          <p class="stat-value">{% if stats.feedback_full is none %}-{% else %}{{ stats.feedback_full }}{% endif %}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">quick 피드백</p>
-          <p class="stat-value">{% if stats.feedback_quick is none %}-{% else %}{{ stats.feedback_quick }}건{% endif %}</p>
+          <p class="stat-label">Quick feedback</p>
+          <p class="stat-value">{% if stats.feedback_quick is none %}-{% else %}{{ stats.feedback_quick }}{% endif %}</p>
         </div>
       </div>
     </section>
 
-    <!-- KPI: 이탈 설문조사 -->
+    <!-- KPI: Exit survey -->
     <section class="admin-section admin-kpi-clickable"
              onclick="location.href='/admin/surveys'"
              style="cursor:pointer;">
-      <h2 class="admin-section-title">이탈 설문조사</h2>
+      <h2 class="admin-section-title">Exit survey</h2>
       <div class="admin-stats">
         <div class="stat-card">
-          <p class="stat-label">팝업 노출</p>
-          <p class="stat-value">{% if stats.survey_impressions is none %}-{% else %}{{ stats.survey_impressions }}회{% endif %}</p>
+          <p class="stat-label">Impressions</p>
+          <p class="stat-value">{% if stats.survey_impressions is none %}-{% else %}{{ stats.survey_impressions }}{% endif %}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">응답</p>
-          <p class="stat-value">{% if stats.survey_responses is none %}-{% else %}{{ stats.survey_responses }}건{% endif %}</p>
+          <p class="stat-label">Responses</p>
+          <p class="stat-value">{% if stats.survey_responses is none %}-{% else %}{{ stats.survey_responses }}{% endif %}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">응답률</p>
+          <p class="stat-label">Response rate</p>
           <p class="stat-value">{% if stats.survey_response_rate is none %}-{% else %}{{ stats.survey_response_rate }}%{% endif %}</p>
         </div>
       </div>
     </section>
 
-    <!-- 미처리 가격 수정 제안 -->
+    <!-- Pending price suggestions -->
     <section class="admin-section">
       <h2 class="admin-section-title">
-        미처리 가격 수정 제안
+        Pending price suggestions
         {% if pending %}
           <span class="admin-pending-count">{{ pending|length }}</span>
         {% endif %}
@@ -137,23 +137,23 @@
       <table class="admin-table admin-table--clickable">
         <thead>
           <tr>
-            <th>자전거</th>
-            <th>제안 일시</th>
-            <th>상태</th>
+            <th>Bike</th>
+            <th>Submitted</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody>
           {% for item in pending %}
           <tr onclick="location.href='/admin/suggestion/{{ item.id }}'">
             <td class="admin-bike">{{ item.bike_name }}</td>
-            <td class="admin-date">{{ item.created_at.strftime('%Y.%m.%d %H:%M') }}</td>
+            <td class="admin-date">{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             <td><span class="admin-status-pending">{{ item.status }}</span></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p class="admin-empty">미처리 제안이 없습니다.</p>
+      <p class="admin-empty">No pending suggestions.</p>
       {% endif %}
     </section>
 

@@ -1,12 +1,13 @@
-// 퍼널 분석용 PostHog 래퍼.
-// PostHog가 로드되지 않은 환경(키 미설정·차단·로컬 개발)에서도 호출부가 깨지지 않도록 no-op 폴백.
+// PostHog wrapper for funnel analytics.
+// Falls back to a no-op when PostHog isn't loaded (key not set, ad-blocked, local dev),
+// so callers never break.
 (function (w) {
   function track(event, props) {
     try {
       if (w.posthog && typeof w.posthog.capture === 'function') {
         w.posthog.capture(event, props || {});
       }
-    } catch (_) { /* analytics는 절대 사용자 흐름을 막아선 안 됨 */ }
+    } catch (_) { /* analytics must never block the user flow */ }
   }
 
   function identify(userId, props) {
@@ -30,7 +31,8 @@
   w.bpa.identify = identify;
   w.bpa.reset    = reset;
 
-  // 퍼널 이벤트 이름 — 변경 시 PostHog 대시보드 funnel 정의도 같이 갱신해야 함.
+  // Funnel event names — keep these in sync with the PostHog dashboard funnel definitions
+  // whenever you change them.
   w.bpa.events = {
     MAIN_VIEW:           'funnel_main_view',
     URL_INPUT:           'funnel_url_input',

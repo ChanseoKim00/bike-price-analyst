@@ -19,20 +19,20 @@ TTL_DAYS = {
 }
 
 SEARCH_SYSTEM = """
-당신은 자전거 부품 가격 조사 전문가입니다.
-주어진 부품의 한국 판매가를 웹에서 조사한 뒤, 아래 한 줄 형식만 출력하세요.
+You are an expert at researching bicycle component prices.
+Look up the Korean retail price for the given component on the web, then output only the single line shown below.
 
-조사 기준 (우선순위 순):
-1. 공식 수입사 또는 공식 대리점 판매가
-2. 주요 정규 판매처 시중가
+Research criteria (in priority order):
+1. Official importer or official dealer retail price
+2. Standard retail price at major authorized retailers
 
-반드시 제외: 병행수입 / 중고 / 한시적 특가·할인 행사가 / 해외 직구가
+Strictly excluded: parallel imports / used / temporary special-event or sale prices / overseas direct purchase
 
-[출력 규칙 — 매우 중요]
-- 사고 과정·조사 요약·설명 금지. 검색 도구만 사용한 뒤 곧바로 결과 한 줄을 출력.
-- 최종 출력은 반드시 다음 한 줄만:
-RESULT_JSON:{"price_krw": 정수또는null, "official_url": "URL또는null"}
-- 다른 텍스트(머리말/마크다운/주석)를 절대 추가하지 말 것.
+[Output rules - very important]
+- Do not output reasoning, research summaries, or explanations. Use the search tool, then output the single result line directly.
+- The final output must be exactly the following single line:
+RESULT_JSON:{"price_krw": integer or null, "official_url": "URL or null"}
+- Never add any other text (preface/markdown/comments).
 """.strip()
 
 
@@ -44,7 +44,7 @@ def _get_client():
 
 
 def _is_fresh(part: Part) -> bool:
-    """ttl_days 기준으로 가격 유효 여부 확인"""
+    """Check whether the price is still valid based on ttl_days"""
     if part.last_verified_at is None:
         return False
     ttl = timedelta(days=part.ttl_days)
@@ -53,19 +53,19 @@ def _is_fresh(part: Part) -> bool:
 
 def _search_price_with_ai(part_name: str, part_type: str) -> dict:
     """
-    Claude 웹 검색으로 공식 판매가 조회.
-    web_search_20250305는 Anthropic 서버가 직접 실행하는 server_tool_use 방식 —
-    단일 API 호출로 완료되므로 루프 불필요.
+    Look up the official retail price using Claude web search.
+    web_search_20250305 is a server_tool_use mechanism that the Anthropic server runs directly,
+    so it completes in a single API call and does not need a loop.
 
     Returns: {"price_krw": int or None, "official_url": str or None}
     """
     client = _get_client()
 
-    # 웹 검색 — RateLimitError 시 60초 대기 후 1회 재시도, 재시도도 실패하면 null 반환
-    # 비용 컨트롤:
-    #   - max_uses=2: 한 부품당 검색 호출 상한 (기본 5 → tool_result 누적 input 비용 폭증 방지)
-    #   - cache_control: SEARCH_SYSTEM 캐싱 (분석 1건당 부품 4회 호출에서 적중)
-    #   - max_tokens=1024: 사고 과정 출력 차단된 프롬프트와 결합해 output 비용 절감
+    # Web search - on RateLimitError, wait 60s and retry once; if the retry also fails, return null.
+    # Cost controls:
+    #   - max_uses=2: cap on search calls per component (default 5 -> avoids exploding tool_result accumulated input cost)
+    #   - cache_control: cache SEARCH_SYSTEM (hits across the 4 component calls per analysis)
+    #   - max_tokens=1024: combined with the no-reasoning prompt to cut output cost
     for attempt in range(2):
         try:
             response = client.messages.create(
@@ -87,9 +87,9 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
                     {
                         "role": "user",
                         "content": (
-                            f"다음 자전거 부품의 한국 공식 판매가를 조사해주세요.\n"
-                            f"부품 종류: {part_type}\n"
-                            f"부품명: {part_name}"
+                            f"Please research the Korean official retail price for the following bicycle component.\n"
+                            f"Component type: {part_type}\n"
+                            f"Component name: {part_name}"
                         ),
                     }
                 ],
@@ -99,13 +99,13 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
             if e.status_code not in (429, 529):
                 raise
             if attempt == 0:
-                print(f"[RATE LIMIT] 부품 검색 {e.status_code} ({part_name}) — 60초 대기 후 재시도")
+                print(f"[RATE LIMIT] component search {e.status_code} ({part_name}) - waiting 60s before retry")
                 time.sleep(60)
             else:
-                print(f"[RATE LIMIT] 부품 검색 재시도도 실패 ({part_name}) — null 반환")
+                print(f"[RATE LIMIT] component search retry also failed ({part_name}) - returning null")
                 return {"price_krw": None, "official_url": None}
 
-    # 텍스트 블록만 이어붙여 최종 응답 추출 (text가 None인 블록 제외)
+    # Concatenate text blocks only to extract the final response (skip blocks with text=None)
     search_result = "\n".join(
         block.text for block in response.content
         if hasattr(block, "text") and block.text is not None
@@ -114,14 +114,14 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
     if not search_result:
         return {"price_krw": None, "official_url": None}
 
-    # RESULT_JSON: 태그로 JSON 추출 (별도 API 호출 없이)
+    # Pull JSON via the RESULT_JSON: tag (no separate API call needed)
     marker = "RESULT_JSON:"
     idx = search_result.rfind(marker)
     if idx == -1:
         return {"price_krw": None, "official_url": None}
 
     raw = search_result[idx + len(marker):].strip()
-    # 줄바꿈 이후 내용 제거
+    # Strip everything after the first newline
     raw = raw.splitlines()[0].strip()
 
     try:
@@ -130,12 +130,12 @@ def _search_price_with_ai(part_name: str, part_type: str) -> dict:
         return {"price_krw": None, "official_url": None}
 
 
-# frameset은 AI 웹 검색으로 찾기 어려운 경우가 많아 DB 직접 입력 방식으로만 운영
-# (완성차 프레임은 공식 대리점 한정 판매가 대부분 → missing_parts로 처리)
+# frameset is hard for AI web search to find, so we operate frameset entries via direct DB entry only
+# (complete-bike frames are mostly sold only through official dealers -> handle via missing_parts)
 SKIP_AI_SEARCH_TYPES = {"frameset"}
 
-# DB에 price_krw=null로 저장돼 있어도 재검색하는 부품 타입
-# saddle/handlebar는 못 찾으면 null 그대로 유지
+# Component types that should be re-searched even when stored as price_krw=null in the DB.
+# saddle/handlebar stay null if not found.
 RETRY_ON_NULL_TYPES = {"groupset", "wheelset"}
 
 
@@ -146,16 +146,16 @@ def record_part_price_history(
     force: bool = False,
 ) -> bool:
     """
-    부품 가격이 신규 저장되거나 변경될 때 part_price_history에 row 추가.
-    동일 가격이면 저장하지 않음. None 가격은 기록 대상 아님.
-    세션 flush/commit은 호출자가 책임진다.
+    Append a row to part_price_history when a component price is newly stored or changed.
+    Skip if the price is the same. None prices are not recorded.
+    The caller is responsible for session flush/commit.
 
     Args:
-        force: True면 직전 row와 가격이 같아도 새 row를 추가. 워커 자연 발화
-               시 "변동 없음" 확인 도장을 그래프에 남기기 위한 용도.
+        force: if True, append a new row even when the price equals the previous row.
+               Used by the worker to leave a "no change" stamp on the chart during natural ticks.
 
     Returns:
-        bool: 실제로 history row를 append 했으면 True
+        bool: True if a history row was actually appended
     """
     if new_price is None:
         return False
@@ -180,18 +180,18 @@ def record_part_price_history(
 
 def _normalize_part_name(raw: str) -> str:
     """
-    AI가 생성한 part_name_normalized를 강제 정규화.
-    - 하이픈(-) → 언더스코어(_)
-    - 소문자 통일
-    - 앞뒤 공백 제거
-    - 튜블리스 관련 표기 제거 (_tubeless_ready, _tubeless, _tlr, _tl)
-    - 연속 언더스코어 → 단일 언더스코어
+    Force-normalize the part_name_normalized produced by the AI.
+    - Hyphens (-) -> underscores (_)
+    - Lowercase everything
+    - Trim leading/trailing whitespace
+    - Strip tubeless-related markers (_tubeless_ready, _tubeless, _tlr, _tl)
+    - Collapse runs of underscores into a single underscore
     """
     if raw is None:
         return None
     import re
     normalized = raw.strip().lower().replace("-", "_").replace(" ", "_")
-    # 튜블리스 관련 표기 제거 (순서 중요: 긴 패턴 먼저)
+    # Strip tubeless-related markers (order matters: longer patterns first)
     normalized = re.sub(r"_tubeless_ready", "", normalized)
     normalized = re.sub(r"_tubeless", "", normalized)
     normalized = re.sub(r"_tlr", "", normalized)
@@ -203,15 +203,15 @@ def _normalize_part_name(raw: str) -> str:
 
 def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str) -> Part:
     """
-    parts 테이블 조회 → 없거나 stale이면 AI 웹 검색 후 저장.
-    frameset은 AI 검색 없이 항상 parts DB에 저장 (price_krw=None 허용).
+    Look up the parts table - if missing or stale, run AI web search and store the result.
+    framesets are always stored in the parts DB without AI search (price_krw=None allowed).
 
     Returns:
-        Part: DB에 저장된 Part 객체 (price_krw가 None일 수 있음)
+        Part: the Part object stored in the DB (price_krw may be None)
     """
     part_name_normalized = _normalize_part_name(part_name_normalized)
 
-    # 1-a. 완전 일치 조회
+    # 1-a. Exact match lookup
     part = Part.query.filter_by(
         part_name_normalized=part_name_normalized,
         part_type=part_type,
@@ -220,9 +220,9 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
     prefix_matched = False
 
     if part is None:
-        # 1-b. AI 값이 DB normalized의 접두어인 경우
-        #      예) AI: dt_swiss_arc_1100_dicut  DB: dt_swiss_arc_1100_dicut_db_55
-        # LIKE의 `_` 와일드카드 오매칭 방지 위해 substr로 정확 비교
+        # 1-b. Case where AI value is a prefix of the DB normalized value
+        #      e.g. AI: dt_swiss_arc_1100_dicut  DB: dt_swiss_arc_1100_dicut_db_55
+        # Use substr for exact comparison to avoid LIKE's `_` wildcard mis-match.
         ai_prefix = part_name_normalized + "_"
         ai_prefix_len = len(ai_prefix)
         part = Part.query.filter(
@@ -234,8 +234,8 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
             prefix_matched = True
 
     if part is None:
-        # 1-c. DB normalized가 AI 값의 접두어인 경우
-        #      예) AI: dt_swiss_arc_1100_dicut_db_55  DB: dt_swiss_arc_1100_dicut
+        # 1-c. Case where DB normalized is a prefix of the AI value
+        #      e.g. AI: dt_swiss_arc_1100_dicut_db_55  DB: dt_swiss_arc_1100_dicut
         ai_total_len = len(part_name_normalized)
         part = Part.query.filter(
             Part.part_type == part_type,
@@ -250,17 +250,17 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
             prefix_matched = True
 
     if part and prefix_matched:
-        print(f"[PREFIX HIT] parts — {part_type}: {part_name} → matched: {part.part_name_normalized}")
+        print(f"[PREFIX HIT] parts - {part_type}: {part_name} -> matched: {part.part_name_normalized}")
 
     if part and _is_fresh(part):
-        print(f"[CACHE HIT]  parts — {part_type}: {part_name} ({part.price_krw:,}원)" if part.price_krw else f"[CACHE HIT]  parts — {part_type}: {part_name} (가격 없음)")
+        print(f"[CACHE HIT]  parts - {part_type}: {part_name} ({part.price_krw:,} KRW)" if part.price_krw else f"[CACHE HIT]  parts - {part_type}: {part_name} (no price)")
         part.last_checked_at = datetime.utcnow()
         db.session.commit()
         return part
 
-    # 2. frameset은 AI 검색 건너뜀 — DB에 없으면 null price로 저장, stale이면 last_checked_at만 갱신
+    # 2. frameset skips AI search - store with null price if missing; if stale, just refresh last_checked_at
     if part_type in SKIP_AI_SEARCH_TYPES:
-        print(f"[SKIP]       parts — {part_type}: {part_name} (AI 검색 제외, null price로 저장)")
+        print(f"[SKIP]       parts - {part_type}: {part_name} (excluded from AI search, storing null price)")
         now = datetime.utcnow()
         if part:
             part.last_checked_at = now
@@ -278,29 +278,29 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
         db.session.commit()
         return part
 
-    # 3. DB에 null로 저장된 부품 중 재검색 안 하는 타입 → 그대로 반환
+    # 3. Components stored as null in DB whose type does not retry -> return as-is
     if part and part.price_krw is None and part_type not in RETRY_ON_NULL_TYPES:
-        print(f"[CACHE HIT]  parts — {part_type}: {part_name} (가격 없음, 재검색 안 함)")
+        print(f"[CACHE HIT]  parts - {part_type}: {part_name} (no price, will not re-search)")
         return part
 
-    # 4. AI 웹 검색으로 가격 조회 (1회만 시도, 실패 시 null 처리)
-    print(f"[CACHE MISS] parts — {part_type}: {part_name} (AI 웹 검색 시작)")
+    # 4. AI web search for price (single attempt; on failure, treat as null)
+    print(f"[CACHE MISS] parts - {part_type}: {part_name} (starting AI web search)")
     result = _search_price_with_ai(part_name, part_type)
     now = datetime.utcnow()
 
     if part:
-        # stale → 재검색 성공 시에만 가격 업데이트, 실패 시 기존 가격 유지
+        # stale -> only update price on successful re-search; keep existing price on failure
         if result["price_krw"]:
             price_changed = part.price_krw != result["price_krw"]
             part.price_krw = result["price_krw"]
             part.official_url = result["official_url"]
             part.last_verified_at = now
             if price_changed:
-                db.session.flush()  # part.id 확정
+                db.session.flush()  # ensure part.id is set
                 record_part_price_history(part, result["price_krw"], recorded_at=now)
         part.last_checked_at = now
     else:
-        # 신규 저장
+        # New record
         part = Part(
             part_type=part_type,
             part_name=part_name,
@@ -313,7 +313,7 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
         )
         db.session.add(part)
         if result["price_krw"]:
-            db.session.flush()  # part.id 확정
+            db.session.flush()  # ensure part.id is set
             record_part_price_history(part, result["price_krw"], recorded_at=now)
 
     db.session.commit()
@@ -322,11 +322,11 @@ def get_or_fetch_part(part_name: str, part_name_normalized: str, part_type: str)
 
 def calculate_parts_sum(parts: list[Part]) -> tuple[int, list[str]]:
     """
-    부품 리스트에서 가격 합산 및 missing_parts 계산.
+    Sum prices and compute missing_parts from a list of components.
 
     Returns:
         (parts_sum_krw, missing_parts)
-        missing_parts: 가격을 찾지 못한 부품 타입 목록
+        missing_parts: list of component types whose price could not be found
     """
     total = 0
     missing = []

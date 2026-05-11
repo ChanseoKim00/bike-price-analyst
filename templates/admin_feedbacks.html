@@ -4,17 +4,17 @@
 <div class="admin-wrap">
   <div class="admin-inner">
     <p class="admin-back">
-      <a href="/admin">← 관리자 대시보드</a>
+      <a href="/admin">← Admin dashboard</a>
     </p>
-    <h1 class="admin-title">피드백 대시보드</h1>
+    <h1 class="admin-title">Feedback</h1>
 
-    <!-- 일별 평균 만족도 그래프 -->
+    <!-- Daily average rating chart -->
     <section class="admin-section">
       <div class="price-chart-card">
-        <div class="price-chart-header">일별 평균 만족도 (최근 30일)</div>
+        <div class="price-chart-header">Daily average rating (last 30 days)</div>
         <div class="price-chart-body">
           <canvas id="adminRatingChart"></canvas>
-          <div id="adminRatingChartEmpty" class="price-chart-empty" style="display:none;">데이터가 없습니다</div>
+          <div id="adminRatingChartEmpty" class="price-chart-empty" style="display:none;">No data</div>
         </div>
       </div>
     </section>
@@ -81,13 +81,13 @@
       })();
     </script>
 
-    <!-- 만족도 점수 분포 그래프 -->
+    <!-- Rating distribution -->
     <section class="admin-section">
       <div class="price-chart-card">
-        <div class="price-chart-header">만족도 점수 분포</div>
+        <div class="price-chart-header">Rating distribution</div>
         <div class="price-chart-body">
           <canvas id="adminRatingDistChart"></canvas>
-          <div id="adminRatingDistChartEmpty" class="price-chart-empty" style="display:none;">데이터가 없습니다</div>
+          <div id="adminRatingDistChartEmpty" class="price-chart-empty" style="display:none;">No data</div>
         </div>
       </div>
     </section>
@@ -127,8 +127,8 @@
                 backgroundColor: '#2a2a34', borderColor: '#4a4a58', borderWidth: 1,
                 titleColor: '#B3CDFF', bodyColor: '#e0e0e8', displayColors: false,
                 callbacks: {
-                  title: function (items) { return items[0].label + '점'; },
-                  label: function (item) { return item.parsed.y + '명'; }
+                  title: function (items) { return 'Score ' + items[0].label; },
+                  label: function (item) { return item.parsed.y + ' users'; }
                 }
               }
             },
@@ -148,10 +148,10 @@
       })();
     </script>
 
-    <!-- 유저 피드백 -->
+    <!-- Feedback list -->
     <section class="admin-section">
       <h2 class="admin-section-title">
-        유저 피드백
+        User feedback
         {% if feedbacks %}
           <span class="admin-pending-count">{{ feedbacks|length }}</span>
         {% endif %}
@@ -160,10 +160,10 @@
       <table class="admin-table admin-table--clickable">
         <thead>
           <tr>
-            <th>닉네임</th>
-            <th>플랜</th>
-            <th>일시</th>
-            <th>평가 점수</th>
+            <th>Nickname</th>
+            <th>Plan</th>
+            <th>Submitted</th>
+            <th>Rating</th>
           </tr>
         </thead>
         <tbody>
@@ -171,18 +171,18 @@
           {% if item.has_details %}
           <tr onclick="location.href='/admin/feedback/{{ item.id }}'">
           {% else %}
-          <tr class="admin-row-inactive" title="상세 내용 없음">
+          <tr class="admin-row-inactive" title="No details">
           {% endif %}
             <td class="admin-nickname">{{ item.nickname }}</td>
             <td class="admin-email">{{ item.plan }}</td>
-            <td class="admin-date">{{ item.created_at.strftime('%Y.%m.%d %H:%M') }}</td>
+            <td class="admin-date">{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             <td class="admin-saving">{{ item.rating }} / 10</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p class="admin-empty">피드백이 없습니다.</p>
+      <p class="admin-empty">No feedback yet.</p>
       {% endif %}
     </section>
 

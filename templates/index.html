@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 
-{# 결과 화면 한정 OG/Twitter 카드 — 카톡·X·스레드에서 미리보기로 노출되는 후킹 메타태그.
-   메인 화면(bike==None)에서는 base.html의 기본 <title>만 노출된다. #}
+{# Result-page-only OG/Twitter card — hooks the preview shown on X / Threads / iMessage when the link is shared.
+   On the landing page (bike==None), only base.html's default <title> is exposed. #}
 {% block head %}
 {% if bike and analysis %}
   {%- set og_url   = url_for('main.result', analysis_id=analysis.id, _external=True) -%}
   {%- set og_image = url_for('main.og_result_image', analysis_id=analysis.id, _external=True) -%}
   {%- set bike_label = bike.brand.replace('_', ' ').title() ~ ' ' ~ bike.model_name -%}
   {%- if bike.model_year %}{%- set bike_label = bike_label ~ ' (' ~ bike.model_year ~ ')' -%}{%- endif -%}
-  {%- set saving_fmt = '{:,}'.format(analysis.saving_krw) -%}
-  {%- set og_title = '이 자전거, 부품 합산보다 ₩' ~ saving_fmt ~ ' 싸다' -%}
-  {%- set og_desc  = bike_label ~ ' — 부품 개별 구매 대비 ' ~ analysis.saving_pct ~ '% 저렴. Bike Price Analyst가 분석한 결과.' -%}
+  {%- set saving_fmt = analysis.saving_krw|usd -%}
+  {%- set og_title = 'This bike is $' ~ saving_fmt ~ ' cheaper than its parts.' -%}
+  {%- set og_desc  = bike_label ~ ' — ' ~ analysis.saving_pct ~ '% below the sum of individual parts. Analyzed by Bike Price Analyst.' -%}
   <title>{{ og_title }} · BPA</title>
   <meta name="description" content="{{ og_desc }}">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Bike Price Analyst">
-  <meta property="og:locale" content="ko_KR">
+  <meta property="og:locale" content="en_US">
   <meta property="og:url" content="{{ og_url }}">
   <meta property="og:title" content="{{ og_title }}">
   <meta property="og:description" content="{{ og_desc }}">
@@ -35,11 +35,11 @@
 {% block content %}
 
 <div class="loading-overlay" id="loadingOverlay">
-  <p class="loading-text">AI가 가격을 분석중입니다.</p>
+  <p class="loading-text">AI is analyzing the price…</p>
 </div>
 
 {% if not bike %}
-<!-- 메인 화면 -->
+<!-- Landing screen -->
 <div class="main-wrap">
   <div class="main-inner">
     <img src="{{ url_for('static', filename='hero.png') }}" alt="" class="hero-img">
@@ -50,10 +50,10 @@
     <p class="limit-notice">
       {%- set hours = reset_min // 60 -%}
       {%- set mins  = reset_min % 60 -%}
-      <a href="/login" class="limit-login-link">로그인</a>하고 가격 분석을 무제한으로 이용해보세요.
-      <span class="limit-reset">(비로그인 분석 리셋까지
-        {%- if hours %} {{ hours }}시간{% endif %}
-        {%- if mins %} {{ mins }}분{% endif %})</span>
+      <a href="/login" class="limit-login-link">Log in</a> to run unlimited price analyses.
+      <span class="limit-reset">(Guest quota resets in
+        {%- if hours %} {{ hours }}h{% endif %}
+        {%- if mins %} {{ mins }}m{% endif %})</span>
     </p>
     {% endif %}
     <form class="input-form" action="/analyze" method="POST">
@@ -63,49 +63,41 @@
           type="url"
           name="url"
           class="url-input"
-          placeholder="자전거 판매처 링크를 입력하고 분석 버튼을 눌러주세요."
+          placeholder="Paste a bike retailer URL and press Analyze."
           required
           autofocus
         >
-        <button type="submit" class="analyze-btn">분석</button>
+        <button type="submit" class="analyze-btn">Analyze</button>
       </div>
-      <a href="{{ url_for('main.feedback') }}" class="feedback-link">불편한 점 입력하고 앱 개선하기</a>
+      <a href="{{ url_for('main.feedback') }}" class="feedback-link">Send feedback to help improve the app</a>
     </form>
   </div>
 </div>
 
 {% else %}
-<!-- 결과 화면 -->
+<!-- Result screen -->
 <div class="result-wrap">
 
   <header class="result-header"></header>
 
   <div class="saving-hero">
-    <p class="saving-label">지금 구매하면</p>
-    <p class="saving-amount">{{ "{:,}".format(analysis.saving_krw) }}원 절약</p>
-    <p class="saving-sub">부품 개별 구매 대비 {{ analysis.saving_pct }}% 저렴</p>
+    <p class="saving-label">Buy this bike now and save</p>
+    <p class="saving-amount">${{ analysis.saving_krw|usd }}</p>
+    <p class="saving-sub">{{ analysis.saving_pct }}% below the sum of individual parts</p>
   </div>
 
-  {# 공유 카드 — 결과 URL을 카톡/X/스레드 등에 공유하면 OG 이미지가 자동 노출된다.
-     인스타는 OG 미리보기를 거의 렌더하지 않으므로 OG 이미지 다운로드 + 링크 복사를 제공. #}
-  {%- set _share_title = '이 자전거, 부품 합산보다 ₩' ~ '{:,}'.format(analysis.saving_krw) ~ ' 싸다' -%}
+  {# Share card — sharing the result URL on X / Threads / iMessage surfaces the OG image preview.
+     Instagram rarely renders OG previews, so we offer an OG image download + link copy as a fallback. #}
+  {%- set _share_title = 'This bike is $' ~ (analysis.saving_krw|usd) ~ ' cheaper than its parts.' -%}
   {%- set _share_url   = url_for('main.result', analysis_id=analysis.id, _external=True) -%}
   {%- set _og_url      = url_for('main.og_result_image', analysis_id=analysis.id, _external=True) -%}
   <section class="share-card"
            data-share-url="{{ _share_url }}"
            data-share-title="{{ _share_title }}"
            data-og-url="{{ _og_url }}">
-    <p class="share-card__lead">친구에게 공유하기</p>
-    <div class="share-card__buttons" role="group" aria-label="공유 버튼">
-      <button type="button" class="share-btn" data-share="kakao" aria-label="카카오톡으로 공유">
-        <span class="share-btn__icon" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 4C6.477 4 2 7.477 2 11.75c0 2.69 1.78 5.06 4.49 6.46l-.93 3.4c-.08.3.25.55.52.4l4.05-2.66c.62.07 1.24.1 1.87.1 5.523 0 10-3.477 10-7.7S17.523 4 12 4Z" fill="currentColor"/>
-          </svg>
-        </span>
-        <span>카카오톡</span>
-      </button>
-      <button type="button" class="share-btn" data-share="x" aria-label="X로 공유">
+    <p class="share-card__lead">Share with a friend</p>
+    <div class="share-card__buttons" role="group" aria-label="Share buttons">
+      <button type="button" class="share-btn" data-share="x" aria-label="Share on X">
         <span class="share-btn__icon" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M18.244 2H21l-6.52 7.45L22 22h-6.844l-4.78-6.31L4.8 22H2.044l6.974-7.97L2 2h7.02l4.32 5.74L18.244 2Zm-1.198 18h1.5L7.044 4H5.46l11.586 16Z" fill="currentColor"/>
@@ -113,15 +105,26 @@
         </span>
         <span>X</span>
       </button>
-      <button type="button" class="share-btn" data-share="threads" aria-label="스레드로 공유">
+      <button type="button" class="share-btn" data-share="threads" aria-label="Share on Threads">
         <span class="share-btn__icon" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12.5 22C6.96 22 3 18.43 3 12.5 3 6.74 6.86 3 12.32 3c4.04 0 6.83 1.97 7.86 5.49l-2.05.6c-.74-2.51-2.74-3.96-5.81-3.96-4.18 0-7.13 2.94-7.13 7.37 0 4.7 3.14 7.41 7.32 7.41 3.13 0 5.18-1.21 5.94-3.4.4-1.18.32-2.32-.21-3.16-.5-.78-1.39-1.36-2.6-1.66-.18 2.43-1.96 4.06-4.42 4.06-1.45 0-2.7-.5-3.5-1.4-.74-.83-1.06-1.94-.91-3.12.3-2.27 2.42-3.66 5.4-3.55 1.06.04 2.05.2 2.95.49.05-.7-.13-1.27-.54-1.7-.55-.57-1.4-.86-2.55-.87h-.04c-.92 0-2.18.25-2.97 1.45l-1.85-1.16c1.07-1.62 2.81-2.4 4.83-2.4h.05c3.4.02 5.43 2.13 5.23 5.43 1.43.45 2.5 1.27 3.16 2.42.92 1.6 1 4.18.13 6.55-1.18 3.21-4.11 4.96-8.4 4.96Zm-.69-9.93c-1.69 0-3.4.62-3.5 1.94-.06.45.06.86.34 1.17.45.5 1.23.79 2.21.79 1.74 0 3-.94 3.18-2.93-.7-.27-1.5-.45-2.23-.48a2.7 2.7 0 0 0 0 0Z" fill="currentColor"/>
           </svg>
         </span>
-        <span>스레드</span>
+        <span>Threads</span>
       </button>
-      <button type="button" class="share-btn" data-share="instagram" aria-label="인스타그램용 이미지 다운로드">
+      <button type="button" class="share-btn" data-share="reddit" aria-label="Share on Reddit">
+        <span class="share-btn__icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="currentColor"/>
+            <circle cx="9" cy="13" r="1.2" fill="#1a1a1f"/>
+            <circle cx="15" cy="13" r="1.2" fill="#1a1a1f"/>
+            <path d="M8.5 16c1 .8 2.2 1.2 3.5 1.2s2.5-.4 3.5-1.2" stroke="#1a1a1f" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+          </svg>
+        </span>
+        <span>Reddit</span>
+      </button>
+      <button type="button" class="share-btn" data-share="instagram" aria-label="Download image for Instagram">
         <span class="share-btn__icon" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="currentColor" stroke-width="1.6"/>
@@ -129,15 +132,15 @@
             <circle cx="17.2" cy="6.8" r="1" fill="currentColor"/>
           </svg>
         </span>
-        <span>인스타</span>
+        <span>Instagram</span>
       </button>
-      <button type="button" class="share-btn share-btn--ghost" data-share="copy" aria-label="링크 복사">
+      <button type="button" class="share-btn share-btn--ghost" data-share="copy" aria-label="Copy link">
         <span class="share-btn__icon" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M9.5 14.5 14.5 9.5M10 6.5l1-1a3.5 3.5 0 0 1 5 5l-1 1M14 17.5l-1 1a3.5 3.5 0 0 1-5-5l1-1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
           </svg>
         </span>
-        <span>링크 복사</span>
+        <span>Copy link</span>
       </button>
     </div>
     <p class="share-card__toast" id="shareToast" role="status" aria-live="polite"></p>
@@ -147,36 +150,36 @@
     <h2 class="bike-name">{{ bike.brand.replace('_', ' ')|title }} {{ bike.model_name }} {% if bike.model_year %}({{ bike.model_year }}){% endif %}</h2>
 
     {% set part_labels = {
-      'groupset': '구동계',
-      'wheelset': '휠셋',
-      'frameset': '프레임셋',
-      'saddle': '안장',
-      'handlebar': '핸들바'
+      'groupset': 'Groupset',
+      'wheelset': 'Wheelset',
+      'frameset': 'Frameset',
+      'saddle':   'Saddle',
+      'handlebar':'Handlebar'
     } %}
 
-    <!-- 부품 테이블: tbody만, tfoot은 별도 분리 -->
+    <!-- Parts table: tbody only; the summary table is separated below. -->
     <div class="parts-table-wrap">
       {% if blur_mode %}
       <div class="price-overlay" id="priceOverlay">
         {% if blur_mode == 'guest' %}
-          <p class="price-overlay-msg">로그인하고 제품에 대한<br>상세한 가격정보를 받아보세요.</p>
-          <a href="/login" class="price-overlay-btn">로그인</a>
+          <p class="price-overlay-msg">Log in to see<br>detailed component pricing.</p>
+          <a href="/login" class="price-overlay-btn">Log in</a>
         {% else %}
           {%- set ph = blur_reset_minutes // 60 -%}
           {%- set pm = blur_reset_minutes % 60 -%}
-          <p class="price-overlay-msg">Pro 플랜을 결제하고<br>무제한 상세 분석을 이용해보세요.</p>
-          <p class="price-overlay-sub">상세 분석 리셋까지
-            {%- if ph %} {{ ph }}시간{% endif %}
-            {%- if pm %} {{ pm }}분{% endif %}</p>
+          <p class="price-overlay-msg">Upgrade to Pro for<br>unlimited detailed analyses.</p>
+          <p class="price-overlay-sub">Detailed analysis quota resets in
+            {%- if ph %} {{ ph }}h{% endif %}
+            {%- if pm %} {{ pm }}m{% endif %}</p>
         {% endif %}
       </div>
       {% endif %}
       <table class="parts-table">
         <thead>
           <tr>
-            <th>구분</th>
-            <th>부품명</th>
-            <th>개별 구매가</th>
+            <th>Type</th>
+            <th>Part</th>
+            <th>Individual price</th>
           </tr>
         </thead>
         <tbody id="partsTableBody">
@@ -186,20 +189,20 @@
               <td class="part-type">{{ part_labels.get(key, key) }}</td>
               <td class="part-name">{{ part.part_name }}</td>
               <td class="part-price">
-                <span class="{% if blur_mode %}price-blurred{% endif %}">{{ "{:,}".format(part.price_krw) }}원</span>
+                <span class="{% if blur_mode %}price-blurred{% endif %}">${{ part.price_krw|usd }}</span>
               </td>
             </tr>
             {% elif part %}
             <tr class="missing-row">
               <td class="part-type">{{ part_labels.get(key, key) }}</td>
               <td class="part-name">{{ part.part_name }}</td>
-              <td class="part-price muted">가격 미확인</td>
+              <td class="part-price muted">Price unavailable</td>
             </tr>
             {% else %}
             <tr class="missing-row">
               <td class="part-type">{{ part_labels.get(key, key) }}</td>
-              <td class="part-name muted">미확인</td>
-              <td class="part-price muted">가격 미확인</td>
+              <td class="part-name muted">Unknown</td>
+              <td class="part-price muted">Price unavailable</td>
             </tr>
             {% endif %}
           {% endfor %}
@@ -207,41 +210,41 @@
       </table>
     </div>
 
-    <!-- 합산 정보: 항상 정상 표시 -->
+    <!-- Summary row: always visible. -->
     <table class="parts-table parts-summary">
       <tbody>
         <tr class="sum-row">
-          <td colspan="2">부품 합산 가격</td>
-          <td>{{ "{:,}".format(analysis.parts_sum_krw) }}원</td>
+          <td colspan="2">Sum of parts</td>
+          <td>${{ analysis.parts_sum_krw|usd }}</td>
         </tr>
         <tr class="bike-price-row">
-          <td colspan="2">완성차 가격</td>
-          <td>{{ "{:,}".format(bike_price) }}원</td>
+          <td colspan="2">Complete bike price</td>
+          <td>${{ bike_price|usd }}</td>
         </tr>
         <tr class="saving-row">
-          <td colspan="2">절약 금액</td>
-          <td>{{ "{:,}".format(analysis.saving_krw) }}원</td>
+          <td colspan="2">You save</td>
+          <td>${{ analysis.saving_krw|usd }}</td>
         </tr>
         <tr class="suggest-row">
           <td colspan="2">
             {% if analysis.missing_parts %}
-            <span class="missing-note">* 비교 제외 부품: {{ analysis.missing_parts | join(', ') }}</span>
+            <span class="missing-note">* Excluded from comparison: {{ analysis.missing_parts | join(', ') }}</span>
             {% endif %}
           </td>
-          <td><a href="/suggest?analysis_id={{ analysis.id }}" class="suggest-btn">가격 수정 제안</a></td>
+          <td><a href="/suggest?analysis_id={{ analysis.id }}" class="suggest-btn">Suggest a price fix</a></td>
         </tr>
       </tbody>
     </table>
 
     {% if price_history is not none %}
     <section class="price-history-section">
-      <h3 class="price-history-title">가격 변동 추이 <span class="price-history-sub">· 최근 3년</span></h3>
+      <h3 class="price-history-title">Price history <span class="price-history-sub">· last 3 years</span></h3>
 
       {% set chart_specs = [
-        ('bike',     '완성차'),
-        ('frameset', '프레임셋'),
-        ('groupset', '구동계'),
-        ('wheelset', '휠셋')
+        ('bike',     'Complete bike'),
+        ('frameset', 'Frameset'),
+        ('groupset', 'Groupset'),
+        ('wheelset', 'Wheelset')
       ] %}
 
       <div class="price-history-grid">
@@ -251,7 +254,7 @@
           <div class="price-chart-body">
             <canvas id="chart-{{ key }}"></canvas>
             {% if not price_history[key] %}
-            <p class="price-chart-empty">가격 정보가 없습니다.</p>
+            <p class="price-chart-empty">No price history available.</p>
             {% endif %}
           </div>
         </div>
@@ -260,72 +263,72 @@
     </section>
     {% endif %}
 
-    <a href="/" class="another-btn">다른 자전거 분석하기</a>
+    <a href="/" class="another-btn">Analyze another bike</a>
   </div>
 
 </div>
 
 {% if show_exit_popup %}
 {# ──────────────────────────────────────────────────────────────
-   설문조사 팝업 (임시) — 기존 1~10점 평가 팝업은 아래 주석에 보존.
-   복원 방법: 아래 설문조사 블록을 지우고 주석 안 HTML/JS/CSS를 활성화.
+   Exit-intent survey popup (temporary). The previous 1–10 rating
+   popup is preserved in the comment block below for restoration.
    ────────────────────────────────────────────────────────────── #}
 <div class="exit-popup-overlay" id="exitPopup" role="dialog" aria-modal="true" aria-labelledby="exitPopupTitle" aria-hidden="true" data-cooldown-hours="{{ exit_feedback_cooldown_hours }}">
   <div class="exit-popup-card exit-popup-card--survey">
-    <button type="button" class="exit-popup-close" id="exitPopupClose" aria-label="닫기">&times;</button>
-    <p class="exit-popup-title" id="exitPopupTitle">잠시 시간 내주실 수 있나요?</p>
+    <button type="button" class="exit-popup-close" id="exitPopupClose" aria-label="Close">&times;</button>
+    <p class="exit-popup-title" id="exitPopupTitle">Got a moment for a few quick questions?</p>
 
     <div class="survey-q">
-      <p class="survey-q-text">1. 가격 분석 기능이 유용했나요?</p>
+      <p class="survey-q-text">1. Was the price analysis useful?</p>
       <div class="survey-yn" data-q="q1">
-        <button type="button" class="survey-yn-btn" data-value="yes">네</button>
-        <button type="button" class="survey-yn-btn" data-value="no">아니요</button>
+        <button type="button" class="survey-yn-btn" data-value="yes">Yes</button>
+        <button type="button" class="survey-yn-btn" data-value="no">No</button>
       </div>
     </div>
 
     <div class="survey-q">
-      <p class="survey-q-text">2. 가격이 실제랑 많이 다른 부분이 있었나요?</p>
+      <p class="survey-q-text">2. Did any of the prices look noticeably off?</p>
       <div class="survey-yn" data-q="q2">
-        <button type="button" class="survey-yn-btn" data-value="yes">네</button>
-        <button type="button" class="survey-yn-btn" data-value="no">아니요</button>
+        <button type="button" class="survey-yn-btn" data-value="yes">Yes</button>
+        <button type="button" class="survey-yn-btn" data-value="no">No</button>
       </div>
     </div>
 
     <div class="survey-q">
-      <p class="survey-q-text">3. 데이터 정확도가 훨씬 올라간다면 유료로 사용할 의향이 있나요?</p>
+      <p class="survey-q-text">3. If accuracy improved significantly, would you pay for it?</p>
       <div class="survey-yn" data-q="q3">
-        <button type="button" class="survey-yn-btn" data-value="yes">네</button>
-        <button type="button" class="survey-yn-btn" data-value="no">아니요</button>
+        <button type="button" class="survey-yn-btn" data-value="yes">Yes</button>
+        <button type="button" class="survey-yn-btn" data-value="no">No</button>
       </div>
     </div>
 
     <div class="survey-q">
-      <p class="survey-q-text">4. 추가되면 좋겠다 싶은 기능이 있나요?</p>
-      <textarea class="survey-text-input" id="surveyQ4" maxlength="2000" rows="2" placeholder="자유롭게 입력해주세요 (선택)"></textarea>
+      <p class="survey-q-text">4. Anything you'd like to see added?</p>
+      <textarea class="survey-text-input" id="surveyQ4" maxlength="2000" rows="2" placeholder="Anything is fine (optional)"></textarea>
     </div>
 
-    <button type="button" class="exit-popup-submit" id="exitPopupSubmit" disabled>완료</button>
+    <button type="button" class="exit-popup-submit" id="exitPopupSubmit" disabled>Submit</button>
   </div>
 </div>
 
 {#
-  ── 기존 1~10점 평가 팝업 (설문조사 종료 후 복원용 — 삭제 금지) ──
+  ── Previous 1–10 rating popup (kept for restoration after the survey ends — do not delete) ──
   <div class="exit-popup-overlay" id="exitPopup" role="dialog" aria-modal="true" aria-labelledby="exitPopupTitle" aria-hidden="true" data-cooldown-hours="{{ exit_feedback_cooldown_hours }}">
     <div class="exit-popup-card">
-      <button type="button" class="exit-popup-close" id="exitPopupClose" aria-label="닫기">&times;</button>
-      <p class="exit-popup-title" id="exitPopupTitle">가격 분석에 만족 하셨나요?</p>
+      <button type="button" class="exit-popup-close" id="exitPopupClose" aria-label="Close">&times;</button>
+      <p class="exit-popup-title" id="exitPopupTitle">How satisfied were you with the price analysis?</p>
       <div class="exit-popup-ratings">
         {% for n in range(1, 11) %}
         <div class="exit-rating-cell">
           <button type="button" class="exit-rating-btn" data-value="{{ n }}">{{ n }}</button>
           <span class="exit-rating-label">
-            {%- if n == 1 -%}불만족{%- elif n == 10 -%}만족{%- endif -%}
+            {%- if n == 1 -%}Unsatisfied{%- elif n == 10 -%}Satisfied{%- endif -%}
           </span>
         </div>
         {% endfor %}
       </div>
-      <button type="button" class="exit-popup-submit" id="exitPopupSubmit" disabled>제출</button>
-      <a href="{{ url_for('main.feedback') }}" class="exit-popup-link">피드백 남기기</a>
+      <button type="button" class="exit-popup-submit" id="exitPopupSubmit" disabled>Submit</button>
+      <a href="{{ url_for('main.feedback') }}" class="exit-popup-link">Leave feedback</a>
     </div>
   </div>
 #}
@@ -333,7 +336,7 @@
 
 {% endif %}
 
-<a href="{{ url_for('chatbot.index') }}" target="_blank" rel="noopener" class="chatbot-fab" title="AI 상담원에게 문의하기" aria-label="AI 상담원에게 문의하기">
+<a href="{{ url_for('chatbot.index') }}" target="_blank" rel="noopener" class="chatbot-fab" title="Ask the AI assistant" aria-label="Ask the AI assistant">
   <svg class="chatbot-fab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <rect x="3" y="8" width="18" height="12" rx="3"></rect>
     <path d="M12 4v4"></path>
@@ -353,16 +356,16 @@
 {% endif %}
 
 <script>
-  // 분석 폼 제출 직후 /analyze 응답(loading.html) 도착 전까지의 빈 화면을 막기 위해
-  // 메인 페이지에서만 로딩 오버레이를 먼저 띄운다. 서버가 loading.html을 반환하면 자연스럽게 이어짐.
+  // Show the loading overlay on submit so the landing page doesn't go blank
+  // before /analyze returns loading.html (which then takes over seamlessly).
   var form = document.querySelector('.input-form');
   if (form) {
-    // 퍼널 1단계 — 메인 진입
+    // Funnel step 1 — landing view.
     if (window.bpa) window.bpa.track(window.bpa.events.MAIN_VIEW, {
       rate_limited: {{ (request.args.get('limit') == 'true')|tojson }}
     });
 
-    // OAuth 신규 가입 — Google 콜백이 ?signup=google 로 1회 보낸다.
+    // OAuth signup — Google callback fires ?signup=google exactly once.
     {% if request.args.get('signup') == 'google' %}
     if (window.bpa) window.bpa.track(window.bpa.events.SIGNUP_COMPLETE, { method: 'google' });
     {% endif %}
@@ -370,7 +373,7 @@
     var urlInput = form.querySelector('input[name="url"]');
     var inputTracked = false;
     if (urlInput) {
-      // 퍼널 2단계 — URL 입력 (첫 입력/붙여넣기 시 1회만)
+      // Funnel step 2 — URL entered (fires once on first keystroke/paste).
       urlInput.addEventListener('input', function () {
         if (inputTracked) return;
         inputTracked = true;
@@ -379,13 +382,13 @@
     }
 
     form.addEventListener('submit', function() {
-      // 퍼널 3단계 — 분석 시작
+      // Funnel step 3 — analyze submitted.
       if (window.bpa) window.bpa.track(window.bpa.events.ANALYZE_SUBMIT);
       document.getElementById('loadingOverlay').classList.add('active');
     });
   }
 
-  // 퍼널 4단계 — 결과 도달
+  // Funnel step 4 — result viewed.
   {% if bike %}
   if (window.bpa) window.bpa.track(window.bpa.events.RESULT_VIEW, {
     analysis_id: {{ analysis.id|tojson }},
@@ -394,7 +397,7 @@
   });
   {% endif %}
 
-  // 가격 overlay를 tbody 영역에만 맞게 위치 조정
+  // Pin the price overlay to the tbody region only.
   (function() {
     var overlay = document.getElementById('priceOverlay');
     if (!overlay) return;
@@ -408,7 +411,7 @@
     overlay.style.bottom = 'auto';
   })();
 
-  // world_tour 플랜 — 가격 변동 그래프 렌더링
+  // world_tour plan — render the price-history charts.
   (function() {
     var dataNode = document.getElementById('price-history-data');
     if (!dataNode || typeof Chart === 'undefined') return;
@@ -422,18 +425,19 @@
       tick: '#8a8aa0',
     };
 
-    function krwShort(v) {
+    // KRW values are converted to USD in the chart axis using the same fallback rate
+    // as the server-side filter (see app/__init__.py::_krw_to_usd).
+    var USD_RATE = {{ (1470)|tojson }};
+
+    function usdShort(v) {
       if (v == null) return '';
-      if (v === 0) return '0';
-      if (v >= 100000000) {
-        var eok = v / 100000000;
-        return (eok % 1 === 0 ? eok.toFixed(0) : eok.toFixed(1)) + '억';
-      }
-      if (v >= 10000) return Math.round(v / 10000).toLocaleString() + '만';
-      return v.toLocaleString();
+      var u = v / USD_RATE;
+      if (u === 0) return '$0';
+      if (u >= 1000) return '$' + (u / 1000).toFixed(u >= 10000 ? 0 : 1) + 'k';
+      return '$' + Math.round(u).toLocaleString();
     }
 
-    // X축 고정 창: 과거 3년 + 미래 여유. 현재 시점을 창의 84% 위치에 배치.
+    // Fixed X-axis window: past 3 years + lookahead. "Now" sits at the 84% mark.
     var X_NOW = Date.now();
     var X_PAST_MS = 3 * 365 * 24 * 60 * 60 * 1000;
     var X_MIN = X_NOW - X_PAST_MS;
@@ -445,7 +449,7 @@
       var lo = Math.min.apply(null, ys);
       var hi = Math.max.apply(null, ys);
       var center = (lo + hi) / 2;
-      // 중앙값 기준 ±10% 패딩. 실제 데이터가 그보다 넓으면 데이터를 기준으로 확장.
+      // ±10% padding around the midpoint; expand to fit data if it spans wider.
       var pad = center * 0.1;
       return {
         min: Math.max(0, Math.min(lo, center - pad)),
@@ -491,7 +495,8 @@
                   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
                 },
                 label: function(item) {
-                  return item.parsed.y.toLocaleString() + '원';
+                  var u = item.parsed.y / USD_RATE;
+                  return '$' + Math.round(u).toLocaleString();
                 }
               }
             }
@@ -512,7 +517,7 @@
               ticks: {
                 color: colors.tick,
                 font: { size: 10 },
-                callback: function(v) { return krwShort(v); }
+                callback: function(v) { return usdShort(v); }
               },
               beginAtZero: false,
             }
@@ -526,7 +531,7 @@
     });
   })();
 
-  // 결과 페이지 이탈 시 설문조사 팝업
+  // Exit-intent survey popup on the result page.
   (function() {
     var popup = document.getElementById('exitPopup');
     if (!popup) return;
@@ -536,11 +541,12 @@
     var cooldownMs = cooldownHours * 60 * 60 * 1000;
     var CSRF_TOKEN = {{ csrf_token() | tojson }};
 
-    // 응답 완료 후 쿨타임 내면 아예 동작하지 않음. X로 닫은 경우는 저장하지 않아 다음 검색 때 다시 뜸.
+    // Don't run while the cooldown is active. Closing with X doesn't store anything,
+    // so it pops again on the next analysis.
     try {
       var submittedAt = parseInt(localStorage.getItem(SUBMIT_KEY) || '0', 10);
       if (submittedAt && (Date.now() - submittedAt) < cooldownMs) return;
-    } catch (_) { /* storage 접근 실패 시 팝업 동작은 계속 */ }
+    } catch (_) { /* storage failure: keep the popup behavior */ }
 
     var submitBtn  = document.getElementById('exitPopupSubmit');
     var closeBtn   = document.getElementById('exitPopupClose');
@@ -562,7 +568,7 @@
       popup.classList.add('active');
       popup.setAttribute('aria-hidden', 'false');
 
-      // 노출 로깅 — 응답률 분모
+      // Impression log — denominator for the response-rate metric.
       if (!impressionLogged) {
         impressionLogged = true;
         var body = new FormData();
@@ -583,12 +589,12 @@
       }
     }
 
-    // 1) 데스크톱 — 커서가 상단 밖으로 이탈할 때
+    // 1) Desktop — cursor leaves the top of the viewport.
     document.addEventListener('mouseleave', function(e) {
       if (e.clientY <= 0) openPopup();
     });
 
-    // 2) 전 디바이스 — 내부 링크 클릭 시 가로채기
+    // 2) All devices — intercept clicks on internal links.
     document.body.addEventListener('click', function(e) {
       if (shown) return;
       var link = e.target.closest('a[href]');
@@ -607,7 +613,7 @@
       openPopup();
     });
 
-    // 3) Y/N 선택
+    // 3) Y/N selection.
     ynGroups.forEach(function(group) {
       var qKey = group.getAttribute('data-q');
       var btns = group.querySelectorAll('.survey-yn-btn');
@@ -621,7 +627,7 @@
       });
     });
 
-    // 4) 완료 — 성공 여부와 무관하게 쿨타임 타임스탬프 기록
+    // 4) Submit — record the cooldown timestamp regardless of network outcome.
     submitBtn.addEventListener('click', function() {
       if (submitBtn.disabled) return;
       var body = new FormData();
@@ -637,7 +643,7 @@
       closePopup();
     });
 
-    // 5) X 버튼
+    // 5) X button.
     closeBtn.addEventListener('click', closePopup);
   })();
 </script>

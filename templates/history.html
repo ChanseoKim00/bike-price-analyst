@@ -3,15 +3,15 @@
 
 <div class="history-wrap">
   <div class="history-inner">
-    <h1 class="history-title">내 히스토리</h1>
+    <h1 class="history-title">My history</h1>
 
     {% if history %}
     <table class="history-table">
       <thead>
         <tr>
-          <th>자전거</th>
-          <th>절약 금액</th>
-          <th>분석 일시</th>
+          <th>Bike</th>
+          <th>You saved</th>
+          <th>Analyzed at</th>
         </tr>
       </thead>
       <tbody>
@@ -26,14 +26,14 @@
           </td>
           <td class="history-saving">
             {% if item.saving_krw > 0 %}
-              {{ "{:,}".format(item.saving_krw) }}원
+              ${{ item.saving_krw|usd }}
               <span class="history-pct">{{ item.saving_pct }}%</span>
             {% else %}
               <span class="history-muted">-</span>
             {% endif %}
           </td>
           <td class="history-date">
-            {{ item.viewed_at.strftime('%Y.%m.%d %H:%M') }}
+            {{ item.viewed_at.strftime('%Y-%m-%d %H:%M') }}
           </td>
         </tr>
         {% endfor %}
@@ -41,8 +41,8 @@
     </table>
     {% else %}
     <div class="history-empty">
-      <p class="history-empty-msg">아직 분석한 자전거가 없습니다.</p>
-      <a href="/" class="auth-btn">첫 번째 자전거 분석하기</a>
+      <p class="history-empty-msg">You haven't analyzed any bikes yet.</p>
+      <a href="/" class="auth-btn">Analyze your first bike</a>
     </div>
     {% endif %}
   </div>

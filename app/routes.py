@@ -12,8 +12,10 @@ from sqlalchemy import func, or_, and_, cast, Date
 
 
 def _admin_chart_since_utc(days: int = 30):
-    """KST 기준 최근 `days`일의 시작 시각을 UTC naive datetime으로 반환."""
+    """Returns the start of the day N days ago in UTC, anchoring to the local timezone."""
     try:
+        # Asia/Seoul is the legacy anchor (the app currently runs from Korea).
+        # This can be parameterized later if we move the deployment.
         from zoneinfo import ZoneInfo
         _kst = ZoneInfo("Asia/Seoul")
         _now_kst = datetime.now(_kst)
@@ -42,13 +44,14 @@ def record_bike_price_history(
     force: bool = False,
 ) -> bool:
     """
-    완성차 가격이 신규 저장되거나 변경될 때 bike_price_history에 row 추가.
-    동일 가격이면 저장하지 않음. None 가격은 기록 대상 아님.
-    세션 flush/commit은 호출자가 책임진다.
+    Add a row to bike_price_history when the complete-bike price is newly saved or changed.
+    Skips saving if the price is identical. None prices are not recorded.
+    The caller is responsible for session flush/commit.
 
     Args:
-        force: True면 직전 row와 가격이 같아도 새 row를 추가. 워커 자연 발화
-               시 "변동 없음" 확인 도장을 그래프에 남기기 위한 용도.
+        force: If True, add a new row even if the price matches the previous row.
+               Used to leave a "no change" confirmation stamp on the chart during
+               natural worker firings.
     """
     if new_price is None:
         return False
@@ -80,9 +83,9 @@ def _serialize_history(rows) -> list[dict]:
 
 def build_price_history(bike: Bike, parts: dict) -> dict:
     """
-    world_tour 플랜 전용 — 최근 3년 가격 이력 조회.
-    bike / frameset / groupset / wheelset 순서로 반환.
-    데이터가 없는 부품은 빈 리스트.
+    world_tour plan only — fetch the last 3 years of price history.
+    Returns in the order bike / frameset / groupset / wheelset.
+    Parts with no data return an empty list.
     """
     cutoff = datetime.utcnow() - timedelta(days=_HISTORY_DAYS)
 
@@ -114,37 +117,39 @@ def build_price_history(bike: Bike, parts: dict) -> dict:
     }
 
 def _err(message, hint, url="", **kwargs):
-    """에러 페이지 렌더링 헬퍼"""
+    """Helper for rendering the error page."""
     return render_template("error.html", message=message, hint=hint, url=url, **kwargs)
 
 
-# 플랜별 분석 횟수 제한
+# Per-plan analysis quota limits
 _WINDOW_HOURS = 5
 _GUEST_LIMIT = 3
 _CONTINENTAL_LIMIT = 10
 
 # ════════════════════════════════════════════════════════════════════
-# PROMO_PRO_FOR_CONTINENTAL — 홍보 기간 임시 권한 부스트 (2026-04-29 추가)
+# PROMO_PRO_FOR_CONTINENTAL — temporary promotional privilege boost (added 2026-04-29)
 # ────────────────────────────────────────────────────────────────────
-# True인 동안 continental 유저를 _effective_plan()에서 'pro'로 취급한다.
-# 효과: 분석 횟수 무제한 + 부품가 블러 해제 (pro와 동일).
-# user.plan 컬럼은 손대지 않으므로 마이페이지/결제/표시는 영향 없음.
-# 가격 이력 그래프는 'world_tour' 정확 매칭이라 풀리지 않음.
+# While True, continental users are treated as 'pro' inside _effective_plan().
+# Effect: unlimited analyses + part-price blur lifted (same as pro).
+# The user.plan column is not touched, so my page / billing / labels are unaffected.
+# The price-history chart is gated on an exact 'world_tour' match, so it is NOT unlocked.
 #
-# 홍보 종료 시 되돌리는 법 — 이 파일에서 'PROMO_PRO_FOR_CONTINENTAL'를
-# grep하면 2곳(이 상수 블록 + _effective_plan() 내부 분기)이 나옴.
-# 두 블록을 모두 삭제하면 원본 그대로 복원된다.
+# How to revert when the promotion ends — grep this file for
+# 'PROMO_PRO_FOR_CONTINENTAL' and you'll find 2 places (this constant block
+# and the branch inside _effective_plan()). Delete both blocks to restore the
+# original behavior.
 # ════════════════════════════════════════════════════════════════════
 _PROMO_PRO_FOR_CONTINENTAL = True
 
 
 def _effective_plan(user) -> str:
-    """plan_expires_at이 지났는데 워커가 아직 다운그레이드 안 했을 때 권한을 차단하기 위한 보조.
-    admin은 항상 무제한이라 plan과 무관하므로 호출자가 별도로 user.role == 'admin'을 검사해야 한다."""
+    """Helper that blocks privileges when plan_expires_at has passed but the worker
+    has not yet downgraded the user. admin is always unlimited regardless of plan,
+    so callers must separately check user.role == 'admin'."""
     if user is None:
         return "continental"
     if user.plan == "continental":
-        # ── PROMO_PRO_FOR_CONTINENTAL: 홍보 기간 한정 (revert: 이 if 블록 삭제) ──
+        # ── PROMO_PRO_FOR_CONTINENTAL: promo-only branch (revert: delete this if block) ──
         if _PROMO_PRO_FOR_CONTINENTAL:
             return "pro"
         # ── PROMO_PRO_FOR_CONTINENTAL END ──
@@ -155,18 +160,19 @@ def _effective_plan(user) -> str:
 
 
 def _get_client_ip() -> str:
-    # ProxyFix(x_for=1)가 Railway 프록시 1홉만큼 X-Forwarded-For를 신뢰해 remote_addr를 보정한다.
-    # 헤더를 직접 읽으면 클라이언트가 임의 X-Forwarded-For를 보내 게스트 rate limit를 우회하게 되므로
-    # 반드시 보정된 remote_addr만 사용한다.
+    # ProxyFix(x_for=1) trusts X-Forwarded-For for one Railway proxy hop and
+    # adjusts remote_addr accordingly. Reading the header directly would let
+    # clients bypass the guest rate limit by sending an arbitrary X-Forwarded-For,
+    # so we must use the adjusted remote_addr only.
     return (request.remote_addr or "").strip()
 
 
 def _check_rate_limit(ip: str):
     """
     Returns (blocked, detail_limited, reset_minutes)
-    - blocked=True      → 분석 자체 차단 (비로그인 5시간 3회 초과)
-    - detail_limited=True → 분석은 되지만 부품가 블러 처리 (continental 10회 초과)
-    - reset_minutes     → 차단된 경우 재이용 가능까지 남은 분
+    - blocked=True      → analysis itself is blocked (guest exceeded 3 in 5h)
+    - detail_limited=True → analysis allowed but part prices are blurred (continental exceeded 10)
+    - reset_minutes     → if blocked, minutes remaining until usable again
     """
     user_id = session.get("user_id")
     window_start = datetime.utcnow() - timedelta(hours=_WINDOW_HOURS)
@@ -178,7 +184,7 @@ def _check_rate_limit(ip: str):
         if plan in ("pro", "world_tour") or (user and user.role == "admin"):
             return False, False, 0
 
-        # continental: 5시간 10회, 초과 시 부품가 블러
+        # continental: 10 analyses per 5 hours; over the limit, blur part prices
         count = AnalysisLog.query.filter(
             AnalysisLog.user_id == user_id,
             AnalysisLog.is_detailed == True,
@@ -198,8 +204,9 @@ def _check_rate_limit(ip: str):
             return False, True, reset_minutes
         return False, False, 0
 
-    # 비로그인 유저만 IP 기준 5시간 윈도우 적용
-    # user_id IS NULL 조건을 걸어야 같은 IP에서 로그인한 사용자의 기록이 비로그인 카운트에 섞이지 않음
+    # Apply the IP-based 5-hour window only for logged-out users.
+    # The user_id IS NULL filter prevents records from logged-in users on the same IP
+    # from being counted toward the guest quota.
     count = AnalysisLog.query.filter(
         AnalysisLog.ip_address == ip,
         AnalysisLog.user_id.is_(None),
@@ -234,13 +241,13 @@ def pricing():
 
 @bp.route("/preview/result")
 def preview_result():
-    bike = SimpleNamespace(brand="Fantasia", model_name="레이다 9 ARC Gen.3", model_year=2025)
+    bike = SimpleNamespace(brand="Fantasia", model_name="Radar 9 ARC Gen.3", model_year=2025)
     parts = {
-        "groupset":  SimpleNamespace(part_name="시마노 울테그라 Di2 R8150", part_type="groupset",  price_krw=2_300_000),
-        "wheelset":  SimpleNamespace(part_name="디티스위스 ARC 1100 DICUT DB 55", part_type="wheelset", price_krw=4_750_000),
+        "groupset":  SimpleNamespace(part_name="Shimano Ultegra Di2 R8150", part_type="groupset",  price_krw=2_300_000),
+        "wheelset":  SimpleNamespace(part_name="DT Swiss ARC 1100 DICUT DB 55", part_type="wheelset", price_krw=4_750_000),
         "frameset":  None,
-        "saddle":    SimpleNamespace(part_name="셀레이탈리아 노부스 부스트 EVO", part_type="saddle", price_krw=None),
-        "handlebar": SimpleNamespace(part_name="컨트롤텍 시로코 FL4", part_type="handlebar", price_krw=None),
+        "saddle":    SimpleNamespace(part_name="Selle Italia Novus Boost EVO", part_type="saddle", price_krw=None),
+        "handlebar": SimpleNamespace(part_name="Controltech Sirocco FL4", part_type="handlebar", price_krw=None),
     }
     analysis = SimpleNamespace(
         parts_sum_krw=7_050_000,
@@ -257,14 +264,14 @@ def preview_error():
 
 
 _SUGGEST_PARTS = [
-    ("groupset",  "구동계"),
-    ("wheelset",  "휠셋"),
-    ("frameset",  "프레임셋"),
-    ("saddle",    "안장"),
-    ("handlebar", "핸들바"),
+    ("groupset",  "Groupset"),
+    ("wheelset",  "Wheelset"),
+    ("frameset",  "Frameset"),
+    ("saddle",    "Saddle"),
+    ("handlebar", "Handlebar"),
 ]
 
-# bikes 테이블에 FK가 있는 부품 키 (나머지는 항상 None)
+# Part keys that have an FK on the bikes table (others are always None)
 _BIKE_FK_PARTS = {"groupset", "wheelset", "saddle"}
 
 
@@ -279,7 +286,8 @@ def suggest():
         return redirect(url_for("main.index"))
 
     bike = analysis.bike
-    # FK가 있는 부품은 실제 Part 객체, 없는 부품(frameset/handlebar)은 None으로 항상 5개 표시
+    # FK-backed parts use the actual Part object; FK-less parts (frameset/handlebar)
+    # are filled with None so all 5 rows always render.
     parts = [
         (key, label, getattr(bike, key) if key in _BIKE_FK_PARTS else None)
         for key, label in _SUGGEST_PARTS
@@ -289,7 +297,12 @@ def suggest():
         return render_template("suggest.html", analysis=analysis, bike=bike,
                                parts=parts, errors={}, form_prices={}, form_urls={})
 
-    # POST — 유효성 검증 및 저장
+    # POST — validate and persist
+    # The form labels this field as "Corrected price (USD)", so user input is in USD.
+    # Convert USD → KRW before saving since storage is still KRW.
+    from .exchange_rate import get_exchange_rates
+    rate = get_exchange_rates().get("USD", 1470)
+
     suggestions  = {}
     errors       = {}
     form_prices  = {}
@@ -302,14 +315,16 @@ def suggest():
         suggested_price = None
         if price_raw:
             try:
-                suggested_price = int(price_raw.replace(",", "").replace(" ", ""))
-                if suggested_price <= 0:
+                usd_input = float(price_raw.replace(",", "").replace(" ", "").replace("$", ""))
+                if usd_input <= 0:
                     suggested_price = None
+                else:
+                    suggested_price = int(round(usd_input * rate))
             except ValueError:
-                errors[key] = "올바른 숫자를 입력해주세요."
+                errors[key] = "Please enter a valid USD amount."
 
         if source_url and suggested_price is None and key not in errors:
-            errors[key] = "가격을 입력해주세요."
+            errors[key] = "Please enter the price in USD."
 
         suggestions[key] = {"suggested_price_krw": suggested_price, "source_url": source_url}
         form_prices[key] = price_raw
@@ -335,10 +350,10 @@ def suggest_complete():
     return render_template("suggest_complete.html")
 
 
-# ── 유저 피드백 ────────────────────────────────────────────────
+# ── User feedback ──────────────────────────────────────────────
 
 _FEEDBACK_TEXT_MAX = 2000
-_EXIT_FEEDBACK_COOLDOWN_HOURS = 336  # 14일
+_EXIT_FEEDBACK_COOLDOWN_HOURS = 336  # 14 days
 
 
 @bp.route("/feedback", methods=["GET", "POST"])
@@ -361,20 +376,20 @@ def feedback():
 
     rating = None
     if not rating_raw:
-        errors["rating"] = "만족도를 선택해주세요."
+        errors["rating"] = "Please select a satisfaction rating."
     else:
         try:
             rating = int(rating_raw)
             if rating < 1 or rating > 10:
-                errors["rating"] = "1~10 사이의 점수를 선택해주세요."
+                errors["rating"] = "Please choose a score between 1 and 10."
         except ValueError:
-            errors["rating"] = "올바른 점수를 선택해주세요."
+            errors["rating"] = "Please enter a valid score."
 
-    for key, label in (("pain_point", "불편한 점"),
-                       ("good_point", "좋은 점"),
-                       ("message_to_dev", "개발자에게 하고 싶은 말")):
+    for key, label in (("pain_point", "Pain point"),
+                       ("good_point", "What you liked"),
+                       ("message_to_dev", "Message to the developer")):
         if len(form[key]) > _FEEDBACK_TEXT_MAX:
-            errors[key] = f"{label}은 {_FEEDBACK_TEXT_MAX}자 이내로 입력해주세요."
+            errors[key] = f"{label} must be {_FEEDBACK_TEXT_MAX} characters or fewer."
 
     if errors:
         return render_template("feedback.html", form=form, errors=errors)
@@ -398,8 +413,8 @@ def feedback_complete():
 
 @bp.route("/feedback/quick", methods=["POST"])
 def feedback_quick():
-    """결과 페이지 이탈 팝업 — 점수만 받는 간단 피드백.
-    (설문조사 팝업으로 임시 전환됨. 호출자 없음 — 추후 복원 시 재사용.)
+    """Result-page exit popup — quick feedback that only collects a rating.
+    (Temporarily replaced by the survey popup. Currently unused — kept for future restoration.)
     """
     rating_raw = request.form.get("rating", "").strip()
     try:
@@ -428,16 +443,16 @@ def _parse_yn(raw: str | None) -> bool | None:
     if raw is None:
         return None
     v = raw.strip().lower()
-    if v in ("yes", "y", "true", "1", "예", "네"):
+    if v in ("yes", "y", "true", "1"):
         return True
-    if v in ("no", "n", "false", "0", "아니요", "아니오"):
+    if v in ("no", "n", "false", "0"):
         return False
     return None
 
 
 @bp.route("/feedback/survey", methods=["POST"])
 def feedback_survey():
-    """결과 페이지 이탈 팝업 — 4문항 설문(예/아니요 3 + 자유입력 1)."""
+    """Result-page exit popup — 4-question survey (3 yes/no + 1 free-text)."""
     q1 = _parse_yn(request.form.get("q1"))
     q2 = _parse_yn(request.form.get("q2"))
     q3 = _parse_yn(request.form.get("q3"))
@@ -462,20 +477,20 @@ def feedback_survey():
 
 @bp.route("/feedback/survey/impression", methods=["POST"])
 def feedback_survey_impression():
-    """설문 팝업이 실제로 노출됐을 때 호출 — 응답률 분모."""
+    """Called when the survey popup is actually shown — denominator for response rate."""
     imp = SurveyImpression(user_id=session.get("user_id") or None)
     db.session.add(imp)
     db.session.commit()
     return jsonify({"ok": True})
 
 
-# ── 인증 ──────────────────────────────────────────────────────
+# ── Authentication ────────────────────────────────────────────
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _form_ctx(**kwargs):
-    """회원가입 폼 재출력 시 입력값 유지용 헬퍼"""
+    """Helper to preserve user input when re-rendering the signup form."""
     return kwargs
 
 
@@ -494,27 +509,27 @@ def register():
     ctx = dict(email=email, name=name, nickname=nickname, birth_date=birth_date)
 
     if not _EMAIL_RE.match(email):
-        return render_template("register.html", error="올바른 이메일 형식을 입력해주세요.", **ctx)
+        return render_template("register.html", error="Please enter a valid email address.", **ctx)
     if len(password) < 8:
-        return render_template("register.html", error="비밀번호는 최소 8자 이상이어야 합니다.", **ctx)
+        return render_template("register.html", error="Password must be at least 8 characters.", **ctx)
     if not name:
-        return render_template("register.html", error="이름을 입력해주세요.", **ctx)
+        return render_template("register.html", error="Please enter your name.", **ctx)
     if not nickname:
-        return render_template("register.html", error="닉네임을 입력해주세요.", **ctx)
+        return render_template("register.html", error="Please enter a nickname.", **ctx)
     if not birth_date:
-        return render_template("register.html", error="생년월일을 입력해주세요.", **ctx)
+        return render_template("register.html", error="Please enter your date of birth.", **ctx)
     if not privacy:
-        return render_template("register.html", error="개인정보 수집·이용에 동의해주세요.", **ctx)
+        return render_template("register.html", error="Please agree to the collection and use of personal information.", **ctx)
 
     try:
         birth_date_parsed = datetime.strptime(birth_date, "%Y-%m-%d").date()
     except ValueError:
-        return render_template("register.html", error="생년월일 형식이 올바르지 않습니다.", **ctx)
+        return render_template("register.html", error="The date of birth format is invalid.", **ctx)
 
     if User.query.filter_by(email=email).first():
-        return render_template("register.html", error="이미 사용 중인 이메일입니다.", **ctx)
+        return render_template("register.html", error="This email is already in use.", **ctx)
     if User.query.filter_by(nickname=nickname).first():
-        return render_template("register.html", error="이미 사용 중인 닉네임입니다.", **ctx)
+        return render_template("register.html", error="This nickname is already in use.", **ctx)
 
     user = User(
         email=email,
@@ -543,11 +558,11 @@ def login():
     password = request.form.get("password", "")
 
     if not _EMAIL_RE.match(email) or len(password) < 8:
-        return render_template("login.html", error="이메일 또는 비밀번호를 확인해주세요.", email=email)
+        return render_template("login.html", error="Please check your email or password.", email=email)
 
     user = User.query.filter_by(email=email).first()
     if not user or not user.password_hash or not check_password_hash(user.password_hash, password):
-        return render_template("login.html", error="이메일 또는 비밀번호가 올바르지 않습니다.", email=email)
+        return render_template("login.html", error="Email or password is incorrect.", email=email)
 
     user.last_login_at = datetime.utcnow()
     db.session.commit()
@@ -562,10 +577,10 @@ def logout():
     return redirect(url_for("main.index"))
 
 
-# ── Google OAuth 로그인 ───────────────────────────────────────
+# ── Google OAuth login ────────────────────────────────────────
 
 def _login_user_session(user: User):
-    """로그인 세션 값 채우기 — /login, OAuth 콜백 공용."""
+    """Populate session values on login — shared by /login and OAuth callback."""
     session["user_id"]       = str(user.id)
     session["user_email"]    = user.email
     session["user_nickname"] = user.nickname
@@ -586,7 +601,7 @@ def google_callback():
     try:
         token = oauth.google.authorize_access_token()
     except Exception as e:
-        logger.warning("Google OAuth 토큰 교환 실패: %s", e)
+        logger.warning("Google OAuth token exchange failed: %s", e)
         return redirect(url_for("main.login") + "?oauth_error=1")
 
     userinfo = token.get("userinfo")
@@ -594,7 +609,7 @@ def google_callback():
         try:
             userinfo = oauth.google.userinfo(token=token)
         except Exception as e:
-            logger.error("Google userinfo 조회 실패: %s", e)
+            logger.error("Google userinfo lookup failed: %s", e)
             return redirect(url_for("main.login") + "?oauth_error=1")
 
     sub   = userinfo.get("sub")
@@ -602,20 +617,20 @@ def google_callback():
     name  = userinfo.get("name") or None
 
     if not sub or not email:
-        logger.warning("Google userinfo 필수값 누락: sub=%s email=%s", sub, email)
+        logger.warning("Google userinfo missing required fields: sub=%s email=%s", sub, email)
         return redirect(url_for("main.login") + "?oauth_error=1")
 
-    # 1) provider + sub 매칭 → 재로그인
+    # 1) Match provider + sub → returning login
     user = User.query.filter_by(provider="google", provider_user_id=sub).first()
 
-    # 2) email 매칭 → 기존 로컬 계정 자동 연결
+    # 2) Match by email → auto-link to an existing local account
     if not user:
         user = User.query.filter_by(email=email).first()
         if user:
             user.provider = "google"
             user.provider_user_id = sub
 
-    # 3) 신규 가입
+    # 3) New signup
     is_new_signup = False
     if not user:
         is_new_signup = True
@@ -635,17 +650,18 @@ def google_callback():
     db.session.commit()
 
     _login_user_session(user)
-    # 신규 OAuth 가입은 /login?registered=1 우회 경로가 없으므로 쿼리로 1회 신호 전달 → index에서 funnel 이벤트 발화.
+    # New OAuth signups don't go through /login?registered=1, so we pass a one-shot
+    # signal via query param → the index page fires the funnel event.
     if is_new_signup:
         return redirect(url_for("main.index", signup="google"))
     return redirect(url_for("main.index"))
 
 
-# ── 비밀번호 재설정 ────────────────────────────────────────────
+# ── Password reset ────────────────────────────────────────────
 
 _RESET_TTL_MINUTES   = 30
-_RESET_RATE_WINDOW_H = 1     # 1시간
-_RESET_RATE_LIMIT    = 3     # 같은 계정당 윈도우 내 최대 요청 수
+_RESET_RATE_WINDOW_H = 1     # 1 hour
+_RESET_RATE_LIMIT    = 3     # max requests per account within the window
 
 
 def _hash_token(token: str) -> str:
@@ -660,13 +676,13 @@ def forgot_password():
     email = request.form.get("email", "").strip().lower()
     if not _EMAIL_RE.match(email):
         return render_template("forgot_password.html",
-                               error="올바른 이메일 형식을 입력해주세요.", email=email)
+                               error="Please enter a valid email address.", email=email)
 
-    # User enumeration 방지 — 가입 여부와 무관하게 동일 응답
+    # Prevent user enumeration — return the same response regardless of whether the email exists.
     user = User.query.filter_by(email=email).first()
 
     if user:
-        # Rate limit — 같은 계정당 1시간 내 3회
+        # Rate limit — at most 3 requests per account per hour
         window_start = datetime.utcnow() - timedelta(hours=_RESET_RATE_WINDOW_H)
         recent_count = (
             PasswordResetToken.query
@@ -675,7 +691,7 @@ def forgot_password():
             .count()
         )
         if recent_count >= _RESET_RATE_LIMIT:
-            logger.warning("비밀번호 재설정 rate limit — user=%s count=%d", user.email, recent_count)
+            logger.warning("password reset rate limit — user=%s count=%d", user.email, recent_count)
         else:
             raw_token = secrets.token_urlsafe(32)
             prt = PasswordResetToken(
@@ -707,10 +723,10 @@ def reset_password(token):
 
     if len(password) < 8:
         return render_template("reset_password.html", token=token,
-                               error="비밀번호는 최소 8자 이상이어야 합니다.")
+                               error="Password must be at least 8 characters.")
     if password != confirm:
         return render_template("reset_password.html", token=token,
-                               error="비밀번호가 일치하지 않습니다.")
+                               error="Passwords do not match.")
 
     user = db.session.get(User, prt.user_id)
     if not user:
@@ -719,7 +735,7 @@ def reset_password(token):
     user.password_hash = generate_password_hash(password)
     prt.used_at = datetime.utcnow()
 
-    # 같은 사용자의 다른 미사용 토큰도 모두 무효화
+    # Invalidate all other unused tokens for the same user
     (PasswordResetToken.query
         .filter(PasswordResetToken.user_id == user.id,
                 PasswordResetToken.used_at.is_(None),
@@ -731,7 +747,7 @@ def reset_password(token):
 
 
 def admin_required(f):
-    """role='admin'인 로그인 사용자만 허용. 그 외는 메인으로 리다이렉트."""
+    """Allow only logged-in users with role='admin'. Others redirect to the main page."""
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if session.get("user_role") != "admin":
@@ -741,7 +757,7 @@ def admin_required(f):
 
 
 def login_required(f):
-    """로그인 사용자만 허용. 비로그인은 /login으로 리다이렉트."""
+    """Allow only logged-in users. Logged-out users are redirected to /login."""
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if not session.get("user_id"):
@@ -754,7 +770,7 @@ _MYPAGE_TABS = {"general", "account", "billing", "usage", "history"}
 
 
 def _current_user_or_logout():
-    """세션의 user_id로 User 로드. 없으면 세션 클리어 후 None."""
+    """Load the User from the session's user_id. If missing, clear the session and return None."""
     user_id = session.get("user_id")
     if not user_id:
         return None
@@ -787,7 +803,7 @@ def _load_history_items(user_id):
 
 
 def _load_billing_context(user: User) -> dict:
-    """마이페이지 결제 탭용 데이터 — 현재 구독, 카드, 최근 결제 내역."""
+    """Data for the My Page billing tab — current subscription, card, and recent payments."""
     payments = (
         Payment.query
         .filter_by(user_id=user.id)
@@ -826,13 +842,13 @@ def mypage():
     tab = request.args.get("tab", "general")
     messages = {}
     if request.args.get("saved") == "1":
-        messages["success"] = "변경사항이 저장되었습니다."
+        messages["success"] = "Your changes have been saved."
     if request.args.get("paid") == "1":
-        messages["success"] = "결제가 완료되었습니다. 즐거운 라이딩 되세요!"
+        messages["success"] = "Payment complete. Enjoy the ride!"
     if request.args.get("canceled") == "1":
-        messages["success"] = "구독이 취소되었습니다. 결제된 기간 만료까지 계속 이용할 수 있습니다."
+        messages["success"] = "Your subscription has been canceled. You can keep using the service until the paid period ends."
     if request.args.get("resumed") == "1":
-        messages["success"] = "구독을 다시 활성화했습니다."
+        messages["success"] = "Your subscription has been reactivated."
     return _mypage_render(user, tab, messages)
 
 
@@ -855,13 +871,13 @@ def mypage_account_nickname():
         return redirect(url_for("main.login"))
     new_nick = request.form.get("nickname", "").strip()
     if not new_nick:
-        return _mypage_render(user, "account", {"error": "닉네임을 입력해주세요."})
+        return _mypage_render(user, "account", {"error": "Please enter a nickname."})
     if len(new_nick) > 30:
-        return _mypage_render(user, "account", {"error": "닉네임은 30자 이하로 입력해주세요."})
+        return _mypage_render(user, "account", {"error": "Nickname must be 30 characters or fewer."})
     if new_nick == user.nickname:
         return redirect(url_for("main.mypage", tab="account"))
     if User.query.filter(User.nickname == new_nick, User.id != user.id).first():
-        return _mypage_render(user, "account", {"error": "이미 사용 중인 닉네임입니다."})
+        return _mypage_render(user, "account", {"error": "This nickname is already in use."})
     user.nickname = new_nick
     db.session.commit()
     session["user_nickname"] = new_nick
@@ -875,14 +891,14 @@ def mypage_account_email():
     if not user:
         return redirect(url_for("main.login"))
     if user.provider == "google":
-        return _mypage_render(user, "account", {"error": "Google 연동 계정은 이메일을 변경할 수 없습니다."})
+        return _mypage_render(user, "account", {"error": "Google-linked accounts cannot change their email address."})
     new_email = request.form.get("email", "").strip().lower()
     if not _EMAIL_RE.match(new_email):
-        return _mypage_render(user, "account", {"error": "올바른 이메일 형식을 입력해주세요."})
+        return _mypage_render(user, "account", {"error": "Please enter a valid email address."})
     if new_email == user.email:
         return redirect(url_for("main.mypage", tab="account"))
     if User.query.filter(User.email == new_email, User.id != user.id).first():
-        return _mypage_render(user, "account", {"error": "이미 사용 중인 이메일입니다."})
+        return _mypage_render(user, "account", {"error": "This email is already in use."})
     user.email = new_email
     db.session.commit()
     session["user_email"] = new_email
@@ -896,16 +912,16 @@ def mypage_account_password():
     if not user:
         return redirect(url_for("main.login"))
     if not user.password_hash:
-        return _mypage_render(user, "account", {"error": "소셜 로그인 계정은 비밀번호를 설정할 수 없습니다."})
+        return _mypage_render(user, "account", {"error": "Social-login accounts cannot set a password."})
     current = request.form.get("current_password", "")
     new_password = request.form.get("new_password", "")
     confirm = request.form.get("new_password_confirm", "")
     if not check_password_hash(user.password_hash, current):
-        return _mypage_render(user, "account", {"error": "현재 비밀번호가 올바르지 않습니다."})
+        return _mypage_render(user, "account", {"error": "Current password is incorrect."})
     if len(new_password) < 8:
-        return _mypage_render(user, "account", {"error": "새 비밀번호는 최소 8자 이상이어야 합니다."})
+        return _mypage_render(user, "account", {"error": "New password must be at least 8 characters."})
     if new_password != confirm:
-        return _mypage_render(user, "account", {"error": "새 비밀번호와 확인이 일치하지 않습니다."})
+        return _mypage_render(user, "account", {"error": "New password and confirmation do not match."})
     user.password_hash = generate_password_hash(new_password)
     db.session.commit()
     return redirect(url_for("main.mypage", tab="account", saved=1))
@@ -935,17 +951,17 @@ def admin():
         for ps, analysis, bike in pending_rows
     ]
 
-    # --- KPI 지표 ---
+    # --- KPI metrics ---
     stats = {}
 
-    # KST 기준 오늘 자정 → UTC naive 로 변환 (Analysis/User.created_at 은 naive UTC)
+    # Today's midnight in Asia/Seoul → naive UTC (Analysis/User.created_at are naive UTC)
     try:
         from zoneinfo import ZoneInfo
         _kst = ZoneInfo("Asia/Seoul")
         _today_kst = datetime.now(_kst).replace(hour=0, minute=0, second=0, microsecond=0)
         today_utc = _today_kst.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
     except Exception:
-        # zoneinfo 미지원 폴백: UTC+9 고정
+        # Fallback when zoneinfo is unavailable: hard-coded UTC+9
         _now_kst_naive = datetime.utcnow() + timedelta(hours=9)
         today_utc = _now_kst_naive.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(hours=9)
 
@@ -978,7 +994,7 @@ def admin():
     except Exception:
         stats["avg_rating"] = None
 
-    # 설문 응답률 KPI — 응답수 / 노출수
+    # Survey response rate KPI — responses / impressions
     try:
         sv_resp_count = SurveyResponse.query.count()
         sv_imp_count  = SurveyImpression.query.count()
@@ -992,8 +1008,9 @@ def admin():
         stats["survey_impressions"]   = None
         stats["survey_response_rate"] = None
 
-    # UserFeedback 에는 feedback_type 컬럼이 없음.
-    # pain_point/good_point/message_to_dev 중 하나라도 비어있지 않으면 full, 전부 비어있으면 quick 으로 집계.
+    # UserFeedback does not have a feedback_type column.
+    # Count as "full" if any of pain_point/good_point/message_to_dev is non-empty,
+    # otherwise count as "quick".
     try:
         detail_present = or_(
             and_(UserFeedback.pain_point.isnot(None),     UserFeedback.pain_point     != ""),
@@ -1008,7 +1025,7 @@ def admin():
         stats["feedback_full"]  = None
         stats["feedback_quick"] = None
 
-    # 결제 KPI
+    # Payment KPI
     try:
         stats["paid_today"] = (
             db.session.query(func.count(Payment.id))
@@ -1063,7 +1080,7 @@ def admin_payments():
         for p, u in rows
     ]
 
-    # 최근 30일 매출 차트
+    # Revenue chart for the last 30 days
     try:
         since_utc = _admin_chart_since_utc(30)
         chart_rows = (
@@ -1077,7 +1094,7 @@ def admin_payments():
     except Exception:
         revenue_chart = []
 
-    # 합계
+    # Totals
     try:
         total_revenue = (
             db.session.query(func.coalesce(func.sum(Payment.amount_krw), 0))
@@ -1165,7 +1182,7 @@ def admin_feedbacks():
     feedbacks = [
         {
             "id":         str(fb.id),
-            "nickname":   (u.nickname if u else "비회원"),
+            "nickname":   (u.nickname if u else "Guest"),
             "plan":       (u.plan if u else "-"),
             "created_at": fb.created_at,
             "rating":     fb.rating,
@@ -1214,7 +1231,7 @@ def admin_surveys():
     )
     responses = [
         {
-            "nickname":   (u.nickname if u else "비회원"),
+            "nickname":   (u.nickname if u else "Guest"),
             "plan":       (u.plan if u else "-"),
             "created_at": sr.created_at,
             "q1":         sr.q1_useful,
@@ -1233,7 +1250,7 @@ def admin_surveys():
         imp_count  = 0
     response_rate = (round(resp_count * 100.0 / imp_count, 1) if imp_count else None)
 
-    # 예/아니요 집계 (Q1~Q3)
+    # Yes/No aggregation (Q1–Q3)
     def _yn_counts(col):
         try:
             yes = SurveyResponse.query.filter(col.is_(True)).count()
@@ -1268,14 +1285,14 @@ def admin_suggestion(suggestion_id):
     analysis = ps.analysis
     bike     = analysis.bike
 
-    # parts_snapshot 기반으로 frameset/handlebar 포함 전체 부품 객체 복원
+    # Reconstruct full part objects (incl. frameset/handlebar) from parts_snapshot
     part_objects = _load_parts_for_result(analysis)
     part_labels = {
-        "groupset":  "구동계",
-        "wheelset":  "휠셋",
-        "frameset":  "프레임셋",
-        "saddle":    "안장",
-        "handlebar": "핸들바",
+        "groupset":  "Groupset",
+        "wheelset":  "Wheelset",
+        "frameset":  "Frameset",
+        "saddle":    "Saddle",
+        "handlebar": "Handlebar",
     }
 
     rows = []
@@ -1290,7 +1307,7 @@ def admin_suggestion(suggestion_id):
             "source_url":      suggested.get("source_url"),
         })
 
-    proposer = "비회원"
+    proposer = "Guest"
     if ps.user_id:
         u = User.query.filter_by(id=ps.user_id).first()
         if u:
@@ -1365,7 +1382,7 @@ def admin_feedback(feedback_id):
     return render_template(
         "admin_feedback.html",
         fb=fb,
-        nickname=(user.nickname if user else "비회원"),
+        nickname=(user.nickname if user else "Guest"),
         plan=(user.plan if user else "-"),
         email=(user.email if user else None),
     )
@@ -1381,42 +1398,43 @@ def history():
 
 
 def _get_celery():
-    """현재 Flask 앱의 celery 인스턴스."""
+    """The Celery instance for the current Flask app."""
     return current_app.extensions["celery"]
 
 
 @bp.route("/analyze", methods=["POST"])
 def analyze():
-    """URL·rate limit 검증 후 Celery task를 enqueue하고 로딩 페이지를 렌더링한다.
+    """Validate URL and rate limit, enqueue a Celery task, and render the loading page.
 
-    실제 스크래핑·AI·DB 작업은 app.tasks.analyze_bike_task 가 별도 워커에서 수행.
-    분석 결과는 /analyze/status/<task_id> 폴링으로 받아 /result/<analysis_id> 로 리다이렉트."""
+    The actual scraping / AI / DB work runs in a separate worker via
+    app.tasks.analyze_bike_task. The frontend polls /analyze/status/<task_id>
+    and redirects to /result/<analysis_id> when the analysis is ready."""
     url = request.form.get("url", "").strip()
     if not url:
         return _err(
-            "링크를 입력해주세요.",
-            "분석할 자전거 판매 페이지 링크를 입력창에 붙여넣어 주세요.",
+            "Please enter a link.",
+            "Paste the link to the bike listing page you want to analyze.",
             url=url,
         )
     if len(url) > 2000:
         return _err(
-            "올바르지 않은 링크입니다.",
-            "주소창에서 링크를 다시 복사해 붙여넣어 주세요.",
+            "Invalid link.",
+            "Please copy the link from the address bar and paste it again.",
         )
     if urlparse(url).scheme not in ("http", "https"):
         return _err(
-            "지원하지 않는 링크 형식입니다.",
-            "http:// 또는 https://로 시작하는 자전거 판매 페이지 링크를 입력해주세요.",
+            "Unsupported link format.",
+            "Please enter a link that starts with http:// or https:// and points to a bike listing page.",
         )
 
-    # SSRF 방지 — 사설/loopback/링크로컬 IP로 해석되는 URL은 거부
+    # Prevent SSRF — reject URLs that resolve to private / loopback / link-local IPs
     from .scraper import ScrapeError, assert_safe_url
     try:
         assert_safe_url(url)
     except ScrapeError:
         return _err(
-            "지원하지 않는 링크 형식입니다.",
-            "공개된 자전거 판매 페이지 링크를 입력해주세요.",
+            "Unsupported link format.",
+            "Please enter a publicly accessible bike listing link.",
         )
 
     ip = _get_client_ip()
@@ -1425,7 +1443,7 @@ def analyze():
     if blocked:
         return redirect(url_for("main.index", limit="true", reset_minutes=reset_minutes))
 
-    print(f"[ANALYZE] 요청 URL: {url} | ip={ip} | detail_limited={detail_limited}")
+    print(f"[ANALYZE] request URL: {url} | ip={ip} | detail_limited={detail_limited}")
 
     from .tasks import analyze_bike_task
     task = analyze_bike_task.delay(
@@ -1440,12 +1458,13 @@ def analyze():
 
 @bp.route("/analyze/status/<task_id>")
 def analyze_status(task_id):
-    """Celery task 상태 폴링. JSON 반환 — 로딩 페이지 JS에서 사용."""
+    """Polls Celery task state. Returns JSON — used by the loading page JS."""
     celery = _get_celery()
     async_result = celery.AsyncResult(task_id)
     state = async_result.state
 
-    # REVOKED: 로고 클릭으로 취소된 상태 — 클라이언트에선 이미 /로 이동했겠지만 혹시 살아있으면 정리.
+    # REVOKED: canceled by clicking the logo — the client has likely already moved to /,
+    # but clean up just in case the polling request is still alive.
     if state == "REVOKED":
         return jsonify({"state": "revoked"})
 
@@ -1453,12 +1472,13 @@ def analyze_status(task_id):
         return jsonify({"state": "pending"})
 
     if state == "FAILURE":
-        # task 함수 안에서 예외가 잡혀 error dict를 반환하는 구조이므로 여기 오는 건 task 자체의 크래시.
+        # The task function catches exceptions and returns an error dict, so reaching this
+        # branch means the task itself crashed.
         logger.error("analyze task FAILURE | task_id=%s | %s", task_id, async_result.traceback)
         return jsonify({
             "state": "error",
-            "message": "일시적인 오류가 발생했습니다.",
-            "hint": "잠시 후 다시 시도해주세요.",
+            "message": "A temporary error occurred.",
+            "hint": "Please try again in a moment.",
             "url": "",
         })
 
@@ -1469,7 +1489,7 @@ def analyze_status(task_id):
         if result.get("status") == "error":
             return jsonify({
                 "state": "error",
-                "message": result.get("message", "오류가 발생했습니다."),
+                "message": result.get("message", "An error occurred."),
                 "hint": result.get("hint", ""),
                 "url": result.get("url", ""),
             })
@@ -1480,9 +1500,9 @@ def analyze_status(task_id):
 @bp.route("/analyze/cancel/<task_id>", methods=["POST"])
 @csrf.exempt
 def analyze_cancel(task_id):
-    """task를 revoke — 워커 프로세스를 SIGTERM으로 종료해 즉시 중단.
+    """Revoke the task — terminate the worker process with SIGTERM to stop it immediately.
 
-    sendBeacon 지원을 위해 응답 본문 없이 204로 반환."""
+    Returns 204 with no body to support sendBeacon."""
     celery = _get_celery()
     celery.control.revoke(task_id, terminate=True, signal="SIGTERM")
     print(f"[CANCEL] task revoked: id={task_id}")
@@ -1491,21 +1511,21 @@ def analyze_cancel(task_id):
 
 @bp.route("/analyze/error")
 def analyze_error():
-    """loading.html이 task 실패를 감지한 뒤 이동하는 에러 렌더 엔드포인트."""
+    """Error-render endpoint that loading.html navigates to after detecting a task failure."""
     return _err(
-        message=request.args.get("message", "오류가 발생했습니다."),
+        message=request.args.get("message", "An error occurred."),
         hint=request.args.get("hint", ""),
         url=request.args.get("url", ""),
     )
 
 
-# 부품 키 — Analysis.parts_snapshot 재구성용. task.PART_KEYS와 동기화.
+# Part keys — used to reconstruct Analysis.parts_snapshot. Keep in sync with task.PART_KEYS.
 _RESULT_PART_KEYS = ["groupset", "wheelset", "frameset", "saddle", "handlebar"]
 _BIKE_FK_PART_KEYS = {"groupset", "wheelset", "saddle"}
 
 
 def _load_parts_for_result(analysis: Analysis) -> dict:
-    """분석 결과 화면용 parts dict 재구성. parts_snapshot 우선, 없으면 bike FK + model_name 폴백."""
+    """Reconstruct the parts dict for the result screen. Prefers parts_snapshot; falls back to bike FK + model_name."""
     bike = analysis.bike
     parts: dict = {key: None for key in _RESULT_PART_KEYS}
 
@@ -1521,7 +1541,7 @@ def _load_parts_for_result(analysis: Analysis) -> dict:
                     parts[key] = by_id.get(str(pid))
         return parts
 
-    # parts_snapshot이 없는 과거 분석 폴백
+    # Fallback for historical analyses that have no parts_snapshot
     parts["groupset"] = bike.groupset
     parts["wheelset"] = bike.wheelset
     parts["saddle"] = bike.saddle
@@ -1533,13 +1553,13 @@ def _load_parts_for_result(analysis: Analysis) -> dict:
         )
         .first()
     )
-    # handlebar는 과거 데이터에서 복원 불가 → None
+    # handlebar cannot be recovered from historical data → leave as None
     return parts
 
 
 @bp.route("/result/<analysis_id>")
 def result(analysis_id):
-    """분석 완료 후 task가 남긴 analysis_id로 결과 화면을 렌더. 폼 리프레시에도 안전."""
+    """Render the result screen using the analysis_id left by the task. Safe against form refresh."""
     analysis = Analysis.query.filter_by(id=analysis_id).first()
     if not analysis:
         return redirect(url_for("main.index"))
@@ -1549,14 +1569,14 @@ def result(analysis_id):
 
     bike_price = bike.price_krw or 0
 
-    # blur 모드 — 현재 세션/IP 기준 rate limit으로 재도출
+    # Blur mode — re-derive from the rate limit for the current session/IP
     ip = _get_client_ip()
     _blocked, detail_limited, reset_minutes = _check_rate_limit(ip)
 
     if not session.get("user_id"):
         blur_mode = "guest"
         blur_reset_minutes = 0
-        # ── PROMO_PRO_FOR_CONTINENTAL: 홍보 기간 한정 — 비로그인도 블러 해제 (revert: 이 if 블록 삭제) ──
+        # ── PROMO_PRO_FOR_CONTINENTAL: promo-only branch — also lifts blur for guests (revert: delete this if block) ──
         if _PROMO_PRO_FOR_CONTINENTAL:
             blur_mode = None
         # ── PROMO_PRO_FOR_CONTINENTAL END ──
@@ -1567,7 +1587,7 @@ def result(analysis_id):
         blur_mode = None
         blur_reset_minutes = 0
 
-    # world_tour / admin만 가격 이력 그래프
+    # Price-history graph is shown only to world_tour / admin
     price_history = None
     user_id = session.get("user_id")
     if user_id:
@@ -1575,8 +1595,9 @@ def result(analysis_id):
         if user and (_effective_plan(user) == "world_tour" or user.role == "admin"):
             price_history = build_price_history(bike, parts)
 
-    # 이탈 설문 팝업 — 로그인 유저가 쿨타임 내 응답을 완료했다면 서버에서 아예 렌더하지 않음.
-    # 게스트는 클라이언트 localStorage로 쿨타임 적용.
+    # Exit survey popup — if a logged-in user has already responded within the cooldown,
+    # don't render it at all on the server side.
+    # Guests get the cooldown enforced client-side via localStorage.
     show_exit_popup = True
     if user_id:
         cutoff = datetime.utcnow() - timedelta(hours=_EXIT_FEEDBACK_COOLDOWN_HOURS)
@@ -1600,9 +1621,10 @@ def result(analysis_id):
     )
 
 
-# ── OG 공유 카드 이미지 ─────────────────────────────────────
-# 카톡·X·스레드 등에서 결과 URL을 공유할 때 og:image로 노출되는 1200×630 PNG.
-# Analysis는 immutable이라 analysis_id 단위로 디스크 캐시 가능.
+# ── OG share card image ───────────────────────────────────
+# 1200×630 PNG exposed as og:image when the result URL is shared on
+# messengers / X / Threads, etc.
+# Analysis rows are immutable, so we can disk-cache per analysis_id.
 
 @bp.route("/og/result/<analysis_id>.png")
 def og_result_image(analysis_id):
@@ -1610,9 +1632,10 @@ def og_result_image(analysis_id):
     if not analysis:
         return ("", 404)
 
-    # import을 try 안에 둬서 Pillow 미설치/폰트 미가용 같은 모든 예외를 로그로 남긴다.
-    # 이전 구조에서는 import 실패 시 ImportError가 그대로 500으로 나가 Railway 로그에
-    # 진짜 원인이 안 남는 문제가 있었다.
+    # Keep the import inside the try block so any failure (Pillow missing, fonts
+    # unavailable, etc.) is captured in the log. Previously, an import failure
+    # would surface as a raw ImportError → 500, so the real cause didn't make it
+    # into the Railway logs.
     try:
         from .og_image import get_or_render_og
         bike = analysis.bike
@@ -1625,23 +1648,23 @@ def og_result_image(analysis_id):
             bike_year=bike.model_year if bike else None,
         )
     except Exception:
-        logger.exception("OG 이미지 렌더 실패 analysis_id=%s", analysis_id)
+        logger.exception("OG image render failed analysis_id=%s", analysis_id)
         return ("", 500)
 
     resp = make_response(png)
     resp.headers["Content-Type"] = "image/png"
-    # 30일 캐시 — 분석 스냅샷은 변하지 않으므로 CDN/SNS 크롤러가 길게 잡아도 안전.
+    # 30-day cache — analysis snapshots don't change, so it's safe for CDNs / SNS crawlers to cache aggressively.
     resp.headers["Cache-Control"] = "public, max-age=2592000, immutable"
     return resp
 
 
-# ── 결제 (토스페이먼츠 빌링키) ────────────────────────────────
+# ── Billing (Toss Payments billing keys) ──────────────────────
 
 from calendar import monthrange
 
 
 def _add_months(dt: datetime, months: int) -> datetime:
-    """캘린더 기준 N개월 후. 말일 보정 (예: 1/31 + 1개월 → 2/28)."""
+    """N calendar months from `dt`, with end-of-month clamping (e.g. 1/31 + 1 month → 2/28)."""
     new_month = dt.month + months
     new_year  = dt.year + (new_month - 1) // 12
     new_month = ((new_month - 1) % 12) + 1
@@ -1661,7 +1684,7 @@ _VALID_CYCLES = {"monthly", "yearly"}
 
 
 def _apply_paid_subscription(user: User, plan: str, cycle: str, paid_at: datetime) -> None:
-    """결제 성공 시 user 플랜/만료일/다음 결제일 갱신."""
+    """Update the user's plan / expiration / next billing date on a successful payment."""
     user.plan = plan
     user.subscription_cycle  = cycle
     user.subscription_status = "active"
@@ -1674,7 +1697,7 @@ def _apply_paid_subscription(user: User, plan: str, cycle: str, paid_at: datetim
 @bp.route("/billing/checkout/<plan>/<cycle>")
 @login_required
 def billing_checkout(plan, cycle):
-    """결제 페이지. 토스 SDK로 카드 등록 → 빌링키 발급."""
+    """Checkout page. Registers a card via the Toss SDK → issues a billing key."""
     user = _current_user_or_logout()
     if not user:
         return redirect(url_for("main.login"))
@@ -1686,7 +1709,7 @@ def billing_checkout(plan, cycle):
     if amount is None:
         return redirect(url_for("main.pricing"))
 
-    # customerKey는 user.id를 그대로 사용 (UUID — 토스 customerKey는 1~50자, 영숫자/_/-/=/.@)
+    # Use user.id as customerKey directly (UUID — Toss customerKey is 1–50 chars: alphanumeric / _ / - / = / . / @)
     customer_key = str(user.id)
 
     return render_template(
@@ -1707,12 +1730,12 @@ def billing_checkout(plan, cycle):
 @bp.route("/billing/success")
 @login_required
 def billing_success():
-    """토스 successUrl 콜백.
+    """Toss successUrl callback.
 
-    쿼리: customerKey, authKey, plan, cycle
-    1) authKey + customerKey → billingKey 발급
-    2) billingKey 즉시 1회 청구 → 첫 결제 완료
-    3) user.plan 업데이트, payment 기록
+    Query: customerKey, authKey, plan, cycle
+    1) authKey + customerKey → issue billingKey
+    2) Charge billingKey once immediately → complete the first payment
+    3) Update user.plan, record the payment
     """
     user = _current_user_or_logout()
     if not user:
@@ -1724,36 +1747,36 @@ def billing_success():
     cycle        = (request.args.get("cycle") or "").strip()
 
     if not auth_key or not customer_key or plan not in _VALID_PLANS or cycle not in _VALID_CYCLES:
-        return _err("결제 정보가 올바르지 않습니다.",
-                    "결제를 다시 시도해주세요.", url=url_for("main.pricing"))
+        return _err("Invalid payment information.",
+                    "Please try the payment again.", url=url_for("main.pricing"))
 
-    # 본인 customerKey 검증 — 다른 유저의 callback을 가로채지 못하도록
+    # Verify the customerKey belongs to this user — prevents intercepting another user's callback
     if customer_key != str(user.id):
-        logger.warning("billing customerKey 불일치 user=%s req=%s", user.id, customer_key)
-        return _err("결제 정보가 일치하지 않습니다.",
-                    "다시 로그인 후 결제를 시도해주세요.", url=url_for("main.pricing"))
+        logger.warning("billing customerKey mismatch user=%s req=%s", user.id, customer_key)
+        return _err("Payment information does not match.",
+                    "Please log in again and try the payment.", url=url_for("main.pricing"))
 
     amount = billing_api.get_price(plan, cycle)
     if amount is None:
-        return _err("요금제 정보가 올바르지 않습니다.",
-                    "결제를 다시 시도해주세요.", url=url_for("main.pricing"))
+        return _err("Invalid plan information.",
+                    "Please try the payment again.", url=url_for("main.pricing"))
 
-    # 1) 빌링키 발급
+    # 1) Issue billing key
     try:
         bk_res = billing_api.issue_billing_key(auth_key, customer_key)
     except billing_api.BillingError as e:
-        logger.error("billingKey 발급 실패 user=%s code=%s msg=%s", user.id, e.code, e.message)
-        return _err("카드 등록에 실패했습니다.",
-                    e.message or "다시 시도해주세요.", url=url_for("main.pricing"))
+        logger.error("billingKey issue failed user=%s code=%s msg=%s", user.id, e.code, e.message)
+        return _err("Card registration failed.",
+                    e.message or "Please try again.", url=url_for("main.pricing"))
 
     billing_key  = bk_res.get("billingKey")
     card_company = bk_res.get("cardCompany") or (bk_res.get("card") or {}).get("issuerCode")
     card_number  = bk_res.get("cardNumber") or (bk_res.get("card") or {}).get("number")
 
     if not billing_key:
-        logger.error("billingKey 발급 응답에 billingKey 없음 user=%s res=%s", user.id, bk_res)
-        return _err("카드 등록에 실패했습니다.",
-                    "결제를 다시 시도해주세요.", url=url_for("main.pricing"))
+        logger.error("billingKey issue response is missing billingKey user=%s res=%s", user.id, bk_res)
+        return _err("Card registration failed.",
+                    "Please try the payment again.", url=url_for("main.pricing"))
 
     user.billing_key          = billing_key
     user.billing_customer_key = customer_key
@@ -1761,7 +1784,7 @@ def billing_success():
     user.billing_card_number  = card_number
     db.session.commit()
 
-    # 2) 즉시 1회 청구 — payment row 미리 생성 후 토스 호출
+    # 2) Charge once immediately — create the payment row first, then call Toss
     order_id = billing_api.make_order_id()
     payment = Payment(
         user_id=user.id,
@@ -1789,18 +1812,18 @@ def billing_success():
         payment.status = "failed"
         payment.failure_reason = f"{e.code}: {e.message}"
         db.session.commit()
-        logger.error("첫 결제 실패 user=%s code=%s msg=%s", user.id, e.code, e.message)
-        return _err("결제에 실패했습니다.",
-                    e.message or "다른 카드로 다시 시도해주세요.",
+        logger.error("first charge failed user=%s code=%s msg=%s", user.id, e.code, e.message)
+        return _err("Payment failed.",
+                    e.message or "Please try again with a different card.",
                     url=url_for("main.pricing"))
 
     if charge_res.get("status") != "DONE":
         payment.status = "failed"
         payment.failure_reason = f"unexpected status: {charge_res.get('status')}"
         db.session.commit()
-        logger.error("첫 결제 비정상 응답 user=%s res=%s", user.id, charge_res)
-        return _err("결제 처리가 완료되지 않았습니다.",
-                    "잠시 후 다시 시도해주세요.", url=url_for("main.pricing"))
+        logger.error("first charge unexpected response user=%s res=%s", user.id, charge_res)
+        return _err("Payment processing did not complete.",
+                    "Please try again in a moment.", url=url_for("main.pricing"))
 
     paid_at = datetime.utcnow()
     payment.status           = "paid"
@@ -1810,7 +1833,7 @@ def billing_success():
     _apply_paid_subscription(user, plan, cycle, paid_at)
     db.session.commit()
 
-    # 세션 plan 동기화 (base.html 헤더 표시용)
+    # Sync plan into the session (used by the base.html header)
     session["user_plan"] = user.plan
 
     return redirect(url_for("main.mypage", tab="billing", paid=1))
@@ -1819,17 +1842,17 @@ def billing_success():
 @bp.route("/billing/fail")
 @login_required
 def billing_fail():
-    """토스 failUrl 콜백 — 카드 등록/결제 실패."""
+    """Toss failUrl callback — card registration / payment failure."""
     code    = request.args.get("code", "")
-    message = request.args.get("message", "결제가 취소되었거나 실패했습니다.")
+    message = request.args.get("message", "The payment was canceled or failed.")
     logger.info("billing fail user=%s code=%s msg=%s", session.get("user_id"), code, message)
-    return _err("결제가 완료되지 않았습니다.", message, url=url_for("main.pricing"))
+    return _err("Payment was not completed.", message, url=url_for("main.pricing"))
 
 
 @bp.route("/billing/cancel", methods=["POST"])
 @login_required
 def billing_cancel():
-    """구독 취소 — 다음 결제일에 자동결제 안 하고 만료시 다운그레이드."""
+    """Cancel subscription — skip auto-charge on the next billing date and downgrade at expiration."""
     user = _current_user_or_logout()
     if not user:
         return redirect(url_for("main.login"))
@@ -1838,7 +1861,7 @@ def billing_cancel():
         return redirect(url_for("main.mypage", tab="billing"))
 
     user.subscription_status = "canceled"
-    # next_billing_at은 None으로 — cron에서 active만 청구
+    # Set next_billing_at to None — the cron only charges active subscriptions
     user.next_billing_at = None
     db.session.commit()
     return redirect(url_for("main.mypage", tab="billing", canceled=1))
@@ -1847,7 +1870,7 @@ def billing_cancel():
 @bp.route("/billing/resume", methods=["POST"])
 @login_required
 def billing_resume():
-    """취소 철회 — 만료일 전에 다시 active로."""
+    """Undo cancellation — reactivate before the expiration date."""
     user = _current_user_or_logout()
     if not user:
         return redirect(url_for("main.login"))
@@ -1857,7 +1880,7 @@ def billing_resume():
     if not user.plan_expires_at or user.plan_expires_at <= datetime.utcnow():
         return redirect(url_for("main.mypage", tab="billing"))
     if not user.billing_key:
-        # 카드 정보가 사라졌으면 재등록부터
+        # If the card info is gone, send them to register again first
         return redirect(url_for("main.pricing"))
 
     user.subscription_status = "active"
